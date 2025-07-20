@@ -1,0 +1,18 @@
+Summary,Description,Issue Type,Priority,Labels,Sprint
+[HIGH][SETUP] - Create Project Repo and Initial Setup,"Set up GitHub repository with README, .gitignore, and initial branch structure.",Task,High,"Week-1,Setup",Week 1 Sprint
+[HIGH][FEATURE] - System Architecture and ER Diagram,Design layered system architecture and ER diagram showing database structure.,Task,High,"Week-1,Architecture",Week 1 Sprint
+[MED][DOCS] - Define Requirements and Documentation,Document functional and non-functional requirements based on project scope.,Task,Medium,"Week-1,Documentation",Week 1 Sprint
+[HIGH][FEATURE] - Student Request Form (Frontend),"Build form UI in React/Angular with dropdown, text area, and file upload fields.",Task,High,"Week-1,Frontend",Week 1 Sprint
+[HIGH][FEATURE] - Submission API (Backend),Develop REST API to handle request submission and file upload with validation.,Task,High,"Week-1,Backend",Week 1 Sprint
+[MED][TEST] - Submission API Validation Tests,"Write tests to validate file size, format, and 24-hour submission rule.",Task,Medium,"Week-1,Testing",Week 1 Sprint
+[HIGH][FEATURE] - Admin Dashboard (Filter & Respond),"Create admin interface to view, filter, and respond to student requests.",Task,High,"Week-2,Frontend",Week 2 Sprint
+[HIGH][FEATURE] - Status Update API (Informed/Completed),Develop backend functionality to update request status to Informed or Completed.,Task,High,"Week-2,Backend",Week 2 Sprint
+[MED][FEATURE] - Notification System (Email/In-App),"Implement email and in-app notifications for submission, updates, and uploads.",Task,Medium,"Week-2,Notification",Week 2 Sprint
+[MED][TEST] - Notification & Admin Panel Tests,Perform functionality and UI tests for admin panel and notification system.,Task,Medium,"Week-2,Testing",Week 2 Sprint
+[HIGH][FEATURE] - SIS Authentication (Mock),Implement mock login system simulating university SIS authentication.,Task,High,"Week-3,Authentication",Week 3 Sprint
+[MED][FEATURE] - Role-Based Access & Audit Logs,Add role-based access control and basic audit logging for key actions.,Task,Medium,"Week-3,Security",Week 3 Sprint
+[MED][TEST] - Security and Performance Tests,"Run tests for HTTPS, virus scanning, and load handling for 5000 users.",Task,Medium,"Week-3,Testing",Week 3 Sprint
+[LOW][DOCS] - API Documentation via Postman,Document backend API endpoints using Postman and export as collection.,Task,Low,"Week-3,Documentation",Week 3 Sprint
+[HIGH][DEPLOY] - Production Deployment,Deploy the application to cloud or university server with full configuration.,Task,High,"Week-4,Deployment",Week 4 Sprint
+[MED][DOCS] - Finalize README and Setup Instructions,Complete README.md and SETUP.md for project delivery and future use.,Task,Medium,"Week-4,Documentation",Week 4 Sprint
+[LOW][REVIEW] - Final Review and QA Testing,"Perform full system review, bug fixes, and verify final sprint completion.",Task,Low,"Week-4,Review",Week 4 Sprint

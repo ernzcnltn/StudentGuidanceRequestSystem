@@ -1,0 +1,127 @@
+/* Dark Mode Styles */
+body.dark-theme {
+  background-color: #121212;
+  color: #ffffff;
+}
+
+.dark-theme .bg-light {
+  background-color: #1e1e1e !important;
+}
+
+.dark-theme .bg-white {
+  background-color: #2d2d2d !important;
+}
+
+.dark-theme .card {
+  background-color: #2d2d2d;
+  border-color: #404040;
+}
+
+.dark-theme .card-header {
+  background-color: #383838;
+  border-color: #404040;
+}
+
+.dark-theme .navbar-dark {
+  background-color: #1a1a1a !important;
+}
+
+.dark-theme .alert-info {
+  background-color: #0d47a1;
+  border-color: #1565c0;
+  color: #ffffff;
+}
+
+.dark-theme .alert-warning {
+  background-color: #ff6f00;
+  border-color: #ff8f00;
+  color: #000000;
+}
+
+.dark-theme .alert-danger {
+  background-color: #d32f2f;
+  border-color: #f44336;
+  color: #ffffff;
+}
+
+.dark-theme .alert-success {
+  background-color: #388e3c;
+  border-color: #4caf50;
+  color: #ffffff;
+}
+
+.dark-theme .text-muted {
+  color: #aaaaaa !important;
+}
+
+.dark-theme .border {
+  border-color: #404040 !important;
+}
+
+.dark-theme .form-control {
+  background-color: #3d3d3d;
+  border-color: #505050;
+  color: #ffffff;
+}
+
+.dark-theme .form-control:focus {
+  background-color: #3d3d3d;
+  border-color: #0d6efd;
+  color: #ffffff;
+  box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.25);
+}
+
+.dark-theme .form-select {
+  background-color: #3d3d3d;
+  border-color: #505050;
+  color: #ffffff;
+}
+
+.dark-theme .modal-content {
+  background-color: #2d2d2d;
+  color: #ffffff;
+}
+
+.dark-theme .modal-header {
+  border-color: #404040;
+}
+
+.dark-theme .modal-footer {
+  border-color: #404040;
+}
+
+.dark-theme .table {
+  color: #ffffff;
+}
+
+.dark-theme .table-striped > tbody > tr:nth-child(odd) > td,
+.dark-theme .table-striped > tbody > tr:nth-child(odd) > th {
+  background-color: #383838;
+}
+
+/* Smooth transitions */
+body,
+.card,
+.modal-content,
+.form-control,
+.form-select {
+  transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
+}
+
+/* Dark mode toggle button */
+.theme-toggle {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  z-index: 1030;
+  border-radius: 50%;
+  width: 60px;
+  height: 60px;
+  font-size: 1.5rem;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  transition: all 0.3s ease;
+}
+
+.theme-toggle:hover {
+  transform: scale(1.1);
+}
