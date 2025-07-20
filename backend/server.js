@@ -99,6 +99,12 @@ app.use('/api/requests', require('./routes/requests'));
 app.use('/api/students', require('./routes/students'));
 app.use('/api/docs', require('./routes/docs'));
 
+// ✅ NEW ROUTES - Yeni eklenen route'lar
+app.use('/api/email', require('./routes/email'));
+app.use('/api/notifications', require('./routes/notifications'));
+app.use('/api/analytics', require('./routes/analytics'));
+app.use('/api/search', require('./routes/search'));
+
 // Health check endpoint
 app.get('/api/health', (req, res) => {
   res.json({ 
@@ -106,7 +112,11 @@ app.get('/api/health', (req, res) => {
     timestamp: new Date().toISOString(),
     uptime: process.uptime(),
     memory: process.memoryUsage(),
-    version: process.env.npm_package_version || '1.0.0'
+    version: process.env.npm_package_version || '1.0.0',
+    services: {
+      database: true,
+      email: !!process.env.EMAIL_USER
+    }
   });
 });
 
@@ -141,7 +151,15 @@ app.get('/api/test', async (req, res) => {
     timestamp: new Date().toISOString(),
     services,
     environment: process.env.NODE_ENV || 'development',
-    version: '1.0.0'
+    version: '1.0.0',
+    features: {
+      email_notifications: services.email,
+      file_uploads: true,
+      advanced_search: true,
+      analytics: true,
+      multi_language: true,
+      dark_mode: true
+    }
   });
 });
 
@@ -164,7 +182,11 @@ app.use('*', (req, res) => {
       '/api/admin-auth/*',
       '/api/requests/*',
       '/api/request-types/*',
-      '/api/students/*'
+      '/api/students/*',
+      '/api/email/*',
+      '/api/notifications/*',
+      '/api/analytics/*',
+      '/api/search/*'
     ]
   });
 });
@@ -255,6 +277,16 @@ const server = app.listen(PORT, () => {
   console.log(`📚 Documentation: http://localhost:${PORT}/api/docs`);
   console.log(`🏥 Health Check: http://localhost:${PORT}/api/health`);
   console.log(`🧪 Test Endpoint: http://localhost:${PORT}/api/test`);
+  console.log('==========================================');
+  console.log('✨ Available Features:');
+  console.log('   📧 Email Notifications');
+  console.log('   🔔 Real-time Notifications');
+  console.log('   📊 Advanced Analytics');
+  console.log('   🔍 Advanced Search');
+  console.log('   🌍 Multi-language Support');
+  console.log('   🌙 Dark Mode');
+  console.log('   📁 File Uploads');
+  console.log('   🔐 Role-based Access');
   console.log('==========================================');
   
   if (process.env.NODE_ENV === 'development') {

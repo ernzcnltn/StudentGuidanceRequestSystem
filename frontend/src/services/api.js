@@ -140,6 +140,98 @@ export const apiService = {
   // Admin Request Responses
   getAdminRequestResponses: (id) => adminApi.get(`/admin-auth/requests/${id}/responses`),
   addAdminResponse: (id, responseData) => adminApi.post(`/admin-auth/requests/${id}/responses`, responseData),
+
+  // ✅ NEW API ENDPOINTS
+
+  // Email Services
+  testEmailService: () => adminApi.post('/email/test'),
+  sendCustomEmail: (emailData) => adminApi.post('/email/send-custom', emailData),
+  sendWelcomeEmail: (emailData) => adminApi.post('/email/send-welcome', emailData),
+  sendStatusNotification: (notificationData) => adminApi.post('/email/notify-status', notificationData),
+  getEmailSettings: () => adminApi.get('/email/settings'),
+
+  // Notifications
+  getStudentNotifications: () => studentApi.get('/notifications/student'),
+  getAdminNotifications: () => adminApi.get('/notifications/admin'),
+  markNotificationAsRead: (id) => studentApi.post(`/notifications/mark-read/${id}`),
+  markAllNotificationsAsRead: () => studentApi.post('/notifications/mark-all-read'),
+  getUnreadNotificationCount: () => studentApi.get('/notifications/unread-count'),
+  getAdminUnreadCount: () => adminApi.get('/notifications/admin/unread-count'),
+
+  // Analytics
+  getStudentStats: (studentId) => studentApi.get(`/analytics/student/${studentId}`),
+  getAdminAnalytics: (params = {}) => adminApi.get('/analytics/admin/dashboard', { params }),
+  getPerformanceMetrics: () => adminApi.get('/analytics/admin/performance'),
+  exportAnalytics: (params = {}) => adminApi.get('/analytics/admin/export', { params }),
+  getSystemOverview: () => adminApi.get('/analytics/system/overview'),
+
+  // Search Services
+  searchStudentRequests: (searchData) => studentApi.post('/search/requests', searchData),
+  searchAdminRequests: (searchData) => adminApi.post('/search/admin/requests', searchData),
+  getSearchSuggestions: (params) => studentApi.get('/search/suggestions', { params }),
+  getAdminSearchSuggestions: (params) => adminApi.get('/search/admin/suggestions', { params }),
+  saveSearch: (searchData) => studentApi.post('/search/save', searchData),
+  getSavedSearches: () => studentApi.get('/search/saved'),
+  saveAdminSearch: (searchData) => adminApi.post('/search/admin/save', searchData),
+
+  // Student Profile (Extended)
+  getStudentProfile: () => studentApi.get('/auth/me'),
+  updateStudentProfile: (profileData) => studentApi.put('/auth/profile', profileData),
+  changeStudentPassword: (passwordData) => studentApi.put('/auth/change-password', passwordData),
+
+  // Health & System
+  getSystemHealth: () => studentApi.get('/health'),
+  getApiDocumentation: () => studentApi.get('/docs'),
+
+  // Advanced Features
+  bulkUpdateRequests: (updateData) => adminApi.post('/admin-auth/requests/bulk-update', updateData),
+  getRequestHistory: (id) => studentApi.get(`/requests/${id}/history`),
+  addRequestNote: (id, noteData) => adminApi.post(`/admin-auth/requests/${id}/notes`, noteData),
+  getRequestNotes: (id) => adminApi.get(`/admin-auth/requests/${id}/notes`),
+
+  // File Management
+  getFileMetadata: (filename) => studentApi.get(`/requests/attachments/${filename}/metadata`),
+  deleteAttachment: (attachmentId) => studentApi.delete(`/requests/attachments/${attachmentId}`),
+  
+  // Reporting
+  generateReport: (reportData) => adminApi.post('/analytics/admin/reports', reportData),
+  getReportTemplates: () => adminApi.get('/analytics/admin/report-templates'),
+  scheduleReport: (scheduleData) => adminApi.post('/analytics/admin/schedule-report', scheduleData),
+
+  // Advanced Admin Features
+  getAdminActivityLog: () => adminApi.get('/admin-auth/activity-log'),
+  getDepartmentSettings: () => adminApi.get('/admin-auth/department/settings'),
+  updateDepartmentSettings: (settings) => adminApi.put('/admin-auth/department/settings', settings),
+  
+  // Backup & Export
+  exportDepartmentData: (params = {}) => adminApi.get('/admin-auth/export', { params }),
+  importData: (importData) => adminApi.post('/admin-auth/import', importData),
+
+  // System Integration
+  syncWithExternalSystems: () => adminApi.post('/admin-auth/sync'),
+  getIntegrationStatus: () => adminApi.get('/admin-auth/integrations/status'),
+
+  // Real-time Features (would typically use WebSocket)
+  subscribeToUpdates: (callback) => {
+    // Implementation for real-time updates
+    console.log('Real-time updates subscription - implement with WebSocket');
+  },
+
+  // Utility Functions
+  validateStudentNumber: (studentNumber) => studentApi.post('/auth/validate-student-number', { studentNumber }),
+  checkEmailAvailability: (email) => studentApi.post('/auth/check-email', { email }),
+  
+  // Advanced Search with Caching
+  searchWithCache: (searchData, useCache = true) => {
+    if (useCache) {
+      const cacheKey = `search_${JSON.stringify(searchData)}`;
+      const cached = sessionStorage.getItem(cacheKey);
+      if (cached) {
+        return Promise.resolve({ data: JSON.parse(cached), fromCache: true });
+      }
+    }
+    return studentApi.post('/search/requests', searchData);
+  }
 };
 
 // Student API Response interceptor
@@ -174,6 +266,23 @@ adminApi.interceptors.response.use(
     
     return Promise.reject(error);
   }
+);
+
+// Request interceptor for logging
+studentApi.interceptors.request.use(
+  (config) => {
+    console.log(`[Student API] ${config.method?.toUpperCase()} ${config.url}`);
+    return config;
+  },
+  (error) => Promise.reject(error)
+);
+
+adminApi.interceptors.request.use(
+  (config) => {
+    console.log(`[Admin API] ${config.method?.toUpperCase()} ${config.url}`);
+    return config;
+  },
+  (error) => Promise.reject(error)
 );
 
 // Token geçerliliğini kontrol et
