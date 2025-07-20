@@ -7,11 +7,16 @@
     "start": "node server.js",
     "dev": "nodemon server.js",
     "init-db": "node initializeDatabase.js",
-    "setup": "npm install && npm run init-db",
+    "reset-db": "node resetDatabase.js",
+    "force-reset-db": "node forceResetDatabase.js",
+    "setup": "npm install && npm run reset-db",
     "test": "echo \"Error: no test specified\" && exit 1",
     "create-test-student": "node createTestStudent.js",
     "hash-admin-passwords": "node hashAdminPassword.js",
-    "clean-logs": "rm -rf logs/*"
+    "clean-logs": "rm -rf logs/*",
+    "check-db": "node -e \"require('./config/database').testConnection()\"",
+    "backup-db": "mysqldump -u root -p fiu_guidance_db > backup_$(date +%Y%m%d_%H%M%S).sql",
+    "fresh-install": "npm install && npm run reset-db && npm run dev"
   },
   "keywords": [
     "fiu",
