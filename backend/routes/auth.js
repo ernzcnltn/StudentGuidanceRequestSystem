@@ -4,6 +4,7 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { pool } = require('../config/database');
 const { authenticateToken } = require('../middleware/auth');
+const emailService = require('../services/emailService');
 
 // POST /api/auth/login - Öğrenci giriş
 router.post('/login', async (req, res) => {
@@ -74,7 +75,7 @@ router.post('/login', async (req, res) => {
   }
 });
 
-// POST /api/auth/register - Öğrenci kayıt (geliştirme için)
+// POST /api/auth/register - Registration with welcome email
 router.post('/register', async (req, res) => {
   try {
     const { student_number, name, email, password, program } = req.body;
@@ -86,7 +87,7 @@ router.post('/register', async (req, res) => {
       });
     }
 
-    // Öğrenci zaten var mı kontrol et
+    // Check if student already exists
     const [existingStudents] = await pool.execute(
       'SELECT student_id FROM students WHERE student_number = ? OR email = ?',
       [student_number, email]
@@ -99,18 +100,26 @@ router.post('/register', async (req, res) => {
       });
     }
 
-    // Şifreyi hash'le
+    // Hash password
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // Öğrenciyi kaydet
+    // Create student
     const [result] = await pool.execute(
       'INSERT INTO students (student_number, name, email, password, program) VALUES (?, ?, ?, ?, ?)',
       [student_number, name, email, hashedPassword, program]
     );
 
+    // Send welcome email
+    try {
+      await emailService.sendWelcomeEmail(email, name, student_number);
+    } catch (emailError) {
+      console.error('Failed to send welcome email:', emailError);
+      // Don't fail registration if email fails
+    }
+
     res.status(201).json({
       success: true,
-      message: 'Student registered successfully',
+      message: 'Student registered successfully. Welcome email sent!',
       data: {
         student_id: result.insertId,
         student_number,
@@ -152,5 +161,7 @@ router.post('/logout', (req, res) => {
     message: 'Logout successful'
   });
 });
+
+
 
 module.exports = router;

@@ -3,8 +3,10 @@ const router = express.Router();
 const { pool } = require('../config/database');
 const { validateCreateRequest, validateStatusUpdate, validateIdParam } = require('../middleware/validation');
 const { upload, handleUploadError } = require('../middleware/upload');
+const emailService = require('../services/emailService');
 const path = require('path');
 const fs = require('fs');
+
 
 // GET /api/requests - Tüm talepleri getir
 router.get('/', async (req, res) => {
@@ -102,24 +104,74 @@ router.get('/student/:studentId', async (req, res) => {
   }
 });
 
-// POST /api/requests - Yeni talep oluştur
+// POST /api/requests - Create request with email notification
 router.post('/', validateCreateRequest, async (req, res) => {
   try {
     const { student_id, type_id, content, priority = 'Medium' } = req.body;
     
     console.log('Creating request with data:', { student_id, type_id, content, priority });
     
-    // Talep oluştur
+    // Create request
     const [result] = await pool.execute(
       'INSERT INTO guidance_requests (student_id, type_id, content, priority) VALUES (?, ?, ?, ?)',
       [student_id, type_id, content, priority]
     );
     
+    const requestId = result.insertId;
+    
+    // Get request details for email notification
+    const [requestDetails] = await pool.execute(`
+      SELECT 
+        gr.request_id,
+        gr.content,
+        gr.priority,
+        s.name as student_name,
+        s.email as student_email,
+        rt.type_name,
+        rt.category,
+        au.email as admin_email,
+        au.full_name as admin_name
+      FROM guidance_requests gr
+      JOIN students s ON gr.student_id = s.student_id
+      JOIN request_types rt ON gr.type_id = rt.type_id
+      LEFT JOIN admin_users au ON rt.category = au.department AND au.is_active = TRUE
+      WHERE gr.request_id = ?
+    `, [requestId]);
+    
+    if (requestDetails.length > 0) {
+      const request = requestDetails[0];
+      
+      // Send notification emails to relevant admins
+      const [admins] = await pool.execute(
+        'SELECT email, full_name FROM admin_users WHERE department = ? AND is_active = TRUE',
+        [request.category]
+      );
+      
+      for (const admin of admins) {
+        if (admin.email) {
+          try {
+            await emailService.notifyNewRequest(
+              admin.email,
+              admin.full_name,
+              request.category,
+              requestId,
+              request.student_name,
+              request.type_name,
+              request.priority,
+              request.content
+            );
+          } catch (emailError) {
+            console.error('Failed to send admin notification:', emailError);
+          }
+        }
+      }
+    }
+    
     res.status(201).json({
       success: true,
       message: 'Request created successfully',
       data: {
-        request_id: result.insertId,
+        request_id: requestId,
         student_id,
         type_id,
         content,
@@ -137,17 +189,25 @@ router.post('/', validateCreateRequest, async (req, res) => {
   }
 });
 
-// PUT /api/requests/:id/status - Talep durumunu güncelle
+// PUT /api/requests/:id/status - Update status with email notification
 router.put('/:id/status', validateIdParam, validateStatusUpdate, async (req, res) => {
   try {
     const { status, response_content } = req.body;
     const requestId = req.params.id;
     
-    // Request'in var olup olmadığını kontrol et
-    const [requestCheck] = await pool.execute(
-      'SELECT request_id, status as current_status FROM guidance_requests WHERE request_id = ?',
-      [requestId]
-    );
+    // Get current request details
+    const [requestCheck] = await pool.execute(`
+      SELECT 
+        gr.request_id, 
+        gr.status as current_status,
+        s.name as student_name,
+        s.email as student_email,
+        rt.type_name
+      FROM guidance_requests gr
+      JOIN students s ON gr.student_id = s.student_id
+      JOIN request_types rt ON gr.type_id = rt.type_id
+      WHERE gr.request_id = ?
+    `, [requestId]);
     
     if (requestCheck.length === 0) {
       return res.status(404).json({
@@ -156,18 +216,38 @@ router.put('/:id/status', validateIdParam, validateStatusUpdate, async (req, res
       });
     }
     
-    // Talep durumunu güncelle
+    const request = requestCheck[0];
+    const oldStatus = request.current_status;
+    
+    // Update request status
     const [result] = await pool.execute(
       'UPDATE guidance_requests SET status = ?, updated_at = NOW(), resolved_at = CASE WHEN ? = "Completed" THEN NOW() ELSE resolved_at END WHERE request_id = ?',
       [status, status, requestId]
     );
     
-    // Eğer cevap içeriği varsa responses tablosuna ekle
+    // Add response if provided
     if (response_content) {
       await pool.execute(
-        'INSERT INTO responses (request_id, response_content) VALUES (?, ?)',
+        'INSERT INTO admin_responses (request_id, response_content, created_at) VALUES (?, ?, NOW())',
         [requestId, response_content]
       );
+    }
+    
+    // Send email notification to student
+    if (request.student_email && oldStatus !== status) {
+      try {
+        await emailService.notifyRequestStatusUpdate(
+          request.student_email,
+          request.student_name,
+          requestId,
+          request.type_name,
+          oldStatus,
+          status,
+          response_content
+        );
+      } catch (emailError) {
+        console.error('Failed to send status update email:', emailError);
+      }
     }
     
     res.json({
@@ -175,7 +255,7 @@ router.put('/:id/status', validateIdParam, validateStatusUpdate, async (req, res
       message: 'Request status updated successfully',
       data: {
         request_id: requestId,
-        previous_status: requestCheck[0].current_status,
+        previous_status: oldStatus,
         new_status: status,
         response_content: response_content || null,
         updated_at: new Date().toISOString()
@@ -189,6 +269,7 @@ router.put('/:id/status', validateIdParam, validateStatusUpdate, async (req, res
     });
   }
 });
+
 
 // POST /api/requests/:id/upload - Dosya yükle
 router.post('/:id/upload', upload.array('files', 3), handleUploadError, async (req, res) => {

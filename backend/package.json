@@ -1,27 +1,47 @@
 {
-  "name": "backend",
+  "name": "fiu-guidance-backend",
   "version": "1.0.0",
-  "description": "",
+  "description": "FIU Student Guidance Request System Backend",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
     "dev": "nodemon server.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "init-db": "node initializeDatabase.js",
+    "setup": "npm install && npm run init-db",
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "create-test-student": "node createTestStudent.js",
+    "hash-admin-passwords": "node hashAdminPassword.js",
+    "clean-logs": "rm -rf logs/*"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
+  "keywords": [
+    "fiu",
+    "student-guidance",
+    "request-system",
+    "express",
+    "mysql",
+    "nodejs"
+  ],
+  "author": "FIU IT Department",
+  "license": "MIT",
   "dependencies": {
     "bcryptjs": "^2.4.3",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
     "express": "^4.18.2",
+    "express-rate-limit": "^7.1.5",
+    "helmet": "^7.1.0",
     "jsonwebtoken": "^9.0.2",
     "multer": "^1.4.5-lts.1",
-    "mysql2": "^3.9.1"
+    "mysql2": "^3.9.1",
+    "nodemailer": "^6.9.8",
+    "validator": "^13.11.0"
   },
   "devDependencies": {
     "nodemon": "^3.0.3"
+  },
+  "engines": {
+    "node": ">=16.0.0",
+    "npm": ">=8.0.0"
   }
 }

@@ -105,6 +105,24 @@ router.get('/me', authenticateAdmin, async (req, res) => {
   }
 });
 
+// Add email test endpoint
+router.get('/test-email', authenticateAdmin, async (req, res) => {
+  try {
+    const testResult = await emailService.testConnection();
+    res.json({
+      success: true,
+      message: 'Email service test completed',
+      data: testResult
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: 'Email test failed',
+      details: error.message
+    });
+  }
+});
+
 // GET /api/admin-auth/verify - Admin token verification
 router.get('/verify', authenticateAdmin, async (req, res) => {
   try {
@@ -439,7 +457,7 @@ router.get('/requests/:requestId/responses', authenticateAdmin, async (req, res)
   }
 });
 
-// POST /api/admin-auth/requests/:requestId/responses - Add response
+// POST /api/admin-auth/requests/:requestId/responses - Add response with email
 router.post('/requests/:requestId/responses', authenticateAdmin, async (req, res) => {
   try {
     const { requestId } = req.params;
@@ -453,6 +471,30 @@ router.post('/requests/:requestId/responses', authenticateAdmin, async (req, res
       });
     }
 
+    // Get request and student details
+    const [requestDetails] = await pool.execute(`
+      SELECT 
+        gr.request_id,
+        gr.status,
+        s.name as student_name,
+        s.email as student_email,
+        rt.type_name
+      FROM guidance_requests gr
+      JOIN students s ON gr.student_id = s.student_id
+      JOIN request_types rt ON gr.type_id = rt.type_id
+      WHERE gr.request_id = ?
+    `, [requestId]);
+
+    if (requestDetails.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'Request not found'
+      });
+    }
+
+    const request = requestDetails[0];
+    const oldStatus = request.status;
+
     // Add response
     const [result] = await pool.execute(`
       INSERT INTO admin_responses (request_id, admin_id, response_content, created_at)
@@ -460,13 +502,32 @@ router.post('/requests/:requestId/responses', authenticateAdmin, async (req, res
     `, [requestId, adminId, response_content.trim()]);
 
     // Update request status to 'Informed' if it was 'Pending'
-    await pool.execute(`
-      UPDATE guidance_requests 
-      SET 
-        status = CASE WHEN status = 'Pending' THEN 'Informed' ELSE status END,
-        updated_at = NOW()
-      WHERE request_id = ?
-    `, [requestId]);
+    if (oldStatus === 'Pending') {
+      await pool.execute(`
+        UPDATE guidance_requests 
+        SET 
+          status = 'Informed',
+          updated_at = NOW()
+        WHERE request_id = ?
+      `, [requestId]);
+
+      // Send email notification
+      if (request.student_email) {
+        try {
+          await emailService.notifyRequestStatusUpdate(
+            request.student_email,
+            request.student_name,
+            requestId,
+            request.type_name,
+            oldStatus,
+            'Informed',
+            response_content.trim()
+          );
+        } catch (emailError) {
+          console.error('Failed to send response email:', emailError);
+        }
+      }
+    }
 
     res.json({
       success: true,
@@ -484,6 +545,7 @@ router.post('/requests/:requestId/responses', authenticateAdmin, async (req, res
     });
   }
 });
+
 
 // POST /api/admin-auth/request-types - Add new request type
 router.post('/request-types', authenticateAdmin, async (req, res) => {
