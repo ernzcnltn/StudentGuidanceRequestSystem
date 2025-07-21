@@ -2,6 +2,7 @@ export const translations = {
   tr: {
     // Genel
     welcome: 'Hoş Geldiniz',
+    welcomeBack: 'Tekrar Hoş Geldiniz',
     loading: 'Yükleniyor...',
     error: 'Hata',
     success: 'Başarılı',
@@ -14,6 +15,11 @@ export const translations = {
     filter: 'Filtrele',
     clear: 'Temizle',
     refresh: 'Yenile',
+    close: 'Kapat',
+    submit: 'Gönder',
+    back: 'Geri',
+    next: 'İleri',
+    previous: 'Önceki',
     
     // Giriş/Çıkış
     login: 'Giriş',
@@ -51,33 +57,45 @@ export const translations = {
     informed: 'Bilgilendirildi',
     completed: 'Tamamlandı',
     
-    // Request Types
+    // Request Types & Departments
     accounting: 'Muhasebe',
     academic: 'Akademik',
-    studentAffairs: 'Öğrenci İşleri',
+    studentaffairs: 'Öğrenci İşleri',
     dormitory: 'Yurt',
-    campusServices: 'Kampüs Hizmetleri',
+    campusservices: 'Kampüs Hizmetleri',
     library: 'Kütüphane',
-    sportAffairs: 'Spor İşleri',
+    sportaffairs: 'Spor İşleri',
+    requesttype: 'Talep Türü',
     
     // Priority
     low: 'Düşük',
     medium: 'Orta',
     high: 'Yüksek',
     urgent: 'Acil',
+    priority: 'Öncelik',
     
     // Form Fields
     content: 'İçerik',
     attachment: 'Ek Dosya',
+    attachments: 'Ek Dosyalar',
     submitRequest: 'Talep Gönder',
-    requestType: 'Talep Türü',
     pleaseSelect: 'Lütfen Seçiniz',
+    
+    // Actions
+    markAsCompleted: 'Tamamlandı Olarak İşaretle',
+    markAsInformed: 'Bilgilendirildi Olarak İşaretle',
+    addResponse: 'Yanıt Ekle',
+    viewResponse: 'Yanıt Görüntüle',
+    viewFiles: 'Dosyaları Görüntüle',
+    viewAll: 'Tümünü Görüntüle',
     
     // Messages
     loginSuccess: 'Giriş başarılı',
     loginFailed: 'Giriş başarısız',
     requestSubmitted: 'Talep başarıyla gönderildi',
     requestFailed: 'Talep gönderilemedi',
+    noRequests: 'Talep bulunamadı',
+    noData: 'Veri bulunamadı',
     
     // File Upload
     chooseFiles: 'Dosya Seç',
@@ -95,13 +113,6 @@ export const translations = {
     totalRequests: 'Toplam Talep',
     monthlyRequests: 'Aylık Talep',
     
-    // Actions
-    markAsCompleted: 'Tamamlandı Olarak İşaretle',
-    markAsInformed: 'Bilgilendirildi Olarak İşaretle',
-    addResponse: 'Yanıt Ekle',
-    viewResponse: 'Yanıt Görüntüle',
-    viewFiles: 'Dosyaları Görüntüle',
-    
     // Time
     submitted: 'Gönderilme',
     updated: 'Güncellenme',
@@ -113,19 +124,14 @@ export const translations = {
     tooShort: 'Çok kısa',
     invalidEmail: 'Geçersiz e-posta adresi',
     
-    // Department Welcome
-    welcomeBack: 'Tekrar hoş geldiniz',
-    quickActions: 'Hızlı İşlemler',
-    viewAll: 'Tümünü Görüntüle',
-    
-    // No Data
-    noRequests: 'Talep bulunamadı',
-    noData: 'Veri bulunamadı'
+    // Quick Actions
+    quickActions: 'Hızlı İşlemler'
   },
 
   en: {
     // General
     welcome: 'Welcome',
+    welcomeBack: 'Welcome Back',
     loading: 'Loading...',
     error: 'Error',
     success: 'Success',
@@ -138,6 +144,11 @@ export const translations = {
     filter: 'Filter',
     clear: 'Clear',
     refresh: 'Refresh',
+    close: 'Close',
+    submit: 'Submit',
+    back: 'Back',
+    next: 'Next',
+    previous: 'Previous',
     
     // Login/Logout
     login: 'Login',
@@ -175,33 +186,45 @@ export const translations = {
     informed: 'Informed',
     completed: 'Completed',
     
-    // Request Types
+    // Request Types & Departments
     accounting: 'Accounting',
     academic: 'Academic',
-    studentAffairs: 'Student Affairs',
+    studentaffairs: 'Student Affairs',
     dormitory: 'Dormitory',
-    campusServices: 'Campus Services',
+    campusservices: 'Campus Services',
     library: 'Library',
-    sportAffairs: 'Sport Affairs',
+    sportaffairs: 'Sport Affairs',
+    requesttype: 'Request Type',
     
     // Priority
     low: 'Low',
     medium: 'Medium',
     high: 'High',
     urgent: 'Urgent',
+    priority: 'Priority',
     
     // Form Fields
     content: 'Content',
     attachment: 'Attachment',
+    attachments: 'Attachments',
     submitRequest: 'Submit Request',
-    requestType: 'Request Type',
     pleaseSelect: 'Please Select',
+    
+    // Actions
+    markAsCompleted: 'Mark as Completed',
+    markAsInformed: 'Mark as Informed',
+    addResponse: 'Add Response',
+    viewResponse: 'View Response',
+    viewFiles: 'View Files',
+    viewAll: 'View All',
     
     // Messages
     loginSuccess: 'Login successful',
     loginFailed: 'Login failed',
     requestSubmitted: 'Request submitted successfully',
     requestFailed: 'Failed to submit request',
+    noRequests: 'No requests found',
+    noData: 'No data available',
     
     // File Upload
     chooseFiles: 'Choose Files',
@@ -219,13 +242,6 @@ export const translations = {
     totalRequests: 'Total Requests',
     monthlyRequests: 'Monthly Requests',
     
-    // Actions
-    markAsCompleted: 'Mark as Completed',
-    markAsInformed: 'Mark as Informed',
-    addResponse: 'Add Response',
-    viewResponse: 'View Response',
-    viewFiles: 'View Files',
-    
     // Time
     submitted: 'Submitted',
     updated: 'Updated',
@@ -237,19 +253,14 @@ export const translations = {
     tooShort: 'Too short',
     invalidEmail: 'Invalid email address',
     
-    // Department Welcome
-    welcomeBack: 'Welcome back',
-    quickActions: 'Quick Actions',
-    viewAll: 'View All',
-    
-    // No Data
-    noRequests: 'No requests found',
-    noData: 'No data available'
+    // Quick Actions
+    quickActions: 'Quick Actions'
   },
 
   fr: {
     // General
     welcome: 'Bienvenue',
+    welcomeBack: 'Bon retour',
     loading: 'Chargement...',
     error: 'Erreur',
     success: 'Succès',
@@ -262,16 +273,21 @@ export const translations = {
     filter: 'Filtrer',
     clear: 'Effacer',
     refresh: 'Actualiser',
+    close: 'Fermer',
+    submit: 'Soumettre',
+    back: 'Retour',
+    next: 'Suivant',
+    previous: 'Précédent',
     
     // Login/Logout
     login: 'Connexion',
     logout: 'Déconnexion',
     signin: 'Se connecter',
-    signup: "S'inscrire",
-    username: "Nom d'utilisateur",
+    signup: 'S\'inscrire',
+    username: 'Nom d\'utilisateur',
     password: 'Mot de passe',
     email: 'E-mail',
-    studentNumber: "Numéro d'étudiant",
+    studentNumber: 'Numéro d\'étudiant',
     
     // Navigation
     home: 'Accueil',
@@ -299,33 +315,45 @@ export const translations = {
     informed: 'Informé',
     completed: 'Terminé',
     
-    // Request Types
+    // Request Types & Departments
     accounting: 'Comptabilité',
     academic: 'Académique',
-    studentAffairs: 'Affaires étudiantes',
+    studentaffairs: 'Affaires étudiantes',
     dormitory: 'Dortoir',
-    campusServices: 'Services du campus',
+    campusservices: 'Services du campus',
     library: 'Bibliothèque',
-    sportAffairs: 'Affaires sportives',
+    sportaffairs: 'Affaires sportives',
+    requesttype: 'Type de demande',
     
     // Priority
     low: 'Faible',
     medium: 'Moyen',
     high: 'Élevé',
     urgent: 'Urgent',
+    priority: 'Priorité',
     
     // Form Fields
     content: 'Contenu',
     attachment: 'Pièce jointe',
+    attachments: 'Pièces jointes',
     submitRequest: 'Soumettre la demande',
-    requestType: 'Type de demande',
     pleaseSelect: 'Veuillez sélectionner',
+    
+    // Actions
+    markAsCompleted: 'Marquer comme terminé',
+    markAsInformed: 'Marquer comme informé',
+    addResponse: 'Ajouter une réponse',
+    viewResponse: 'Voir la réponse',
+    viewFiles: 'Voir les fichiers',
+    viewAll: 'Voir tout',
     
     // Messages
     loginSuccess: 'Connexion réussie',
     loginFailed: 'Échec de la connexion',
     requestSubmitted: 'Demande soumise avec succès',
     requestFailed: 'Échec de la soumission de la demande',
+    noRequests: 'Aucune demande trouvée',
+    noData: 'Aucune donnée disponible',
     
     // File Upload
     chooseFiles: 'Choisir des fichiers',
@@ -334,21 +362,14 @@ export const translations = {
     
     // Guidelines
     guidelines: 'Directives',
-    guideline1: "Veuillez ne pas écrire une demande pour plusieurs sujets.",
-    guideline2: "Assurez-vous d'avoir choisi le bon type pour vos demandes.",
-    guideline3: "Contactez directement votre superviseur pour les problèmes résolubles.",
-    guideline4: "Vous pouvez créer une nouvelle demande toutes les 24 heures.",
+    guideline1: 'Veuillez ne pas écrire une demande pour plusieurs sujets.',
+    guideline2: 'Assurez-vous d\'avoir choisi le bon type pour vos demandes.',
+    guideline3: 'Contactez directement votre superviseur pour les problèmes résolubles.',
+    guideline4: 'Vous pouvez créer une nouvelle demande toutes les 24 heures.',
     
     // Statistics
     totalRequests: 'Total des demandes',
     monthlyRequests: 'Demandes mensuelles',
-    
-    // Actions
-    markAsCompleted: 'Marquer comme terminé',
-    markAsInformed: 'Marquer comme informé',
-    addResponse: 'Ajouter une réponse',
-    viewResponse: 'Voir la réponse',
-    viewFiles: 'Voir les fichiers',
     
     // Time
     submitted: 'Soumis',
@@ -361,19 +382,14 @@ export const translations = {
     tooShort: 'Trop court',
     invalidEmail: 'Adresse e-mail invalide',
     
-    // Department Welcome
-    welcomeBack: 'Bon retour',
-    quickActions: 'Actions rapides',
-    viewAll: 'Voir tout',
-    
-    // No Data
-    noRequests: 'Aucune demande trouvée',
-    noData: 'Aucune donnée disponible'
+    // Quick Actions
+    quickActions: 'Actions rapides'
   },
 
   ar: {
     // General
     welcome: 'مرحباً',
+    welcomeBack: 'مرحباً بعودتك',
     loading: 'جاري التحميل...',
     error: 'خطأ',
     success: 'نجح',
@@ -386,6 +402,11 @@ export const translations = {
     filter: 'تصفية',
     clear: 'مسح',
     refresh: 'تحديث',
+    close: 'إغلاق',
+    submit: 'إرسال',
+    back: 'رجوع',
+    next: 'التالي',
+    previous: 'السابق',
     
     // Login/Logout
     login: 'تسجيل الدخول',
@@ -423,33 +444,45 @@ export const translations = {
     informed: 'تم الإبلاغ',
     completed: 'مكتمل',
     
-    // Request Types
+    // Request Types & Departments
     accounting: 'المحاسبة',
     academic: 'أكاديمي',
-    studentAffairs: 'شؤون الطلاب',
+    studentaffairs: 'شؤون الطلاب',
     dormitory: 'السكن الجامعي',
-    campusServices: 'خدمات الحرم الجامعي',
+    campusservices: 'خدمات الحرم الجامعي',
     library: 'المكتبة',
-    sportAffairs: 'الشؤون الرياضية',
+    sportaffairs: 'الشؤون الرياضية',
+    requesttype: 'نوع الطلب',
     
     // Priority
     low: 'منخفض',
     medium: 'متوسط',
     high: 'عالي',
     urgent: 'عاجل',
+    priority: 'الأولوية',
     
     // Form Fields
     content: 'المحتوى',
     attachment: 'مرفق',
+    attachments: 'المرفقات',
     submitRequest: 'إرسال الطلب',
-    requestType: 'نوع الطلب',
     pleaseSelect: 'يرجى الاختيار',
+    
+    // Actions
+    markAsCompleted: 'وضع علامة مكتمل',
+    markAsInformed: 'وضع علامة تم الإبلاغ',
+    addResponse: 'إضافة رد',
+    viewResponse: 'عرض الرد',
+    viewFiles: 'عرض الملفات',
+    viewAll: 'عرض الكل',
     
     // Messages
     loginSuccess: 'تم تسجيل الدخول بنجاح',
     loginFailed: 'فشل تسجيل الدخول',
     requestSubmitted: 'تم إرسال الطلب بنجاح',
     requestFailed: 'فشل في إرسال الطلب',
+    noRequests: 'لا توجد طلبات',
+    noData: 'لا توجد بيانات متاحة',
     
     // File Upload
     chooseFiles: 'اختيار الملفات',
@@ -467,13 +500,6 @@ export const translations = {
     totalRequests: 'إجمالي الطلبات',
     monthlyRequests: 'الطلبات الشهرية',
     
-    // Actions
-    markAsCompleted: 'وضع علامة مكتمل',
-    markAsInformed: 'وضع علامة تم الإبلاغ',
-    addResponse: 'إضافة رد',
-    viewResponse: 'عرض الرد',
-    viewFiles: 'عرض الملفات',
-    
     // Time
     submitted: 'تاريخ الإرسال',
     updated: 'تاريخ التحديث',
@@ -485,19 +511,14 @@ export const translations = {
     tooShort: 'قصير جداً',
     invalidEmail: 'عنوان بريد إلكتروني غير صالح',
     
-    // Department Welcome
-    welcomeBack: 'مرحباً بعودتك',
-    quickActions: 'إجراءات سريعة',
-    viewAll: 'عرض الكل',
-    
-    // No Data
-    noRequests: 'لا توجد طلبات',
-    noData: 'لا توجد بيانات متاحة'
+    // Quick Actions
+    quickActions: 'إجراءات سريعة'
   },
 
   ru: {
     // General
     welcome: 'Добро пожаловать',
+    welcomeBack: 'Добро пожаловать обратно',
     loading: 'Загрузка...',
     error: 'Ошибка',
     success: 'Успешно',
@@ -510,6 +531,11 @@ export const translations = {
     filter: 'Фильтр',
     clear: 'Очистить',
     refresh: 'Обновить',
+    close: 'Закрыть',
+    submit: 'Отправить',
+    back: 'Назад',
+    next: 'Далее',
+    previous: 'Предыдущий',
     
     // Login/Logout
     login: 'Вход',
@@ -547,33 +573,45 @@ export const translations = {
     informed: 'Уведомлен',
     completed: 'Завершено',
     
-    // Request Types
+    // Request Types & Departments
     accounting: 'Бухгалтерия',
     academic: 'Академический',
-    studentAffairs: 'Студенческие дела',
+    studentaffairs: 'Студенческие дела',
     dormitory: 'Общежитие',
-    campusServices: 'Службы кампуса',
+    campusservices: 'Службы кампуса',
     library: 'Библиотека',
-    sportAffairs: 'Спортивные дела',
+    sportaffairs: 'Спортивные дела',
+    requesttype: 'Тип запроса',
     
     // Priority
     low: 'Низкий',
     medium: 'Средний',
     high: 'Высокий',
     urgent: 'Срочный',
+    priority: 'Приоритет',
     
     // Form Fields
     content: 'Содержание',
     attachment: 'Вложение',
+    attachments: 'Вложения',
     submitRequest: 'Отправить запрос',
-    requestType: 'Тип запроса',
     pleaseSelect: 'Пожалуйста, выберите',
+    
+    // Actions
+    markAsCompleted: 'Отметить как завершенное',
+    markAsInformed: 'Отметить как уведомленное',
+    addResponse: 'Добавить ответ',
+    viewResponse: 'Просмотр ответа',
+    viewFiles: 'Просмотр файлов',
+    viewAll: 'Просмотреть все',
     
     // Messages
     loginSuccess: 'Вход выполнен успешно',
     loginFailed: 'Ошибка входа',
     requestSubmitted: 'Запрос успешно отправлен',
     requestFailed: 'Не удалось отправить запрос',
+    noRequests: 'Запросы не найдены',
+    noData: 'Нет доступных данных',
     
     // File Upload
     chooseFiles: 'Выбрать файлы',
@@ -591,13 +629,6 @@ export const translations = {
     totalRequests: 'Всего запросов',
     monthlyRequests: 'Месячные запросы',
     
-    // Actions
-    markAsCompleted: 'Отметить как завершенное',
-    markAsInformed: 'Отметить как уведомленное',
-    addResponse: 'Добавить ответ',
-    viewResponse: 'Просмотр ответа',
-    viewFiles: 'Просмотр файлов',
-    
     // Time
     submitted: 'Отправлено',
     updated: 'Обновлено',
@@ -609,13 +640,7 @@ export const translations = {
     tooShort: 'Слишком коротко',
     invalidEmail: 'Неверный адрес электронной почты',
     
-    // Department Welcome
-    welcomeBack: 'Добро пожаловать обратно',
-    quickActions: 'Быстрые действия',
-    viewAll: 'Просмотреть все',
-    
-    // No Data
-    noRequests: 'Запросы не найдены',
-    noData: 'Нет доступных данных'
+    // Quick Actions
+    quickActions: 'Быстрые действия'
   }
 };

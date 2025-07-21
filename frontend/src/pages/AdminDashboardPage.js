@@ -1,10 +1,14 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAdminAuth } from '../contexts/AdminAuthContext';
 import { useTheme } from '../contexts/ThemeContext';
+import { useLanguage } from '../contexts/LanguageContext';
+import { useTranslation } from '../hooks/useTranslation';
 import { apiService } from '../services/api';
 import AttachmentViewer from '../components/AttachmentViewer';
 import AdminResponseModal from '../components/AdminResponseModal';
-import LanguageSelector from '../components/LanguageSelector';
+import AdminNotificationCenter from '../components/AdminNotificationCenter';
+import FIULogo from '../components/FIULogo';
+import ConfirmationModal from '../components/ConfirmationModal';
 import 'bootstrap/dist/js/bootstrap.bundle.min.js';
 
 const AdminDashboardPage = () => {
@@ -12,6 +16,8 @@ const AdminDashboardPage = () => {
   const [showResponseModal, setShowResponseModal] = useState(false);
   const { admin, logout, department } = useAdminAuth();
   const { isDark, toggleTheme } = useTheme();
+  const { currentLanguage, changeLanguage, languages } = useLanguage();
+  const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState('dashboard');
   const [dashboardData, setDashboardData] = useState(null);
   const [requests, setRequests] = useState([]);
@@ -22,6 +28,7 @@ const AdminDashboardPage = () => {
   });
   const [selectedRequestId, setSelectedRequestId] = useState(null);
   const [showAttachments, setShowAttachments] = useState(false);
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
 
   // Add Request Type Form State
   const [showAddForm, setShowAddForm] = useState(false);
@@ -30,6 +37,41 @@ const AdminDashboardPage = () => {
     description_en: '',
     is_document_required: false
   });
+
+  // Admin Language Selector - Logo ile birlikte
+  const AdminLanguageSelector = () => {
+    return (
+      <div className="d-flex gap-1 me-2">
+        {Object.entries(languages).map(([code, lang]) => (
+          <button
+            key={code}
+            className={`btn btn-sm ${
+              currentLanguage === code ? 'btn-primary' : 'btn-outline-secondary'
+            }`}
+            onClick={() => changeLanguage(code)}
+            title={lang.name}
+            style={{ fontSize: '14px', padding: '4px 8px' }}
+          >
+            {lang.flag}
+          </button>
+        ))}
+      </div>
+    );
+  };
+
+  // Logout İşlemleri
+  const handleLogoutClick = () => {
+    setShowLogoutModal(true);
+  };
+
+  const handleLogoutConfirm = () => {
+    setShowLogoutModal(false);
+    logout();
+  };
+
+  const handleLogoutCancel = () => {
+    setShowLogoutModal(false);
+  };
 
   const fetchDashboardData = useCallback(async () => {
     try {
@@ -188,139 +230,27 @@ const AdminDashboardPage = () => {
     return icons[dept] || '📋';
   };
 
-  const PriorityDropdown = ({ currentPriority, requestId, disabled = false }) => {
-    const [selectedPriority, setSelectedPriority] = useState(currentPriority || 'Medium');
-    const [updating, setUpdating] = useState(false);
-
-    useEffect(() => {
-      setSelectedPriority(currentPriority || 'Medium');
-    }, [currentPriority]);
-
-    const handlePriorityChange = async (newPriority) => {
-      if (newPriority === selectedPriority) return;
-      
-      setUpdating(true);
-      try {
-        await updateRequestPriority(requestId, newPriority);
-        setSelectedPriority(newPriority);
-      } catch (error) {
-        setSelectedPriority(currentPriority);
-      } finally {
-        setUpdating(false);
-      }
-    };
-
-    return (
-      <div className="dropdown">
-        <button
-          className={`btn btn-sm dropdown-toggle btn-outline-primary`}
-          type="button"
-          data-bs-toggle="dropdown"
-          disabled={disabled || updating}
-          style={{ minWidth: '120px' }}
-        >
-          {updating ? (
-            <>
-              <span className="spinner-border spinner-border-sm me-1" role="status"></span>
-              Updating...
-            </>
-          ) : (
-            <>
-              {getPriorityIcon(selectedPriority)} {selectedPriority}
-            </>
-          )}
-        </button>
-        <ul className="dropdown-menu">
-          {['Low', 'Medium', 'High', 'Urgent'].map((priority) => (
-            <li key={priority}>
-              <button
-                className="dropdown-item d-flex align-items-center"
-                onClick={() => handlePriorityChange(priority)}
-                disabled={priority === selectedPriority}
-              >
-                <span className={`badge ${getPriorityBadge(priority)} me-2`}>
-                  {getPriorityIcon(priority)}
-                </span>
-                {priority}
-                {priority === selectedPriority && (
-                  <i className="bi bi-check-lg ms-auto text-success"></i>
-                )}
-              </button>
-            </li>
-          ))}
-        </ul>
-      </div>
-    );
-  };
-
   const renderDashboard = () => (
     <div>
       <div className="d-flex justify-content-between align-items-center mb-4">
         <div>
-          <h3>{getDepartmentIcon(department)} {department} Dashboard</h3>
-          <p className="text-muted">Welcome back, {admin?.name}</p>
-        </div>
-        <div className="d-flex align-items-center gap-2">
-          <button 
-            className="btn btn-outline-danger btn-sm" 
-            onClick={() => {
-              if (window.confirm('Are you sure you want to logout?')) {
-                logout();
-              }
-            }}
-          >
-            Logout
-          </button>
+          <h3>{getDepartmentIcon(department)} {department} {t('dashboard')}</h3>
+          <p className="text-muted">{t('welcomeBack')}, {admin?.name}</p>
         </div>
       </div>
       
       {loading ? (
         <div className="text-center">
           <div className="spinner-border" role="status"></div>
-          <p>Loading dashboard...</p>
+          <p>{t('loading')} dashboard...</p>
         </div>
       ) : dashboardData && dashboardData.totals ? (
         <div>
           <div className="row mb-4">
-            <div className="col-md-3">
-              <div className="card bg-primary text-white">
-                <div className="card-body text-center">
-                  <h5>Total Requests</h5>
-                  <h2>{dashboardData.totals.total_requests || 0}</h2>
-                </div>
-              </div>
-            </div>
-            <div className="col-md-3">
-              <div className="card bg-warning text-dark">
-                <div className="card-body text-center">
-                  <h5>Pending</h5>
-                  <h2>{dashboardData.totals.pending || 0}</h2>
-                </div>
-              </div>
-            </div>
-            <div className="col-md-3">
-              <div className="card bg-info text-white">
-                <div className="card-body text-center">
-                  <h5>Informed</h5>
-                  <h2>{dashboardData.totals.informed || 0}</h2>
-                </div>
-              </div>
-            </div>
-            <div className="col-md-3">
-              <div className="card bg-success text-white">
-                <div className="card-body text-center">
-                  <h5>Completed</h5>
-                  <h2>{dashboardData.totals.completed || 0}</h2>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="row">
             <div className="col-md-6">
               <div className="card">
                 <div className="card-header">
-                  <h5>Request Types Statistics</h5>
+                  <h5>{t('requesttype')} Statistics</h5>
                 </div>
                 <div className="card-body">
                   {dashboardData.type_stats && dashboardData.type_stats.length > 0 ? (
@@ -340,14 +270,14 @@ const AdminDashboardPage = () => {
             <div className="col-md-6">
               <div className="card">
                 <div className="card-header">
-                  <h5>Quick Actions</h5>
+                  <h5>{t('quickActions')}</h5>
                 </div>
                 <div className="card-body">
                   <button 
                     className="btn btn-outline-primary me-2 mb-2"
                     onClick={() => setActiveTab('requests')}
                   >
-                    📋 View All Requests
+                    📋 {t('viewAll')} {t('requests')}
                   </button>
                   <button 
                     className="btn btn-outline-warning me-2 mb-2"
@@ -356,7 +286,7 @@ const AdminDashboardPage = () => {
                       setActiveTab('requests');
                     }}
                   >
-                    ⏳ View Pending ({dashboardData.totals.pending || 0})
+                    ⏳ {t('pending')} ({dashboardData.totals.pending || 0})
                   </button>
                   <button 
                     className="btn btn-outline-info me-2 mb-2"
@@ -365,13 +295,13 @@ const AdminDashboardPage = () => {
                       setActiveTab('requests');
                     }}
                   >
-                    💬 View Informed ({dashboardData.totals.informed || 0})
+                    💬 {t('informed')} ({dashboardData.totals.informed || 0})
                   </button>
                   <button 
                     className="btn btn-outline-secondary me-2 mb-2"
                     onClick={() => setActiveTab('settings')}
                   >
-                    ⚙️ Manage Request Types
+                    ⚙️ {t('settings')}
                   </button>
                 </div>
               </div>
@@ -393,7 +323,7 @@ const AdminDashboardPage = () => {
   const renderRequests = () => (
     <div>
       <div className="d-flex justify-content-between align-items-center mb-4">
-        <h3>📋 Manage {department} Requests</h3>
+        <h3>📋 {t('manageRequests')} - {department}</h3>
         
         <div className="d-flex gap-2">
           <select
@@ -402,9 +332,9 @@ const AdminDashboardPage = () => {
             onChange={(e) => setFilters({...filters, status: e.target.value})}
           >
             <option value="">All Status</option>
-            <option value="Pending">Pending</option>
-            <option value="Informed">Informed</option>
-            <option value="Completed">Completed</option>
+            <option value="Pending">{t('pending')}</option>
+            <option value="Informed">{t('informed')}</option>
+            <option value="Completed">{t('completed')}</option>
           </select>
           
           <button 
@@ -415,11 +345,11 @@ const AdminDashboardPage = () => {
             {loading ? (
               <>
                 <span className="spinner-border spinner-border-sm me-1" role="status"></span>
-                Refreshing...
+                {t('loading')}...
               </>
             ) : (
               <>
-                🔄 Refresh
+                🔄 {t('refresh')}
               </>
             )}
           </button>
@@ -429,14 +359,14 @@ const AdminDashboardPage = () => {
       {loading ? (
         <div className="text-center">
           <div className="spinner-border" role="status"></div>
-          <p>Loading requests...</p>
+          <p>{t('loading')} requests...</p>
         </div>
       ) : (
         <div className="row">
           {!requests || requests.length === 0 ? (
             <div className="col-12 text-center py-5">
               <div className="alert alert-info">
-                <h5>No requests found</h5>
+                <h5>{t('noRequests')}</h5>
                 <p className="mb-0">
                   {filters.status 
                     ? `No ${filters.status.toLowerCase()} requests found for ${department} department.` 
@@ -459,30 +389,20 @@ const AdminDashboardPage = () => {
                       </small>
                     </div>
                     <div className="d-flex align-items-center gap-2">
-                      <PriorityDropdown 
-                        currentPriority={request.priority}
-                        requestId={request.request_id}
-                        disabled={request.status === 'Completed'}
-                      />
+                      <span className={`badge ${getPriorityBadge(request.priority)}`}>
+                        {getPriorityIcon(request.priority)} {request.priority || 'Medium'}
+                      </span>
                       
                       <span className={`badge ${getStatusBadge(request.status)}`}>
-                        {request.status}
+                        {t(request.status.toLowerCase())}
                       </span>
                     </div>
                   </div>
                   
                   <div className="card-body">
                     <p className="mb-3">
-                      <strong>Content:</strong> {request.content}
+                      <strong>{t('content')}:</strong> {request.content}
                     </p>
-                    
-                    {/* ✅ PRIORITY DISPLAY */}
-                    <div className="mb-3">
-                      <strong>Priority:</strong>
-                      <span className={`badge ${getPriorityBadge(request.priority)} ms-2`}>
-                        {getPriorityIcon(request.priority)} {request.priority || 'Medium'}
-                      </span>
-                    </div>
                     
                     <div className="row text-sm mb-3">
                       <div className="col-md-4">
@@ -492,7 +412,7 @@ const AdminDashboardPage = () => {
                         </a>
                       </div>
                       <div className="col-md-4">
-                        <strong>Submitted:</strong><br/>
+                        <strong>{t('submitted')}:</strong><br/>
                         {new Date(request.submitted_at).toLocaleDateString()} {new Date(request.submitted_at).toLocaleTimeString()}
                       </div>
                       <div className="col-md-4">
@@ -515,7 +435,7 @@ const AdminDashboardPage = () => {
                           setShowResponseModal(true);
                         }}
                       >
-                        💬 {request.status === 'Pending' ? 'Add Response' : 'View/Add Response'}
+                        💬 {request.status === 'Pending' ? t('addResponse') : t('viewResponse')}
                       </button>
 
                       {request.status === 'Pending' && (
@@ -523,7 +443,7 @@ const AdminDashboardPage = () => {
                           className="btn btn-success btn-sm"
                           onClick={() => updateRequestStatus(request.request_id, 'Completed')}
                         >
-                          ✅ Mark as Completed
+                          ✅ {t('markAsCompleted')}
                         </button>
                       )}
                       
@@ -532,13 +452,13 @@ const AdminDashboardPage = () => {
                           className="btn btn-success btn-sm"
                           onClick={() => updateRequestStatus(request.request_id, 'Completed')}
                         >
-                          ✅ Mark as Completed
+                          ✅ {t('markAsCompleted')}
                         </button>
                       )}
                       
                       {request.status === 'Completed' && (
                         <span className="text-success fw-bold me-2">
-                          ✅ Request Completed
+                          ✅ Request {t('completed')}
                         </span>
                       )}
                       
@@ -550,7 +470,7 @@ const AdminDashboardPage = () => {
                             setShowAttachments(true);
                           }}
                         >
-                          📎 View Files ({request.attachment_count})
+                          📎 {t('viewFiles')} ({request.attachment_count})
                         </button>
                       )}
                     </div>
@@ -568,11 +488,10 @@ const AdminDashboardPage = () => {
     <div>
       <div className="d-flex justify-content-between align-items-center mb-4">
         <div>
-          <h3>⚙️ Manage {department} Request Types</h3>
+          <h3>⚙️ {t('settings')} - {department} {t('requesttype')}</h3>
           <p className="text-muted">Enable or disable request types for students</p>
         </div>
         
-        {/* ✅ ADD NEW REQUEST TYPE BUTTON */}
         <button 
           className="btn btn-primary"
           onClick={() => setShowAddForm(!showAddForm)}
@@ -581,7 +500,6 @@ const AdminDashboardPage = () => {
         </button>
       </div>
 
-      {/* ✅ ADD NEW REQUEST TYPE FORM */}
       {showAddForm && (
         <div className="card mb-4">
           <div className="card-header">
@@ -641,7 +559,7 @@ const AdminDashboardPage = () => {
                   className="btn btn-secondary"
                   onClick={() => setShowAddForm(false)}
                 >
-                  Cancel
+                  {t('cancel')}
                 </button>
               </div>
             </form>
@@ -652,7 +570,7 @@ const AdminDashboardPage = () => {
       {loading ? (
         <div className="text-center">
           <div className="spinner-border" role="status"></div>
-          <p>Loading request types...</p>
+          <p>{t('loading')} request types...</p>
         </div>
       ) : (
         <div className="row">
@@ -706,29 +624,31 @@ const AdminDashboardPage = () => {
 
   return (
     <div className="container-fluid mt-4">
-      {/* Header */}
+      {/* Header with FIU Logo */}
       <div className="row mb-4">
         <div className="col-12">
           <div className="d-flex justify-content-between align-items-center">
-            <div>
-              <h2>{getDepartmentIcon(department)} {department} Admin Panel</h2>
-              <p className="text-muted">Manage department requests and settings</p>
+            <div className="d-flex align-items-center">
+              <FIULogo size="lg" className="me-3" />
+              <div>
+                <h2>{getDepartmentIcon(department)} {department} {t('adminPanel')}</h2>
+                <p className="text-muted mb-0">{t('manageDepartment')}</p>
+              </div>
             </div>
             <div className="d-flex align-items-center gap-3">
-              <span className="text-muted">Welcome, <strong>{admin?.name}</strong></span>
+              <span className="text-muted">{t('welcome')}, <strong>{admin?.name}</strong></span>
               
-              {/* Language Selector */}
-              <LanguageSelector variant="dropdown" />
+              {/* Admin Notification Center */}
+              <AdminNotificationCenter />
+              
+              {/* Admin Language Selector */}
+              <AdminLanguageSelector />
               
               <button 
                 className="btn btn-outline-danger btn-sm" 
-                onClick={() => {
-                  if (window.confirm('Are you sure you want to logout?')) {
-                    logout();
-                  }
-                }}
+                onClick={handleLogoutClick}
               >
-                Logout
+                {t('logout')}
               </button>
             </div>
           </div>
@@ -742,7 +662,7 @@ const AdminDashboardPage = () => {
             className={`nav-link ${activeTab === 'dashboard' ? 'active' : ''}`}
             onClick={() => setActiveTab('dashboard')}
           >
-            📊 Dashboard
+            📊 {t('dashboard')}
           </button>
         </li>
         <li className="nav-item">
@@ -750,7 +670,7 @@ const AdminDashboardPage = () => {
             className={`nav-link ${activeTab === 'requests' ? 'active' : ''}`}
             onClick={() => setActiveTab('requests')}
           >
-            📋 Manage Requests
+            📋 {t('manageRequests')}
           </button>
         </li>
         <li className="nav-item">
@@ -758,7 +678,7 @@ const AdminDashboardPage = () => {
             className={`nav-link ${activeTab === 'settings' ? 'active' : ''}`}
             onClick={() => setActiveTab('settings')}
           >
-            ⚙️ Settings
+            ⚙️ {t('settings')}
           </button>
         </li>
       </ul>
@@ -794,7 +714,19 @@ const AdminDashboardPage = () => {
         />
       )}
 
-      {/* ✅ DARK MODE TOGGLE - FINAL VERSION */}
+      {/* Site İçi Admin Logout Onay Modalı */}
+      <ConfirmationModal
+        show={showLogoutModal}
+        title="FIU Admin Panel"
+        message="Admin oturumunu kapatmak istediğinizden emin misiniz?"
+        confirmText="Tamam"
+        cancelText="İptal"
+        type="warning"
+        onConfirm={handleLogoutConfirm}
+        onCancel={handleLogoutCancel}
+      />
+
+      {/* Dark Mode Toggle */}
       <div 
         style={{
           position: 'fixed',

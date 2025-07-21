@@ -22,10 +22,19 @@ export const languages = {
 export const LanguageProvider = ({ children }) => {
   const [currentLanguage, setCurrentLanguage] = useState(() => {
     const saved = localStorage.getItem('selectedLanguage');
-    return saved || 'tr'; // Varsayılan Türkçe
+    console.log('LanguageProvider - Saved language from localStorage:', saved);
+    
+    // Geçerli dil kontrolü
+    if (saved && languages[saved]) {
+      return saved;
+    }
+    
+    // Varsayılan Türkçe
+    return 'tr';
   });
 
   useEffect(() => {
+    console.log('LanguageProvider - Language changed to:', currentLanguage);
     localStorage.setItem('selectedLanguage', currentLanguage);
     
     // HTML lang attribute'unu güncelle
@@ -42,7 +51,17 @@ export const LanguageProvider = ({ children }) => {
   }, [currentLanguage]);
 
   const changeLanguage = (languageCode) => {
-    setCurrentLanguage(languageCode);
+    console.log('LanguageProvider - changeLanguage called:', languageCode);
+    
+    if (!languages[languageCode]) {
+      console.error('Invalid language code:', languageCode);
+      return;
+    }
+
+    if (languageCode !== currentLanguage) {
+      console.log('LanguageProvider - Changing from', currentLanguage, 'to', languageCode);
+      setCurrentLanguage(languageCode);
+    }
   };
 
   const value = {

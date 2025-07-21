@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Link, Navigate } from 'react-router-dom';
 import 'bootstrap/dist/css/bootstrap.min.css';
-import 'bootstrap/dist/js/bootstrap.bundle.min.js'; // YENİ EKLENEN
+import 'bootstrap/dist/js/bootstrap.bundle.min.js';
 import './darkmode.css';
 import './fiu-theme.css';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
@@ -14,6 +14,8 @@ import { apiService } from './services/api';
 import ProtectedRoute from './components/ProtectedRoute';
 import ProtectedAdminRoute from './components/ProtectedAdminRoute';
 import DarkModeToggle from './components/DarkModeToggle';
+import FIULogo from './components/FIULogo';
+import ConfirmationModal from './components/ConfirmationModal';
 // Pages
 import HomePage from './pages/HomePage';
 import RequestsPage from './pages/RequestsPage';
@@ -42,6 +44,7 @@ function App() {
     return (
       <div className="container mt-5">
         <div className="text-center">
+          <FIULogo size="xl" className="mb-3" />
           <div className="spinner-border" role="status">
             <span className="visually-hidden">Loading...</span>
           </div>
@@ -54,6 +57,9 @@ function App() {
   if (apiStatus === 'error') {
     return (
       <div className="container mt-5">
+        <div className="text-center mb-4">
+          <FIULogo size="xl" />
+        </div>
         <div className="alert alert-danger" role="alert">
           <h4 className="alert-heading">API Connection Error</h4>
           <p>Cannot connect to the backend API. Please make sure the backend server is running on port 5000.</p>
@@ -131,7 +137,6 @@ const AdminRoutes = () => {
       <Routes>
         <Route path="/dashboard" element={<AdminDashboardPage />} />
         <Route path="/" element={<Navigate to="/admin/dashboard" replace />} />
-        {/* DİĞER ADMIN ROUTE'LARI SİL - SADECE DASHBOARD KALSIN */}
       </Routes>
     </ProtectedAdminRoute>
   );
@@ -145,6 +150,7 @@ const StudentRoutes = () => {
     return (
       <div className="container mt-5">
         <div className="text-center">
+          <FIULogo size="lg" className="mb-3" />
           <div className="spinner-border" role="status">
             <span className="visually-hidden">Loading...</span>
           </div>
@@ -161,7 +167,7 @@ const StudentRoutes = () => {
   );
 };
 
-// Simple Language Selector Component
+// Basit Language Selector Component
 const SimpleLanguageSelector = () => {
   const { currentLanguage, changeLanguage, languages } = useLanguage();
 
@@ -173,10 +179,7 @@ const SimpleLanguageSelector = () => {
           className={`btn btn-sm ${
             currentLanguage === code ? 'btn-light' : 'btn-outline-light'
           }`}
-          onClick={() => {
-            console.log('Language changed to:', code);
-            changeLanguage(code);
-          }}
+          onClick={() => changeLanguage(code)}
           title={lang.name}
           style={{ fontSize: '14px', padding: '4px 8px' }}
         >
@@ -191,18 +194,29 @@ const SimpleLanguageSelector = () => {
 const MainApp = () => {
   const { user, logout } = useAuth();
   const { t } = useTranslation();
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
 
-  // Debug için console log
-  console.log('Current translations working:', t('home'), t('welcome'));
-  console.log('Current user:', user);
+  const handleLogoutClick = () => {
+    setShowLogoutModal(true);
+  };
+
+  const handleLogoutConfirm = () => {
+    setShowLogoutModal(false);
+    logout();
+  };
+
+  const handleLogoutCancel = () => {
+    setShowLogoutModal(false);
+  };
 
   return (
     <>
-      {/* Navigation */}
+      {/* Navigation with FIU Logo */}
       <nav className="navbar navbar-expand-lg navbar-dark bg-primary">
         <div className="container">
-          <Link className="navbar-brand" to="/">
-            🎓 {t('systemTitle')}
+          <Link className="navbar-brand d-flex align-items-center" to="/">
+            <FIULogo size="sm" className="me-2" />
+            <span>{t('systemTitle')}</span>
           </Link>
           <button
             className="navbar-toggler"
@@ -236,7 +250,7 @@ const MainApp = () => {
               
               <button 
                 className="btn btn-outline-light btn-sm" 
-                onClick={logout}
+                onClick={handleLogoutClick}
                 title={t('logout')}
               >
                 {t('logout')}
@@ -255,17 +269,37 @@ const MainApp = () => {
         </Routes>
       </main>
 
-      {/* Footer */}
+      {/* Footer with FIU Logo */}
       <footer className="bg-light mt-5 py-4">
         <div className="container text-center">
-          <p className="text-muted">
-            <strong>{t('systemSubtitle')}</strong> - Student Guidance Request System &copy; 2025
-          </p>
+          <div className="d-flex justify-content-center align-items-center mb-3">
+            <FIULogo size="md" className="me-3" />
+            <div>
+              <p className="text-muted mb-1">
+                <strong>{t('systemSubtitle')}</strong>
+              </p>
+              <small className="text-muted">
+                Student Guidance Request System &copy; 2025
+              </small>
+            </div>
+          </div>
           <small className="text-muted">
             Powered by FIU Information Technology Department
           </small>
         </div>
       </footer>
+
+      {/* Site İçi Logout Onay Modalı */}
+      <ConfirmationModal
+        show={showLogoutModal}
+        title="FIU Rehberlik Sistemi"
+        message="Oturumu kapatmak istediğinizden emin misiniz?"
+        confirmText="Tamam"
+        cancelText="İptal"
+        type="warning"
+        onConfirm={handleLogoutConfirm}
+        onCancel={handleLogoutCancel}
+      />
 
       {/* Dark Mode Toggle */}
       <DarkModeToggle />

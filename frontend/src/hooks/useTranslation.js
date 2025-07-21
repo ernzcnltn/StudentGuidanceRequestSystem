@@ -5,9 +5,20 @@ export const useTranslation = () => {
   const { currentLanguage } = useLanguage();
   
   const t = (key, defaultValue = key) => {
+    // Boş key kontrolü
+    if (!key || typeof key !== 'string') {
+      return defaultValue;
+    }
+
+    // Translations varlık kontrolü
+    if (!translations || !translations[currentLanguage]) {
+      return defaultValue;
+    }
+
     const keys = key.split('.');
     let value = translations[currentLanguage];
     
+    // Nested key'leri çözümle
     for (const k of keys) {
       if (value && typeof value === 'object' && k in value) {
         value = value[k];
@@ -28,5 +39,8 @@ export const useTranslation = () => {
     return typeof value === 'string' ? value : defaultValue;
   };
   
-  return { t };
+  return { 
+    t,
+    currentLanguage
+  };
 };
