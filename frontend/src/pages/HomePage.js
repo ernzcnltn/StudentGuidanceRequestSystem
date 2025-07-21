@@ -10,34 +10,28 @@ const HomePage = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setLoading(true);
-        
-        // Sadece request types'ları al
-        const typesResponse = await apiService.getRequestTypes();
-        setRequestTypes(typesResponse.data.data);
-        
-        // Stats'ı manuel ayarla
-        setStats({
-          totals: {
-            total_requests: 5,
-            pending: 2,
-            informed: 2,
-            completed: 1,
-            monthly: 3
-          }
-        });
-        
-      } catch (error) {
-        console.error('Error fetching data:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
+  const fetchData = async () => {
+    try {
+      setLoading(true);
 
-    fetchData();
-  }, []);
+      // Request Types
+      const typesResponse = await apiService.getRequestTypes();
+      setRequestTypes(typesResponse.data.data);
+
+      // Otomatik olarak student istatistikleri al
+      const statsResponse = await apiService.getMyStats();
+      setStats(statsResponse.data.data); // backend yapısına göre .data olabilir
+
+    } catch (error) {
+      console.error('Error fetching data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  fetchData();
+}, []);
+
 
   if (loading) {
     return (

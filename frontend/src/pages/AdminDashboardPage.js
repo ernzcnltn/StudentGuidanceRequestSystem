@@ -221,13 +221,13 @@ const AdminDashboardPage = () => {
 
   const getDepartmentIcon = (dept) => {
     const icons = {
-      'Accounting': '💰',
-      'Academic': '📚',
-      'Dormitory': '🏠',
-      'Student Affairs': '👥',
-      'Campus Services': '🏢'
+      'Accounting': '',
+      'Academic': '',
+      'Dormitory': '',
+      'Student Affairs': '',
+      'Campus Services': ''
     };
-    return icons[dept] || '📋';
+    return icons[dept] || '';
   };
 
   const renderDashboard = () => (
@@ -349,7 +349,7 @@ const AdminDashboardPage = () => {
               </>
             ) : (
               <>
-                🔄 {t('refresh')}
+                🔄 
               </>
             )}
           </button>
@@ -382,7 +382,7 @@ const AdminDashboardPage = () => {
                   <div className="card-header d-flex justify-content-between align-items-center">
                     <div>
                       <h6 className="mb-1">
-                        Request #{request.request_id} - {request.type_name}
+                       {request.type_name}
                       </h6>
                       <small className="text-muted">
                         {request.student_name} ({request.student_number})
@@ -718,9 +718,9 @@ const AdminDashboardPage = () => {
       <ConfirmationModal
         show={showLogoutModal}
         title="FIU Admin Panel"
-        message="Admin oturumunu kapatmak istediğinizden emin misiniz?"
-        confirmText="Tamam"
-        cancelText="İptal"
+        message="Are you sure you want to log out of admin?"
+        confirmText="OK"
+        cancelText="CANCEL"
         type="warning"
         onConfirm={handleLogoutConfirm}
         onCancel={handleLogoutCancel}

@@ -109,7 +109,7 @@ const UnifiedLoginPage = () => {
                     borderRadius: '16px 16px 0 0'
                   }}
                 >
-                  <h2 className="mb-1 fw-bold">🎓 FIU Guidance System</h2>
+                  <h2 className="mb-1 fw-bold"> FIU Guidance System</h2>
                   <p className="mb-0 opacity-90">Final International University</p>
                 </div>
 
@@ -126,7 +126,7 @@ const UnifiedLoginPage = () => {
                           borderRadius: '8px'
                         }}
                       >
-                        👨‍🎓 Student Login
+                         Student Login
                       </button>
                     </li>
                     <li className="nav-item">
@@ -139,7 +139,7 @@ const UnifiedLoginPage = () => {
                           borderRadius: '8px'
                         }}
                       >
-                        👨‍💼 Admin Login
+                         Admin Login
                       </button>
                     </li>
                   </ul>
@@ -208,7 +208,7 @@ const UnifiedLoginPage = () => {
                                 Signing In...
                               </>
                             ) : (
-                              '👨‍🎓 Sign In as Student'
+                              ' Sign In as Student'
                             )}
                           </button>
                         </div>
@@ -230,7 +230,7 @@ const UnifiedLoginPage = () => {
                       <div className="mt-4">
                         <div className="card bg-light border-0" style={{ borderRadius: '8px' }}>
                           <div className="card-body">
-                            <h6 className="card-title text-primary">📝 Test Student Account:</h6>
+                            <h6 className="card-title text-primary"> Test Student Account:</h6>
                             <small className="text-muted">
                               <strong>Student Number:</strong> 20210001<br/>
                               <strong>Password:</strong> 123456
@@ -300,7 +300,7 @@ const UnifiedLoginPage = () => {
                                 Signing In...
                               </>
                             ) : (
-                              '👨‍💼 Sign In as Admin'
+                              ' Sign In as Admin'
                             )}
                           </button>
                         </div>
@@ -309,20 +309,20 @@ const UnifiedLoginPage = () => {
                       <div className="mt-4">
                         <div className="card bg-light border-0" style={{ borderRadius: '8px' }}>
                           <div className="card-body">
-                            <h6 className="card-title text-primary">🔑 Test Admin Accounts:</h6>
+                            <h6 className="card-title text-primary"> Test Admin Accounts:</h6>
                             <div className="row">
                               <div className="col-md-6">
                                 <small className="text-muted">
-                                  <strong>💰 Accounting:</strong> accounting_admin<br/>
-                                  <strong>📚 Academic:</strong> academic_admin<br/>
-                                  <strong>🏠 Dormitory:</strong> dormitory_admin
+                                  <strong> Accounting:</strong> accounting_admin<br/>
+                                  <strong> Academic:</strong> academic_admin<br/>
+                                  <strong>Dormitory:</strong> dormitory_admin
                                 </small>
                               </div>
                               <div className="col-md-6">
                                 <small className="text-muted">
-                                  <strong>👥 Student Affairs:</strong> student_affairs_admin<br/>
-                                  <strong>🏢 Campus Services:</strong> campus_services_admin<br/>
-                                  <strong>🔒 All passwords:</strong> admin123
+                                  <strong> Student Affairs:</strong> student_affairs_admin<br/>
+                                  <strong> Campus Services:</strong> campus_services_admin<br/>
+                                  <strong> All passwords:</strong> admin123
                                 </small>
                               </div>
                             </div>

@@ -164,6 +164,7 @@ export const apiService = {
   getPerformanceMetrics: () => adminApi.get('/analytics/admin/performance'),
   exportAnalytics: (params = {}) => adminApi.get('/analytics/admin/export', { params }),
   getSystemOverview: () => adminApi.get('/analytics/system/overview'),
+getMyStats: () => studentApi.get('/analytics/student/me'),
 
   // Search Services
   searchStudentRequests: (searchData) => studentApi.post('/search/requests', searchData),

@@ -6,8 +6,8 @@ const ConfirmationModal = ({
   show, 
   title, 
   message, 
-  confirmText = 'Tamam',
-  cancelText = 'İptal',
+  confirmText = 'OK',
+  cancelText = 'CANCEL',
   onConfirm, 
   onCancel,
   type = 'warning' // warning, danger, info, success
@@ -71,7 +71,7 @@ const ConfirmationModal = ({
                 </div>
                 <h6 className="mb-3">{message}</h6>
                 <p className="text-muted small mb-0">
-                  Bu işlemi onaylamak istediğinizden emin misiniz?
+                  Are you sure you want to confirm this action?
                 </p>
               </div>
             </div>

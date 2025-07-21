@@ -299,10 +299,10 @@ const MainApp = () => {
       {/* Site İçi Logout Onay Modalı */}
       <ConfirmationModal
         show={showLogoutModal}
-        title="FIU Rehberlik Sistemi"
-        message="Oturumu kapatmak istediğinizden emin misiniz?"
-        confirmText="Tamam"
-        cancelText="İptal"
+        title="FIU Guidance System"
+        message="Are you sure you want to log out?"
+        confirmText="Ok"
+        cancelText="Cancel"
         type="warning"
         onConfirm={handleLogoutConfirm}
         onCancel={handleLogoutCancel}

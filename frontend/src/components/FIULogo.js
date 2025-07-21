@@ -1,4 +1,4 @@
-// frontend/src/components/FIULogo.js
+
 import React from 'react';
 
 const FIULogo = ({ size = 'md', className = '', style = {} }) => {

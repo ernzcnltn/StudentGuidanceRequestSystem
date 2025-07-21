@@ -379,9 +379,7 @@ const RequestsPage = () => {
                         <span className="me-2">{getStatusIcon(request.status)}</span>
                         {request.type_name}
                       </h6>
-                      <small className="text-muted">
-                        Request #{request.request_id} • {request.category}
-                      </small>
+                      
                     </div>
                     <div className="d-flex align-items-center gap-2">
                       {request.priority && (
