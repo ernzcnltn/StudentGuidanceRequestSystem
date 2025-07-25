@@ -71,7 +71,7 @@ const ConfirmationModal = ({
                 </div>
                 <h6 className="mb-3">{message}</h6>
                 <p className="text-muted small mb-0">
-                  Are you sure you want to confirm this action?
+                 
                 </p>
               </div>
             </div>

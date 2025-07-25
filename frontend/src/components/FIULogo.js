@@ -1,16 +1,16 @@
 
 import React from 'react';
 
-const FIULogo = ({ size = 'md', className = '', style = {} }) => {
+const FIULogo = ({ size = 'xl', className = '', style = {} }) => {
   const getSizeStyles = () => {
     const sizes = {
-      xs: { width: '24px', height: '24px' },
-      sm: { width: '32px', height: '32px' },
-      md: { width: '40px', height: '40px' },
-      lg: { width: '60px', height: '60px' },
-      xl: { width: '80px', height: '80px' }
+      xs: { width: '32px', height: '32px' },
+      sm: { width: '42px', height: '42px' },
+      md: { width: '52px', height: '52px' },
+      lg: { width: '72px', height: '72px' },
+      xl: { width: '92px', height: '92px' }
     };
-    return sizes[size] || sizes.md;
+    return sizes[size] || sizes.xl;
   };
 
   const sizeStyles = getSizeStyles();
@@ -21,7 +21,7 @@ const FIULogo = ({ size = 'md', className = '', style = {} }) => {
       style={{ ...sizeStyles, ...style }}
     >
       <img
-        src="/images/fiu-logo.jpg"
+        src="/images/fiu-logo.png "
         alt="Final International University Logo"
         style={{
           width: '100%',

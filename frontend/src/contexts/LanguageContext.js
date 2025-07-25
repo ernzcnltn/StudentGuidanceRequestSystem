@@ -12,11 +12,11 @@ export const useLanguage = () => {
 
 // Dil kodları ve bayrakları
 export const languages = {
-  tr: { name: 'Türkçe', flag: '🇹🇷', code: 'tr' },
-  en: { name: 'English', flag: '🇬🇧', code: 'en' },
-  fr: { name: 'Français', flag: '🇫🇷', code: 'fr' },
-  ar: { name: 'العربية', flag: '🇸🇦', code: 'ar' },
-  ru: { name: 'Русский', flag: '🇷🇺', code: 'ru' }
+  tr: { name: 'Türkçe', flag: 'TR', code: 'tr' },
+  en: { name: 'English', flag: 'EN', code: 'en' },
+  fr: { name: 'Français', flag: 'FR', code: 'fr' },
+  ar: { name: 'العربية', flag: 'AR', code: 'ar' },
+  ru: { name: 'Русский', flag: 'RU', code: 'ru' }
 };
 
 export const LanguageProvider = ({ children }) => {
@@ -30,7 +30,7 @@ export const LanguageProvider = ({ children }) => {
     }
     
     // Varsayılan Türkçe
-    return 'tr';
+    return 'en';
   });
 
   useEffect(() => {

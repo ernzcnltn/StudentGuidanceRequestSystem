@@ -179,6 +179,45 @@ footer {
   border-color: #b91c1c !important;
 }
 
+
+/* Notification highlight effect */
+.request-highlight {
+  background-color: #fff3cd !important;
+  border: 2px solid #ffc107 !important;
+  transition: all 0.3s ease;
+}
+
+/* Notification dropdown custom styles */
+.dropdown-menu {
+  box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+  border: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.dropdown-item:hover {
+  background-color: #f8f9fa;
+}
+
+.dropdown-item:not(.dropdown-item-text):hover {
+  background-color: #e9ecef;
+}
+
+/* Unread notification styling */
+.dropdown-item.bg-light {
+  background-color: #f8f9fa !important;
+  border-left: 4px solid #007bff;
+}
+
+/* Notification animation */
+@keyframes notificationPulse {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+  100% { transform: scale(1); }
+}
+
+.notification-new {
+  animation: notificationPulse 2s ease-in-out;
+}
+
 /* FIU Responsive Design */
 @media (max-width: 768px) {
   .jumbotron {

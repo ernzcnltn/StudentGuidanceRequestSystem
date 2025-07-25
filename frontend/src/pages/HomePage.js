@@ -4,7 +4,7 @@ import { apiService } from '../services/api';
 import { useTranslation } from '../hooks/useTranslation'; // YENİ EKLENEN
 
 const HomePage = () => {
-  const { t } = useTranslation(); // YENİ EKLENEN
+  const { t, translateRequestType } = useTranslation();
   const [stats, setStats] = useState(null);
   const [requestTypes, setRequestTypes] = useState({});
   const [loading, setLoading] = useState(true);
@@ -47,14 +47,14 @@ const HomePage = () => {
     <div>
       {/* Hero Section */}
       <div className="jumbotron bg-primary text-white p-5 rounded mb-4">
-        <h1 className="display-4">{t('welcome')} {t('systemTitle')}</h1>
-        <p className="lead">
-          {t('studentPortal')} - Submit and track your guidance requests easily through our online system.
-        </p>
-        <Link className="btn btn-light btn-lg" to="/create-request">
-          {t('createRequest')}
-        </Link>
-      </div>
+  <h1 className="display-4">{t('welcome')} {t('systemTitle')}</h1>
+  <p className="lead">
+    {t('studentPortal')} - {t('submitAndTrack')}
+  </p>
+  <Link className="btn btn-light btn-lg" to="/create-request">
+    {t('createRequest')}
+  </Link>
+</div>
 
       {/* Statistics */}
       {stats && (
@@ -95,9 +95,9 @@ const HomePage = () => {
       )}
 
       {/* Request Categories */}
-      <div className="row">
+   <div className="row">
         <div className="col-md-8">
-          <h3>{t('requestType')} Categories</h3>
+          <h3>{t('requestType')} {t('categories')}</h3>
           <div className="row">
             {Object.keys(requestTypes).map((category) => (
               <div key={category} className="col-md-6 mb-3">
@@ -109,51 +109,51 @@ const HomePage = () => {
                     <ul className="list-unstyled">
                       {requestTypes[category].slice(0, 3).map((type) => (
                         <li key={type.type_id} className="mb-1">
-                          • {type.type_name}
+                          • {translateRequestType(type.type_name)} {/* BURADA ÇEVİRİ */}
                         </li>
                       ))}
                       {requestTypes[category].length > 3 && (
                         <li className="text-muted">
-                          ... and {requestTypes[category].length - 3} more
-                        </li>
-                      )}
-                    </ul>
-                  </div>
-                </div>
-              </div>
-            ))}
+                          ... {t('andMore')} {requestTypes[category].length - 3} {t('more')}
+                </li>
+              )}
+            </ul>
           </div>
         </div>
+      </div>
+    ))}
+  </div>
+</div>
         
         <div className="col-md-4">
-          <h3>{t('quickActions')}</h3>
-          <div className="list-group">
-            <Link to="/create-request" className="list-group-item list-group-item-action">
-              <h6 className="mb-1">{t('createRequest')}</h6>
-              <p className="mb-1">Submit a new guidance request</p>
-            </Link>
-            <Link to="/requests" className="list-group-item list-group-item-action">
-              <h6 className="mb-1">{t('myRequests')}</h6>
-              <p className="mb-1">Check status of your requests</p>
-            </Link>
-            <a href="http://localhost:5000/api/docs" target="_blank" rel="noopener noreferrer" className="list-group-item list-group-item-action">
-              <h6 className="mb-1">API Documentation</h6>
-              <p className="mb-1">View API documentation</p>
-            </a>
-          </div>
-          
-          <div className="mt-4">
-            <h5>{t('guidelines')}</h5>
-            <div className="alert alert-info">
-              <small>
-                • {t('guideline4')}<br/>
-                • Maximum 300 characters for request content<br/>
-                • Maximum 3 files, 2MB each<br/>
-                • {t('allowedTypes')}
-              </small>
-            </div>
-          </div>
-        </div>
+  <h3>{t('quickActions')}</h3>
+  <div className="list-group">
+    <Link to="/create-request" className="list-group-item list-group-item-action">
+      <h6 className="mb-1">{t('createRequest')}</h6>
+      <p className="mb-1">{t('submitNewRequest')}</p>
+    </Link>
+    <Link to="/requests" className="list-group-item list-group-item-action">
+      <h6 className="mb-1">{t('myRequests')}</h6>
+      <p className="mb-1">{t('checkStatus')}</p>
+    </Link>
+    <a href="http://localhost:5000/api/docs" target="_blank" rel="noopener noreferrer" className="list-group-item list-group-item-action">
+      <h6 className="mb-1">{t('apiDocumentation')}</h6>
+      <p className="mb-1">{t('viewApiDocumentation')}</p>
+    </a>
+  </div>
+  
+  <div className="mt-4">
+    <h5>{t('guidelines')}</h5>
+    <div className="alert alert-info">
+      <small>
+        • {t('everyDayOneRequest')}<br/>
+        • {t('maximumCharacters')}<br/>
+        • {t('maximumFiles')}<br/>
+        • {t('allowedTypes')}
+      </small>
+    </div>
+  </div>
+</div>
       </div>
     </div>
   );

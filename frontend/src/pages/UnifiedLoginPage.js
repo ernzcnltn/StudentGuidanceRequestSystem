@@ -3,12 +3,15 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useAdminAuth } from '../contexts/AdminAuthContext';
 import DarkModeToggle from '../components/DarkModeToggle'; // YENİ EKLENEN
+import { useTranslation } from '../hooks/useTranslation';
+import { useLanguage } from '../contexts/LanguageContext';
 
 const UnifiedLoginPage = () => {
   const navigate = useNavigate();
   const { login: studentLogin } = useAuth();
   const { login: adminLogin } = useAdminAuth();
-  
+  const { t } = useTranslation();
+const { currentLanguage, changeLanguage, languages } = useLanguage();
   const [activeTab, setActiveTab] = useState('student');
   const [studentFormData, setStudentFormData] = useState({
     student_number: '',
@@ -76,6 +79,34 @@ const UnifiedLoginPage = () => {
     setAdminError(null);
   };
 
+  // Language Selector component'ini ekle (component'in dışında):
+const LoginLanguageSelector = () => {
+  const { currentLanguage, changeLanguage, languages } = useLanguage();
+  
+  return (
+    <div className="d-flex justify-content-center gap-2 mb-3">
+      {Object.entries(languages).map(([code, lang]) => (
+        <button
+          key={code}
+          className={`btn btn-sm ${
+            currentLanguage === code ? 'btn-primary' : 'btn-outline-primary'
+          }`}
+          onClick={() => changeLanguage(code)}
+          title={lang.name}
+          style={{ 
+            fontSize: '12px', 
+            padding: '6px 10px',
+            borderRadius: '20px',
+            minWidth: '45px'
+          }}
+        >
+          {lang.flag}
+        </button>
+      ))}
+    </div>
+  );
+};
+
   return (
      <div className="min-vh-100 d-flex align-items-center" 
        style={{ 
@@ -113,6 +144,11 @@ const UnifiedLoginPage = () => {
                   <p className="mb-0 opacity-90">Final International University</p>
                 </div>
 
+                {/* Language Selector - BURAYI EKLEYİN */}
+<div className="px-4 pt-3">
+  <LoginLanguageSelector />
+</div>
+
                 {/* Tab Navigation */}
                 <div className="p-4 pb-0">
                   <ul className="nav nav-tabs nav-justified border-0">
@@ -126,7 +162,7 @@ const UnifiedLoginPage = () => {
                           borderRadius: '8px'
                         }}
                       >
-                         Student Login
+                         {t('studentLogin', 'Student Login')}
                       </button>
                     </li>
                     <li className="nav-item">
@@ -139,7 +175,7 @@ const UnifiedLoginPage = () => {
                           borderRadius: '8px'
                         }}
                       >
-                         Admin Login
+                        {t('adminLogin', 'Admin Login')}
                       </button>
                     </li>
                   </ul>
@@ -150,9 +186,9 @@ const UnifiedLoginPage = () => {
                   {activeTab === 'student' ? (
                     <div>
                       <div className="text-center mb-4">
-                        <h4 className="text-primary">Student Portal</h4>
-                        <p className="text-muted">Submit and track your guidance requests</p>
-                      </div>
+  <h4 className="text-primary">{t('studentPortal')}</h4>
+  <p className="text-muted">{t('submitAndTrack')}</p>
+</div>
 
                       {studentError && (
                         <div className="alert alert-danger" role="alert">
@@ -162,9 +198,9 @@ const UnifiedLoginPage = () => {
 
                       <form onSubmit={handleStudentSubmit}>
                         <div className="mb-3">
-                          <label htmlFor="student_number" className="form-label fw-semibold">
-                            Student Number
-                          </label>
+                         <label htmlFor="student_number" className="form-label fw-semibold">
+                {t('studentNumber')}
+                </label>
                           <input
                             type="text"
                             className="form-control form-control-lg"
@@ -172,7 +208,7 @@ const UnifiedLoginPage = () => {
                             name="student_number"
                             value={studentFormData.student_number}
                             onChange={handleStudentChange}
-                            placeholder="Enter your student number"
+                            placeholder={t('enterYourStudentNumber', 'Enter your student number')}
                             style={{ borderRadius: '8px' }}
                             required
                           />
@@ -180,8 +216,8 @@ const UnifiedLoginPage = () => {
 
                         <div className="mb-4">
                           <label htmlFor="student_password" className="form-label fw-semibold">
-                            Password
-                          </label>
+                       {t('password')}
+                      </label>
                           <input
                             type="password"
                             className="form-control form-control-lg"
@@ -189,7 +225,7 @@ const UnifiedLoginPage = () => {
                             name="password"
                             value={studentFormData.password}
                             onChange={handleStudentChange}
-                            placeholder="Enter your password"
+                             placeholder={t('enterYourPassword', 'Enter your password')}
                             style={{ borderRadius: '8px' }}
                             required
                           />
@@ -197,35 +233,35 @@ const UnifiedLoginPage = () => {
 
                         <div className="d-grid">
                           <button
-                            type="submit"
-                            className="btn btn-primary btn-lg"
-                            style={{ borderRadius: '8px' }}
-                            disabled={studentLoading}
-                          >
-                            {studentLoading ? (
-                              <>
-                                <span className="spinner-border spinner-border-sm me-2" role="status"></span>
-                                Signing In...
-                              </>
-                            ) : (
-                              ' Sign In as Student'
-                            )}
-                          </button>
+  type="submit"
+  className="btn btn-primary btn-lg"
+  style={{ borderRadius: '8px' }}
+  disabled={studentLoading}
+>
+  {studentLoading ? (
+    <>
+      <span className="spinner-border spinner-border-sm me-2" role="status"></span>
+      {t('signingIn')}...
+    </>
+  ) : (
+      t('signin') + ' ' + t('asStudent', 'as Student')
+  )}
+</button>
                         </div>
                       </form>
 
                       <hr className="my-4" />
 
                       <div className="text-center">
-                        <p className="text-muted mb-2">Don't have an account?</p>
-                        <button 
-                          className="btn btn-outline-primary"
-                          style={{ borderRadius: '8px' }}
-                          onClick={() => navigate('/register')}
-                        >
-                          Create Student Account
-                        </button>
-                      </div>
+  <p className="text-muted mb-2">{t('dontHaveAccount')}</p>
+  <button 
+    className="btn btn-outline-primary"
+    style={{ borderRadius: '8px' }}
+    onClick={() => navigate('/register')}
+  >
+    {t('createAccount')}
+  </button>
+</div>
 
                       <div className="mt-4">
                         <div className="card bg-light border-0" style={{ borderRadius: '8px' }}>
@@ -241,10 +277,10 @@ const UnifiedLoginPage = () => {
                     </div>
                   ) : (
                     <div>
-                      <div className="text-center mb-4">
-                        <h4 className="text-primary">Admin Portal</h4>
-                        <p className="text-muted">Department administrator access</p>
-                      </div>
+                    <div className="text-center mb-4">
+  <h4 className="text-primary">{t('adminPortal')}</h4>
+  <p className="text-muted">{t('departmentAdministratorAccess', 'Department administrator access')}</p>
+</div>
 
                       {adminError && (
                         <div className="alert alert-danger" role="alert">
@@ -264,7 +300,7 @@ const UnifiedLoginPage = () => {
                             name="username"
                             value={adminFormData.username}
                             onChange={handleAdminChange}
-                            placeholder="Enter your username"
+                             placeholder={t('enterYourUsername', 'Enter your username')}
                             style={{ borderRadius: '8px' }}
                             required
                           />
@@ -281,7 +317,7 @@ const UnifiedLoginPage = () => {
                             name="password"
                             value={adminFormData.password}
                             onChange={handleAdminChange}
-                            placeholder="Enter your password"
+                           placeholder={t('enterYourPassword', 'Enter your password')}
                             style={{ borderRadius: '8px' }}
                             required
                           />

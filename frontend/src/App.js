@@ -276,37 +276,37 @@ const MainApp = () => {
         </Routes>
       </main>
 
-      {/* Footer with FIU Logo */}
-      <footer className="bg-light mt-5 py-4">
-        <div className="container text-center">
-          <div className="d-flex justify-content-center align-items-center mb-3">
-            <FIULogo size="md" className="me-3" />
-            <div>
-              <p className="text-muted mb-1">
-                <strong>{t('systemSubtitle')}</strong>
-              </p>
-              <small className="text-muted">
-                Student Guidance Request System &copy; 2025
-              </small>
-            </div>
-          </div>
-          <small className="text-muted">
-            Powered by FIU Information Technology Department
-          </small>
-        </div>
-      </footer>
+     {/* Footer with FIU Logo */}
+<footer className="bg-light mt-5 py-4">
+  <div className="container text-center">
+    <div className="d-flex justify-content-center align-items-center mb-3">
+      <FIULogo size="md" className="me-3" />
+      <div>
+        <p className="text-muted mb-1">
+          <strong>{t('systemSubtitle')}</strong>
+        </p>
+        <small className="text-muted">
+          {t('studentGuidanceRequestSystem')} &copy; 2025
+        </small>
+      </div>
+    </div>
+    <small className="text-muted">
+      {t('poweredBy')} FIU {t('informationTechnologyDepartment')}
+    </small>
+  </div>
+</footer>
 
       {/* Site İçi Logout Onay Modalı */}
-      <ConfirmationModal
-        show={showLogoutModal}
-        title="FIU Guidance System"
-        message="Are you sure you want to log out?"
-        confirmText="Ok"
-        cancelText="Cancel"
-        type="warning"
-        onConfirm={handleLogoutConfirm}
-        onCancel={handleLogoutCancel}
-      />
+<ConfirmationModal
+  show={showLogoutModal}
+  title="FIU Guidance System"
+  message={t('areYouSureLogout')}
+  confirmText={t('logout')}
+  cancelText={t('cancel')}
+  type="warning"
+  onConfirm={handleLogoutConfirm}
+  onCancel={handleLogoutCancel}
+/>
 
       {/* Dark Mode Toggle */}
       <DarkModeToggle />

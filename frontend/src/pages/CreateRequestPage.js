@@ -9,7 +9,7 @@ const CreateRequestPage = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { showSuccess, showError, showWarning, showInfo } = useToast();
-  const { t } = useTranslation(); // YENİ EKLENEN
+  const { t, translateRequestType } = useTranslation();
   
   const [requestTypes, setRequestTypes] = useState({});
   const [formData, setFormData] = useState({
@@ -92,30 +92,31 @@ const CreateRequestPage = () => {
       const maxSize = 2 * 1024 * 1024; // 2MB
       
       if (!validTypes.includes(file.type)) {
-        errors.push(`${file.name}: Invalid file type`);
-        return;
-      }
+  errors.push(`${file.name}: ${t('invalidFileType')}`);
+  return;
+}
+
       
-      if (file.size > maxSize) {
-        errors.push(`${file.name}: File too large (max 2MB)`);
-        return;
-      }
+     if (file.size > maxSize) {
+  errors.push(`${file.name}: ${t('fileTooLarge')}`);
+  return;
+}
       
       validFiles.push(file);
     });
     
-    if (errors.length > 0) {
-      showError(`File validation failed: ${errors.join(', ')}`);
-      e.target.value = '';
-      return;
-    }
+   if (errors.length > 0) {
+  showError(`${t('fileValidationFailed')}: ${errors.join(', ')}`);
+  e.target.value = '';
+  return;
+}
     
     setFiles(validFiles);
     setError(null);
     
-    if (validFiles.length > 0) {
-      showSuccess(`${validFiles.length} file(s) selected successfully`);
-    }
+  if (validFiles.length > 0) {
+  showSuccess(`${validFiles.length} ${t('fileSelectedSuccessfully')}`);
+}
   };
 
   const removeFile = (index) => {
@@ -136,15 +137,15 @@ const CreateRequestPage = () => {
     
     // Double submit engelle
     if (submitting) {
-      showWarning('Request is already being submitted. Please wait...');
-      return;
-    }
+  showWarning(t('requestAlreadyBeingSubmitted'));
+  return;
+}
 
     // Required document kontrolü
     if (selectedType?.is_document_required && files.length === 0) {
-      showError('This request type requires document upload. Please select files.');
-      return;
-    }
+  showError(t('thisRequestTypeRequires'));
+  return;
+}
 
     // File size kontrolü
     const oversizedFiles = files.filter(file => file.size > 2 * 1024 * 1024);
@@ -159,13 +160,13 @@ const CreateRequestPage = () => {
     setSuccess(null);
 
     try {
-      showInfo('Creating your request...');
+      showInfo(t('creatingYourRequest'));
       
       const response = await apiService.createRequest(formData);
       const requestId = response.data.data.request_id;
       
       if (files.length > 0) {
-        showInfo('Uploading files...');
+         showInfo(t('uploadingFiles'));
         
         const fileFormData = new FormData();
         files.forEach(file => {
@@ -174,12 +175,12 @@ const CreateRequestPage = () => {
         
         try {
           await apiService.uploadFiles(requestId, fileFormData);
-          showSuccess(`✅ Request #${requestId} created successfully with ${files.length} file(s)!`);
+          showSuccess(`✅ ${t('requestCreatedSuccessfully')} #${requestId} ${t('requestCreatedWithFiles')} ${files.length} ${t('files')}!`);
         } catch (uploadError) {
-          showError('Files could not be uploaded. Request created without attachments.');
+           showError(t('filesCouldNotBeUploaded'));
         }
       } else {
-        showSuccess(`✅ Request #${requestId} created successfully!`);
+        showSuccess(`✅ ${t('requestCreatedSuccessfully')} #${requestId}!`);
       }
       
       // Form'u temizle
@@ -197,8 +198,8 @@ const CreateRequestPage = () => {
       }, 2000);
       
     } catch (error) {
-      const errorMessage = error.response?.data?.error || 'Failed to create request';
-      showError(`❌ ${errorMessage}`);
+      const errorMessage = error.response?.data?.error || t('requestFailed');
+showError(`❌ ${errorMessage}`);
       setError(errorMessage);
     } finally {
       setLoading(false);
@@ -230,23 +231,23 @@ const CreateRequestPage = () => {
             <form onSubmit={handleSubmit}>
               {/* Request Type Selection */}
               <div className="mb-3">
-                <label htmlFor="requestType" className="form-label">
-                  <strong>{t('requestType')}</strong>
-                </label>
-                <select
-                  id="requestType"
-                  className="form-select"
-                  value={formData.type_id}
-                  onChange={(e) => handleTypeChange(e.target.value)}
-                  required
-                >
-                  <option value="">{t('pleaseSelect')}</option>
-                  {Object.keys(requestTypes).map((category) => (
-                    <optgroup key={category} label={category}>
-                      {requestTypes[category].map((type) => (
-                        <option key={type.type_id} value={type.type_id}>
-                          {type.type_name}
-                        </option>
+          <label htmlFor="requestType" className="form-label">
+            <strong>{t('requestType')}</strong>
+          </label>
+          <select
+            id="requestType"
+            className="form-select"
+            value={formData.type_id}
+            onChange={(e) => handleTypeChange(e.target.value)}
+            required
+          >
+            <option value="">{t('pleaseSelect')}</option>
+            {Object.keys(requestTypes).map((category) => (
+              <optgroup key={category} label={t(category.toLowerCase().replace(/\s+/g, ''))}>
+                {requestTypes[category].map((type) => (
+                  <option key={type.type_id} value={type.type_id}>
+                    {translateRequestType(type.type_name)} {/* BURADA ÇEVİRİ */}
+                  </option>
                       ))}
                     </optgroup>
                   ))}
@@ -255,61 +256,61 @@ const CreateRequestPage = () => {
 
               {/* Type Detail */}
               {selectedType && (
-                <div className="mb-3">
-                  <label className="form-label">
-                    <strong>Type Detail</strong>
-                  </label>
-                  <div className="alert alert-info">
-                    {selectedType.description_en || 'No description available'}
-                    {selectedType.is_document_required && (
-                      <div className="mt-2">
-                        <strong className="text-warning">
-                          ⚠️ Document upload is required for this request type.
-                        </strong>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
+  <div className="mb-3">
+    <label className="form-label">
+      <strong>{t('typeDetail')}</strong>
+    </label>
+    <div className="alert alert-info">
+      {selectedType.description_en || t('noDescriptionAvailable')}
+      {selectedType.is_document_required && (
+        <div className="mt-2">
+          <strong className="text-warning">
+            ⚠️ {t('documentUploadRequired')}
+          </strong>
+        </div>
+      )}
+    </div>
+  </div>
+)}
 
               {/* Priority Selection */}
-              <div className="mb-3">
-                <label htmlFor="priority" className="form-label">
-                  <strong>Priority Level</strong>
-                </label>
-                <select
-                  id="priority"
-                  className="form-select"
-                  value={formData.priority}
-                  onChange={handlePriorityChange}
-                  required
-                >
-                  <option value="Low">🔵 {t('low')} - Non-urgent request</option>
-                  <option value="Medium">🟡 {t('medium')} - Standard request</option>
-                  <option value="High">🟠 {t('high')} - Important request</option>
-                  <option value="Urgent">🔴 {t('urgent')} - Requires immediate attention</option>
-                </select>
-                <div className="form-text">
-                  Select the priority level for your request. Higher priority requests will be processed first.
-                </div>
-              </div>
+             <div className="mb-3">
+  <label htmlFor="priority" className="form-label">
+    <strong>{t('priorityLevel')}</strong>
+  </label>
+  <select
+    id="priority"
+    className="form-select"
+    value={formData.priority}
+    onChange={handlePriorityChange}
+    required
+  >
+    <option value="Low">🔵 {t('low')} - {t('nonUrgentRequest')}</option>
+    <option value="Medium">🟡 {t('medium')} - {t('standardRequest')}</option>
+    <option value="High">🟠 {t('high')} - {t('importantRequest')}</option>
+    <option value="Urgent">🔴 {t('urgent')} - {t('requiresImmediateAttention')}</option>
+  </select>
+  <div className="form-text">
+    {t('selectPriorityLevel')}
+  </div>
+</div>
 
               {/* Content */}
               <div className="mb-3">
                 <label htmlFor="content" className="form-label">
-                  <strong>{t('content')}</strong>
-                  <br />
-                  <small>Remaining characters: <span className={remainingChars < 50 ? 'text-warning' : 'text-muted'}>{remainingChars}</span></small>
-                </label>
-                <textarea
-                  id="content"
-                  className="form-control"
-                  rows="4"
-                  value={formData.content}
-                  onChange={handleContentChange}
-                  placeholder="Please describe your request in detail..."
-                  required
-                />
+  <strong>{t('content')}</strong>
+  <br />
+  <small>{t('remainingCharacters')}: <span className={remainingChars < 50 ? 'text-warning' : 'text-muted'}>{remainingChars}</span></small>
+</label>
+<textarea
+  id="content"
+  className="form-control"
+  rows="4"
+  value={formData.content}
+  onChange={handleContentChange}
+  placeholder={t('pleaseDescribe')}
+  required
+/>
               </div>
 
               {/* File Upload Section */}
@@ -333,11 +334,11 @@ const CreateRequestPage = () => {
                         disabled={loading || submitting}
                       />
                       <div className="form-text">
-                        <strong>Allowed:</strong> JPEG, JPG, PNG, PDF, DOC, DOCX, CSV<br/>
-                        <strong>{t('maxFileSize')}</strong> | <strong>Maximum files:</strong> 3
-                        {selectedType.is_document_required && (
+                        <strong>{t('allowed')}:</strong> JPEG, JPG, PNG, PDF, DOC, DOCX, CSV<br/>
+  <strong>{t('maxFileSize')}</strong> | <strong>{t('maximumFiles')}:</strong> 3
+  {selectedType.is_document_required && (
                           <span className="text-warning d-block">
-                            <strong>⚠️ Document upload is required for this request type.</strong>
+                             <strong>⚠️ {t('documentUploadRequired')}</strong>
                           </span>
                         )}
                       </div>
@@ -345,7 +346,7 @@ const CreateRequestPage = () => {
 
                     {files.length > 0 && (
                       <div>
-                        <strong>Selected Files:</strong>
+                       <strong>{t('selectedFiles')}:</strong>
                         {files.map((file, index) => (
                           <div key={index} className="d-flex justify-content-between align-items-center border rounded p-2 mb-2 bg-white">
                             <div>
@@ -375,57 +376,57 @@ const CreateRequestPage = () => {
                   <li>{t('guideline1')}</li>
                   <li>{t('guideline2')}</li>
                   <li>{t('guideline4')}</li>
-                  <li>Maximum content length is 300 characters.</li>
-                  <li>Higher priority requests will be processed first by administrators.</li>
+                  <li>{t('Maximum content length is 300 characters.')}</li>
+                  
                 </ul>
               </div>
 
               {/* Submit Button */}
               <div className="d-grid gap-2">
                 <button
-                  type="submit"
-                  className="btn btn-primary btn-lg"
-                  disabled={
-                    loading || 
-                    submitting ||
-                    !formData.type_id || 
-                    !formData.content.trim() ||
-                    (selectedType?.is_document_required && files.length === 0)
-                  }
-                >
-                  {submitting ? (
-                    <>
-                      <span className="spinner-border spinner-border-sm me-2" role="status"></span>
-                      {files.length > 0 ? 'Creating & Uploading...' : t('loading') + '...'}
-                    </>
-                  ) : (
-                    <>
-                      ✉️ {t('submitRequest')}
-                      {files.length > 0 && ` (${files.length} file${files.length > 1 ? 's' : ''})`}
-                    </>
-                  )}
-                </button>
+  type="submit"
+  className="btn btn-primary btn-lg"
+  disabled={
+    loading || 
+    submitting ||
+    !formData.type_id || 
+    !formData.content.trim() ||
+    (selectedType?.is_document_required && files.length === 0)
+  }
+>
+  {submitting ? (
+    <>
+      <span className="spinner-border spinner-border-sm me-2" role="status"></span>
+      {files.length > 0 ? t('creatingAndUploading') : t('loading') + '...'}
+    </>
+  ) : (
+    <>
+      ✉️ {t('submitRequest')}
+      {files.length > 0 && ` (${files.length} ${files.length > 1 ? t('files') : t('file')})`}
+    </>
+  )}
+</button>
               </div>
             </form>
           </div>
         </div>
 
         {/* Guidelines */}
-        <div className="mt-4">
-          <h5>{t('guidelines')}</h5>
-          <div className="card">
-            <div className="card-body">
-              <h6>Before submitting your request:</h6>
-              <ul>
-                <li>Check if your issue can be resolved by contacting your supervisor directly</li>
-                <li>Make sure you have selected the correct request type and priority level</li>
-                <li>Provide clear and detailed information about your request</li>
-                <li>If document upload is required, prepare your files (max 3 files, 2MB each)</li>
-                <li>Higher priority requests (High/Urgent) should only be used for truly important matters</li>
-              </ul>
-            </div>
-          </div>
-        </div>
+       <div className="mt-4">
+  <h5>{t('guidelines')}</h5>
+  <div className="card">
+    <div className="card-body">
+      <h6>{t('beforeSubmitting')}:</h6>
+      <ul>
+        <li>{t('checkIfResolvable')}</li>
+        <li>{t('ensureCorrectType')}</li>
+        <li>{t('provideDetail')}</li>
+        <li>{t('prepareFiles')}</li>
+        <li>{t('useHighPriority')}</li>
+      </ul>
+    </div>
+  </div>
+</div>
       </div>
     </div>
   );

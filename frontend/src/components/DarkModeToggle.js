@@ -1,14 +1,18 @@
+// DarkModeToggle.js içinde:
+
 import React from 'react';
 import { useTheme } from '../contexts/ThemeContext';
+import { useTranslation } from '../hooks/useTranslation'; // BUNU EKLEYİN
 
 const DarkModeToggle = () => {
   const { isDark, toggleTheme } = useTheme();
+  const { t } = useTranslation(); // BUNU EKLEYİN
 
   return (
     <button
       className={`btn theme-toggle ${isDark ? 'btn-light' : 'btn-dark'}`}
       onClick={toggleTheme}
-      title={isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+      title={isDark ? t('switchToLightMode') : t('switchToDarkMode')}
       style={{
         position: 'fixed',
         bottom: '20px',

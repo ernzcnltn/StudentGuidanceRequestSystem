@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { apiService } from '../services/api';
 import { useToast } from '../contexts/ToastContext';
+import { useTranslation } from '../hooks/useTranslation';
 
 const AdminResponseModal = ({ requestId, requestTitle, onClose, onResponseAdded }) => {
   const [responses, setResponses] = useState([]);
@@ -8,6 +9,8 @@ const AdminResponseModal = ({ requestId, requestTitle, onClose, onResponseAdded 
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const { showSuccess, showError } = useToast();
+const { t, translateRequestType } = useTranslation(); // BUNU EKLEYİN
+
 
   useEffect(() => {
     fetchResponses();
@@ -80,31 +83,31 @@ const AdminResponseModal = ({ requestId, requestTitle, onClose, onResponseAdded 
       >
         <div className="modal-dialog modal-lg modal-dialog-scrollable">
           <div className="modal-content">
-            <div className="modal-header">
-              <h5 className="modal-title">
-                💬 Response to: {requestTitle}
-              </h5>
-              <button 
-                type="button" 
-                className="btn-close" 
-                onClick={onClose}
-              ></button>
-            </div>
+           <div className="modal-header">
+  <h5 className="modal-title">
+    💬 {t('responseTo')}: {requestTitle}
+  </h5>
+  <button 
+    type="button" 
+    className="btn-close" 
+    onClick={onClose}
+  ></button>
+</div>
             
             <div className="modal-body">
               {/* Previous Responses */}
-              <div className="mb-4">
-                <h6>Previous Responses ({responses.length})</h6>
-                {loading ? (
-                  <div className="text-center py-3">
-                    <div className="spinner-border spinner-border-sm" role="status"></div>
-                    <span className="ms-2">Loading responses...</span>
-                  </div>
-                ) : responses.length === 0 ? (
-                  <div className="alert alert-info">
-                    <small>No previous responses for this request.</small>
-                  </div>
-                ) : (
+         <div className="mb-4">
+  <h6>{t('previousResponses')} ({responses.length})</h6>
+  {loading ? (
+    <div className="text-center py-3">
+      <div className="spinner-border spinner-border-sm" role="status"></div>
+      <span className="ms-2">{t('loadingResponses')}</span>
+    </div>
+  ) : responses.length === 0 ? (
+    <div className="alert alert-info">
+      <small>{t('noPreviousResponses')}</small>
+    </div>
+  ) : (
                   <div style={{ maxHeight: '300px', overflowY: 'auto' }}>
                     {responses.map((response) => (
                       <div key={response.response_id} className="card mb-2">
@@ -127,45 +130,45 @@ const AdminResponseModal = ({ requestId, requestTitle, onClose, onResponseAdded 
 
               {/* New Response Form */}
               <div>
-                <h6>Add New Response</h6>
-                <form onSubmit={handleSubmitResponse}>
-                  <div className="mb-3">
-                    <textarea
-                      className="form-control"
-                      rows="4"
-                      value={newResponse}
-                      onChange={(e) => setNewResponse(e.target.value)}
-                      placeholder="Enter your response to the student..."
-                      disabled={submitting}
-                      required
-                    />
-                    <div className="form-text">
-                      This response will be visible to the student and will mark the request as "Informed".
-                    </div>
-                  </div>
-                  
-                  <div className="d-flex gap-2">
-                    <button
-                      type="submit"
-                      className="btn btn-primary"
-                      disabled={submitting || !newResponse.trim()}
-                    >
-                      {submitting ? (
-                        <>
-                          <span className="spinner-border spinner-border-sm me-2" role="status"></span>
-                          Sending...
-                        </>
-                      ) : (
-                        '📤 Send Response'
-                      )}
-                    </button>
-                    <button
-                      type="button"
-                      className="btn btn-outline-secondary"
-                      onClick={() => setNewResponse('')}
-                      disabled={submitting}
-                    >
-                      Refresh
+  <h6>{t('addNewResponse')}</h6>
+  <form onSubmit={handleSubmitResponse}>
+    <div className="mb-3">
+      <textarea
+        className="form-control"
+        rows="4"
+        value={newResponse}
+        onChange={(e) => setNewResponse(e.target.value)}
+        placeholder={t('enterResponsePlaceholder', 'Enter your response to the student...')}
+        disabled={submitting}
+        required
+      />
+      <div className="form-text">
+        {t('responseVisibilityNote', 'This response will be visible to the student and will mark the request as "Informed".')}
+      </div>
+    </div>
+    
+    <div className="d-flex gap-2">
+      <button
+        type="submit"
+        className="btn btn-primary"
+        disabled={submitting || !newResponse.trim()}
+      >
+        {submitting ? (
+          <>
+            <span className="spinner-border spinner-border-sm me-2" role="status"></span>
+            {t('sending')}...
+          </>
+        ) : (
+          '📤 ' + t('sendResponse')
+        )}
+      </button>
+      <button
+        type="button"
+        className="btn btn-outline-secondary"
+        onClick={() => setNewResponse('')}
+        disabled={submitting}
+      >
+        {t('refresh')}
                     </button>
                   </div>
                 </form>
@@ -178,7 +181,7 @@ const AdminResponseModal = ({ requestId, requestTitle, onClose, onResponseAdded 
                 className="btn btn-secondary" 
                 onClick={onClose}
               >
-                Close
+                {t('close')}
               </button>
             </div>
           </div>

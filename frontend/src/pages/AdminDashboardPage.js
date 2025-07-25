@@ -11,13 +11,14 @@ import FIULogo from '../components/FIULogo';
 import ConfirmationModal from '../components/ConfirmationModal';
 import 'bootstrap/dist/js/bootstrap.bundle.min.js';
 
+
 const AdminDashboardPage = () => {
   const [selectedRequestForResponse, setSelectedRequestForResponse] = useState(null);
   const [showResponseModal, setShowResponseModal] = useState(false);
   const { admin, logout, department } = useAdminAuth();
   const { isDark, toggleTheme } = useTheme();
   const { currentLanguage, changeLanguage, languages } = useLanguage();
-  const { t } = useTranslation();
+  const { t, translateRequestType } = useTranslation();
   const [activeTab, setActiveTab] = useState('dashboard');
   const [dashboardData, setDashboardData] = useState(null);
   const [requests, setRequests] = useState([]);
@@ -163,6 +164,69 @@ const AdminDashboardPage = () => {
     }
   };
 
+
+// BU useEffect'İ EKLEYİN:
+useEffect(() => {
+  // Listen for notification clicks
+  const handleNotificationNavigation = (event) => {
+    const { requestId } = event.detail;
+    
+    // Switch to requests tab
+    setActiveTab('requests');
+    
+    // Clear any existing filters to show all requests
+    setFilters({ status: '' });
+    
+    // After a short delay, scroll to the specific request
+    setTimeout(() => {
+      const requestElement = document.getElementById(`request-${requestId}`);
+      if (requestElement) {
+        requestElement.scrollIntoView({ 
+          behavior: 'smooth', 
+          block: 'center' 
+        });
+        // Highlight the request briefly
+        requestElement.style.backgroundColor = '#fff3cd';
+        setTimeout(() => {
+          requestElement.style.backgroundColor = '';
+        }, 3000);
+      }
+    }, 500);
+  };
+
+  window.addEventListener('switchToRequestsTab', handleNotificationNavigation);
+  
+  return () => {
+    window.removeEventListener('switchToRequestsTab', handleNotificationNavigation);
+  };
+}, []);
+
+
+const handleNotificationClick = (requestId, type) => {
+  // Switch to requests tab and highlight specific request
+  setActiveTab('requests');
+  setFilters({ status: '' });
+  
+  // Scroll to request after tab switch
+  setTimeout(() => {
+    const requestElement = document.getElementById(`request-${requestId}`);
+    if (requestElement) {
+      requestElement.scrollIntoView({ 
+        behavior: 'smooth', 
+        block: 'center' 
+      });
+      // Highlight effect
+      requestElement.style.backgroundColor = '#fff3cd';
+      setTimeout(() => {
+        requestElement.style.backgroundColor = '';
+      }, 3000);
+    }
+  }, 300);
+};
+
+ 
+
+
   const handleAddRequestType = async (e) => {
     e.preventDefault();
     try {
@@ -219,6 +283,11 @@ const AdminDashboardPage = () => {
     return icons[priority] || '🟡';
   };
 
+
+
+
+
+
   const getDepartmentIcon = (dept) => {
     const icons = {
       'Accounting': '',
@@ -230,6 +299,9 @@ const AdminDashboardPage = () => {
     return icons[dept] || '';
   };
 
+
+  
+
   const renderDashboard = () => (
     <div>
       <div className="d-flex justify-content-between align-items-center mb-4">
@@ -240,10 +312,10 @@ const AdminDashboardPage = () => {
       </div>
       
       {loading ? (
-        <div className="text-center">
-          <div className="spinner-border" role="status"></div>
-          <p>{t('loading')} dashboard...</p>
-        </div>
+  <div className="text-center">
+    <div className="spinner-border" role="status"></div>
+    <p>{t('loading')} dashboard...</p>
+  </div>
       ) : dashboardData && dashboardData.totals ? (
         <div>
           <div className="row mb-4">
@@ -253,16 +325,16 @@ const AdminDashboardPage = () => {
                   <h5>{t('requesttype')} Statistics</h5>
                 </div>
                 <div className="card-body">
-                  {dashboardData.type_stats && dashboardData.type_stats.length > 0 ? (
-                    dashboardData.type_stats.map((stat) => (
-                      <div key={stat.type_name} className="d-flex justify-content-between align-items-center mb-2 p-2 border rounded">
-                        <span><strong>{stat.type_name}</strong></span>
-                        <span className="badge bg-primary">{stat.count || 0}</span>
-                      </div>
-                    ))
-                  ) : (
-                    <p className="text-muted">No request type data available</p>
-                  )}
+                 {dashboardData.type_stats && dashboardData.type_stats.length > 0 ? (
+  dashboardData.type_stats.map((stat) => (
+    <div key={stat.type_name} className="d-flex justify-content-between align-items-center mb-2 p-2 border rounded">
+      <span><strong>{translateRequestType(stat.type_name)}</strong></span>
+      <span className="badge bg-primary">{stat.count || 0}</span>
+    </div>
+  ))
+) : (
+  <p className="text-muted">{t('noRequestTypeData')}</p>
+)}
                 </div>
               </div>
             </div>
@@ -310,10 +382,10 @@ const AdminDashboardPage = () => {
         </div>
       ) : (
         <div className="alert alert-danger">
-          <h5>Failed to load dashboard data</h5>
-          <p>Please check your connection and try again.</p>
+          <h5>{t('failedToLoadDashboard')}</h5>
+          <p>{t('pleaseCheckConnection')}</p>
           <button className="btn btn-outline-danger" onClick={fetchDashboardData}>
-            Retry
+            {t('retry')}
           </button>
         </div>
       )}
@@ -331,7 +403,7 @@ const AdminDashboardPage = () => {
             value={filters.status}
             onChange={(e) => setFilters({...filters, status: e.target.value})}
           >
-            <option value="">All Status</option>
+            <option value="">{t('allStatus')}</option>
             <option value="Pending">{t('pending')}</option>
             <option value="Informed">{t('informed')}</option>
             <option value="Completed">{t('completed')}</option>
@@ -364,25 +436,34 @@ const AdminDashboardPage = () => {
       ) : (
         <div className="row">
           {!requests || requests.length === 0 ? (
-            <div className="col-12 text-center py-5">
-              <div className="alert alert-info">
-                <h5>{t('noRequests')}</h5>
-                <p className="mb-0">
-                  {filters.status 
-                    ? `No ${filters.status.toLowerCase()} requests found for ${department} department.` 
-                    : `No requests have been submitted to ${department} department yet.`
-                  }
-                </p>
-              </div>
-            </div>
+  <div className="col-12 text-center py-5">
+    <div className="alert alert-info">
+      <h5>{t('noRequests')}</h5>
+      <p className="mb-0">
+        {filters.status 
+          ? t('noRequestsFoundForStatus', `No ${filters.status.toLowerCase()} requests found for ${department} department.`, {
+              status: filters.status.toLowerCase(),
+              department: department
+            })
+          : t('noRequestsSubmittedYet', `No requests have been submitted to ${department} department yet.`, {
+              department: department
+            })
+        }
+      </p>
+    </div>
+  </div>
           ) : (
             requests.map((request) => (
-              <div key={request.request_id} className="col-12 mb-3">
+              <div 
+                key={request.request_id} 
+                id={`request-${request.request_id}`}
+                className="col-12 mb-3"
+              >
                 <div className="card">
                   <div className="card-header d-flex justify-content-between align-items-center">
                     <div>
                       <h6 className="mb-1">
-                       {request.type_name}
+                      {translateRequestType(request.type_name)} {/* BURADA ÇEVİRİ */}
                       </h6>
                       <small className="text-muted">
                         {request.student_name} ({request.student_number})
@@ -406,7 +487,7 @@ const AdminDashboardPage = () => {
                     
                     <div className="row text-sm mb-3">
                       <div className="col-md-4">
-                        <strong>Student Email:</strong><br/>
+                        <strong>{t('studentEmail')}:</strong><br/>
                         <a href={`mailto:${request.student_email}`}>
                           {request.student_email}
                         </a>
@@ -416,9 +497,9 @@ const AdminDashboardPage = () => {
                         {new Date(request.submitted_at).toLocaleDateString()} {new Date(request.submitted_at).toLocaleTimeString()}
                       </div>
                       <div className="col-md-4">
-                        <strong>Attachments:</strong><br/>
+                        <strong>{t('attachments')}:</strong><br/>
                         <span className={request.attachment_count > 0 ? 'text-success' : 'text-muted'}>
-                          {request.attachment_count || 0} file(s)
+                          {request.attachment_count || 0} {t('files')}
                         </span>
                       </div>
                     </div>
@@ -486,56 +567,54 @@ const AdminDashboardPage = () => {
 
   const renderSettings = () => (
     <div>
-      <div className="d-flex justify-content-between align-items-center mb-4">
-        <div>
-          <h3>⚙️ {t('settings')} - {department} {t('requesttype')}</h3>
-          <p className="text-muted">Enable or disable request types for students</p>
-        </div>
-        
-        <button 
-          className="btn btn-primary"
-          onClick={() => setShowAddForm(!showAddForm)}
-        >
-          ➕ Add New Type
-        </button>
-      </div>
+    <div className="d-flex justify-content-between align-items-center mb-4">
+  <div>
+    <h3>⚙️ {t('settings')} - {department} {t('requestType')}</h3>
+    <p className="text-muted">{t('enableDisableRequestTypes')}</p>
+  </div>
+  
+  <button 
+    className="btn btn-primary"
+    onClick={() => setShowAddForm(!showAddForm)}
+  >
+    ➕ {t('addNewType')}
+  </button>
+</div>
 
       {showAddForm && (
         <div className="card mb-4">
           <div className="card-header">
-            <h6>Add New Request Type for {department}</h6>
+           <h6>{t('addNewTypeFor', 'Add New Type ')} {department}</h6>
           </div>
           <div className="card-body">
             <form onSubmit={handleAddRequestType}>
               <div className="row">
                 <div className="col-md-6">
                   <div className="mb-3">
-                    <label className="form-label">Type Name *</label>
+                    <label className="form-label">{t('typeName')} *</label>
                     <input
                       type="text"
                       className="form-control"
                       value={newTypeData.type_name}
                       onChange={(e) => setNewTypeData({...newTypeData, type_name: e.target.value})}
-                      placeholder="e.g. Grade Appeal Process"
+                      placeholder={t('typeNamePlaceholder')}
                       required
                     />
                   </div>
                 </div>
-                
                 <div className="col-md-6">
                   <div className="mb-3">
-                    <label className="form-label">Description</label>
+                    <label className="form-label">{t('description')}</label>
                     <input
                       type="text"
                       className="form-control"
                       value={newTypeData.description_en}
                       onChange={(e) => setNewTypeData({...newTypeData, description_en: e.target.value})}
-                      placeholder="Brief description of this request type"
+                      placeholder={t('briefDescription')}
                     />
                   </div>
                 </div>
               </div>
-              
               <div className="mb-3">
                 <div className="form-check">
                   <input
@@ -545,14 +624,14 @@ const AdminDashboardPage = () => {
                     onChange={(e) => setNewTypeData({...newTypeData, is_document_required: e.target.checked})}
                   />
                   <label className="form-check-label">
-                    📎 Document upload required for this request type
+                   📎 {t('documentUploadRequiredForType')}
                   </label>
                 </div>
               </div>
-              
               <div className="d-flex gap-2">
                 <button type="submit" className="btn btn-success">
-                  ✅ Add Request Type
+                  ✅ {t('addRequestType')}
+
                 </button>
                 <button 
                   type="button" 
@@ -574,13 +653,17 @@ const AdminDashboardPage = () => {
         </div>
       ) : (
         <div className="row">
-          {requestTypes.length === 0 ? (
-            <div className="col-12">
-              <div className="alert alert-info">
-                <h5>No request types found</h5>
-                <p className="mb-0">No request types available for {department} department.</p>
-              </div>
-            </div>
+         {requestTypes.length === 0 ? (
+  <div className="col-12">
+    <div className="alert alert-info">
+      <h5>{t('noRequestTypes')}</h5>
+      <p className="mb-0">
+        {t('noRequestTypesAvailable', `No request types available for ${department} department.`, {
+          department: department
+        })}
+      </p>
+    </div>
+  </div>
           ) : (
             requestTypes.map((type) => (
               <div key={type.type_id} className="col-md-6 mb-3">
@@ -588,13 +671,13 @@ const AdminDashboardPage = () => {
                   <div className="card-body">
                     <div className="d-flex justify-content-between align-items-start">
                       <div>
-                        <h6 className="card-title">{type.type_name}</h6>
+ <h6 className="card-title">{translateRequestType(type.type_name)}</h6>
                         <p className="card-text text-muted">
-                          {type.description_en || 'No description available'}
+                          {type.description_en || t('noDescriptionAvailable')}
                         </p>
                         {type.is_document_required && (
                           <small className="text-warning">
-                            📎 Document required
+                            📎 {t('documentRequired')}
                           </small>
                         )}
                       </div>
@@ -607,7 +690,7 @@ const AdminDashboardPage = () => {
                             onChange={() => toggleRequestType(type.type_id)}
                           />
                           <label className="form-check-label">
-                            {type.is_disabled ? 'Disabled' : 'Active'}
+                            {type.is_disabled ? t('disabled') : t('active')}
                           </label>
                         </div>
                       </div>
@@ -639,7 +722,7 @@ const AdminDashboardPage = () => {
               <span className="text-muted">{t('welcome')}, <strong>{admin?.name}</strong></span>
               
               {/* Admin Notification Center */}
-              <AdminNotificationCenter />
+             <AdminNotificationCenter onNotificationClick={handleNotificationClick} />
               
               {/* Admin Language Selector */}
               <AdminLanguageSelector />
@@ -658,29 +741,29 @@ const AdminDashboardPage = () => {
       {/* Navigation Tabs */}
       <ul className="nav nav-tabs mb-4">
         <li className="nav-item">
-          <button
-            className={`nav-link ${activeTab === 'dashboard' ? 'active' : ''}`}
-            onClick={() => setActiveTab('dashboard')}
-          >
-            📊 {t('dashboard')}
-          </button>
-        </li>
-        <li className="nav-item">
-          <button
-            className={`nav-link ${activeTab === 'requests' ? 'active' : ''}`}
-            onClick={() => setActiveTab('requests')}
-          >
-            📋 {t('manageRequests')}
-          </button>
-        </li>
-        <li className="nav-item">
-          <button
-            className={`nav-link ${activeTab === 'settings' ? 'active' : ''}`}
-            onClick={() => setActiveTab('settings')}
-          >
-            ⚙️ {t('settings')}
-          </button>
-        </li>
+  <button
+    className={`nav-link ${activeTab === 'dashboard' ? 'active' : ''}`}
+    onClick={() => setActiveTab('dashboard')}
+  >
+    📊 {t('dashboard')}
+  </button>
+</li>
+<li className="nav-item">
+  <button
+    className={`nav-link ${activeTab === 'requests' ? 'active' : ''}`}
+    onClick={() => setActiveTab('requests')}
+  >
+    📋 {t('manageRequests')}
+  </button>
+</li>
+<li className="nav-item">
+  <button
+    className={`nav-link ${activeTab === 'settings' ? 'active' : ''}`}
+    onClick={() => setActiveTab('settings')}
+  >
+    ⚙️ {t('settings')}
+  </button>
+</li>
       </ul>
 
       {/* Tab Content */}
@@ -718,9 +801,9 @@ const AdminDashboardPage = () => {
       <ConfirmationModal
         show={showLogoutModal}
         title="FIU Admin Panel"
-        message="Are you sure you want to log out of admin?"
-        confirmText="OK"
-        cancelText="CANCEL"
+        message={t('areYouSureLogoutAdmin')}
+        confirmText={t('ok')}
+        cancelText={t('cancel')}
         type="warning"
         onConfirm={handleLogoutConfirm}
         onCancel={handleLogoutCancel}
@@ -746,7 +829,7 @@ const AdminDashboardPage = () => {
             boxShadow: '0 4px 12px rgba(0, 0, 0, 0.3)',
             transition: 'all 0.3s ease'
           }}
-          title={isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+          title={isDark ? t('switchToLightMode') : t('switchToDarkMode')}
           onMouseEnter={(e) => e.target.style.transform = 'scale(1.1)'}
           onMouseLeave={(e) => e.target.style.transform = 'scale(1)'}
         >

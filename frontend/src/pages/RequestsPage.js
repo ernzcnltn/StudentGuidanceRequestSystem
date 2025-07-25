@@ -7,7 +7,7 @@ import AttachmentViewer from '../components/AttachmentViewer';
 
 const RequestsPage = () => {
   const { user } = useAuth();
-  const { t } = useTranslation(); // YENİ EKLENEN
+ const { t, translateRequestType } = useTranslation();
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -164,34 +164,31 @@ const RequestsPage = () => {
         >
           <div className="modal-dialog modal-lg modal-dialog-scrollable">
             <div className="modal-content">
-              <div className="modal-header">
-                <h5 className="modal-title">
-                  💬 Responses for: {requestTitle}
-                </h5>
-                <button 
-                  type="button" 
-                  className="btn-close" 
-                  onClick={onClose}
-                ></button>
-              </div>
               
-              <div className="modal-body">
-                {loading ? (
-                  <div className="text-center py-4">
-                    <div className="spinner-border text-primary" role="status"></div>
-                    <p className="mt-3">{t('loading')}...</p>
-                  </div>
-                ) : responses.length === 0 ? (
-                  <div className="text-center py-5">
-                    <div className="text-muted">
-                      <div style={{ fontSize: '4rem' }}>💬</div>
-                      <h5 className="mt-3">No Responses Yet</h5>
-                      <p>The admin hasn't responded to this request yet.</p>
-                    </div>
-                  </div>
-                ) : (
-                  <div>
-                    <h6 className="mb-3">Admin Responses ({responses.length})</h6>
+                 <div className="modal-header">
+        <h5 className="modal-title">
+          💬 {t('responsesFor')}: {requestTitle}
+        </h5>
+        <button type="button" className="btn-close" onClick={onClose}></button>
+      </div>
+      
+      <div className="modal-body">
+        {loading ? (
+          <div className="text-center py-4">
+            <div className="spinner-border text-primary" role="status"></div>
+            <p className="mt-3">{t('loadingResponses')}</p>
+          </div>
+        ) : responses.length === 0 ? (
+          <div className="text-center py-5">
+            <div className="text-muted">
+              <div style={{ fontSize: '4rem' }}>💬</div>
+              <h5 className="mt-3">{t('noResponsesYet')}</h5>
+              <p>{t('adminHasntResponded')}</p>
+            </div>
+          </div>
+        ) : (
+          <div>
+            <h6 className="mb-3">{t('adminResponses')} ({responses.length})</h6>
                     {responses.map((response, index) => (
                       <div key={response.response_id} className="card mb-3">
                         <div className="card-body">
@@ -199,7 +196,7 @@ const RequestsPage = () => {
                             <div className="d-flex align-items-center">
                               <span className="badge bg-primary me-2">#{index + 1}</span>
                               <strong className="text-primary">
-                                👨‍💼 {response.created_by_admin}
+                                 {response.created_by_admin}
                               </strong>
                             </div>
                             <small className="text-muted">
@@ -218,15 +215,11 @@ const RequestsPage = () => {
               </div>
               
               <div className="modal-footer">
-                <div className="text-muted small me-auto">
-                  {responses.length} response(s) found
-                </div>
-                <button 
-                  type="button" 
-                  className="btn btn-secondary" 
-                  onClick={onClose}
-                >
-                  Close
+        <div className="text-muted small me-auto">
+          {responses.length} {t('responsesFound')}
+        </div>
+        <button type="button" className="btn btn-secondary" onClick={onClose}>
+          {t('close')}
                 </button>
               </div>
             </div>
@@ -264,15 +257,15 @@ const RequestsPage = () => {
     <div>
       {/* Header */}
       <div className="d-flex justify-content-between align-items-center mb-4">
-        <div>
-          <h2 className="mb-1">{t('myRequests')}</h2>
-          <p className="text-muted mb-0">Track and manage your guidance requests</p>
-        </div>
-        <Link to="/create-request" className="btn btn-primary">
-          <i className="bi bi-plus-circle me-2"></i>
-          {t('createRequest')}
-        </Link>
-      </div>
+  <div>
+    <h2 className="mb-1">{t('myRequests')}</h2>
+    <p className="text-muted mb-0">{t('trackAndManage')}</p>
+  </div>
+  <Link to="/create-request" className="btn btn-primary">
+    <i className="bi bi-plus-circle me-2"></i>
+    {t('createRequest')}
+  </Link>
+</div>
 
       {/* Stats */}
       <div className="row mb-4">
@@ -313,13 +306,13 @@ const RequestsPage = () => {
       {/* Filters */}
       <div className="mb-4">
         <div className="btn-group" role="group">
-          <button
-            type="button"
-            className={`btn ${filter === 'all' ? 'btn-primary' : 'btn-outline-primary'}`}
-            onClick={() => setFilter('all')}
-          >
-            All ({requests.length})
-          </button>
+         <button
+  type="button"
+  className={`btn ${filter === 'all' ? 'btn-primary' : 'btn-outline-primary'}`}
+  onClick={() => setFilter('all')}
+>
+  {t('viewAll')} ({requests.length})
+</button>
           <button
             type="button"
             className={`btn ${filter === 'Pending' ? 'btn-warning' : 'btn-outline-warning'}`}
@@ -345,25 +338,25 @@ const RequestsPage = () => {
       </div>
 
       {/* Requests List */}
-      {filteredRequests.length === 0 ? (
-        <div className="text-center py-5">
-          <div className="mb-4">
-            <i className="bi bi-inbox display-1 text-muted"></i>
-          </div>
-          <h4 className="text-muted">
-            {filter === 'all' ? t('noRequests') : `No ${filter.toLowerCase()} requests found`}
-          </h4>
-          <p className="text-muted mb-4">
-            {filter === 'all' 
-              ? "You haven't submitted any requests yet." 
-              : `You don't have any ${filter.toLowerCase()} requests.`
-            }
-          </p>
-          <Link to="/create-request" className="btn btn-primary">
-            Create Your First Request
-          </Link>
-        </div>
-      ) : (
+  {filteredRequests.length === 0 ? (
+  <div className="text-center py-5">
+    <div className="mb-4">
+      <i className="bi bi-inbox display-1 text-muted"></i>
+    </div>
+    <h4 className="text-muted">
+      {filter === 'all' ? t('noRequests') : `${t('noRequestsFound')} (${t(filter.toLowerCase())})`}
+    </h4>
+    <p className="text-muted mb-4">
+      {filter === 'all' 
+        ? t('noRequestsYet')
+        : `You don't have any ${t(filter.toLowerCase())} requests.`
+      }
+    </p>
+    <Link to="/create-request" className="btn btn-primary">
+      {t('createFirstRequest')}
+    </Link>
+  </div>
+) : (
         <div className="row">
           {filteredRequests.map((request) => {
             const isExpanded = expandedRequests.has(request.request_id);
@@ -377,7 +370,7 @@ const RequestsPage = () => {
                     <div>
                       <h6 className="mb-1">
                         <span className="me-2">{getStatusIcon(request.status)}</span>
-                        {request.type_name}
+                          {translateRequestType(request.type_name)} {/* BURADA ÇEVİRİ */}
                       </h6>
                       
                     </div>
@@ -437,64 +430,64 @@ const RequestsPage = () => {
 
                     {/* Expanded Information */}
                     {isExpanded && (
-                      <div className="mt-4 pt-3 border-top">
-                        <div className="row">
-                          <div className="col-md-6">
-                            <h6>Timeline</h6>
-                            <div className="timeline">
-                              <div className="timeline-item">
-                                <span className="badge bg-primary">Created</span>
-                                <span className="ms-2">{submittedDate.date} at {submittedDate.time}</span>
-                              </div>
-                              {request.updated_at !== request.submitted_at && (
-                                <div className="timeline-item mt-2">
-                                  <span className="badge bg-info">{t('updated')}</span>
-                                  <span className="ms-2">{updatedDate.date} at {updatedDate.time}</span>
-                                </div>
-                              )}
-                              {request.resolved_at && (
-                                <div className="timeline-item mt-2">
-                                  <span className="badge bg-success">{t('resolved')}</span>
-                                  <span className="ms-2">{formatDate(request.resolved_at).date} at {formatDate(request.resolved_at).time}</span>
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                          
-                          <div className="col-md-6">
-                            <h6>Actions</h6>
-                            <div className="d-flex gap-2 flex-wrap">
-                              {request.attachment_count > 0 && (
-                                <button 
-                                  className="btn btn-sm btn-outline-primary"
-                                  onClick={() => {
-                                    setSelectedRequestId(request.request_id);
-                                    setShowAttachments(true);
-                                  }}
-                                >
-                                  📎 {t('viewFiles')} ({request.attachment_count})
-                                </button>
-                              )}
-                              
-                              {(request.status === 'Informed' || request.status === 'Completed') && (
-                                <button 
-                                  className="btn btn-sm btn-outline-info"
-                                  onClick={() => {
-                                    setSelectedRequestForResponses({
-                                      id: request.request_id,
-                                      title: `#${request.request_id} - ${request.type_name}`
-                                    });
-                                    setShowResponsesModal(true);
-                                  }}
-                                >
-                                  💬 {t('viewResponse')}
-                                </button>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    )}
+  <div className="mt-4 pt-3 border-top">
+    <div className="row">
+      <div className="col-md-6">
+        <h6>{t('timeline')}</h6>
+        <div className="timeline">
+          <div className="timeline-item">
+            <span className="badge bg-primary">{t('created')}</span>
+            <span className="ms-2">{submittedDate.date} at {submittedDate.time}</span>
+          </div>
+          {request.updated_at !== request.submitted_at && (
+            <div className="timeline-item mt-2">
+              <span className="badge bg-info">{t('updated')}</span>
+              <span className="ms-2">{updatedDate.date} at {updatedDate.time}</span>
+            </div>
+          )}
+          {request.resolved_at && (
+            <div className="timeline-item mt-2">
+              <span className="badge bg-success">{t('resolved')}</span>
+              <span className="ms-2">{formatDate(request.resolved_at).date} at {formatDate(request.resolved_at).time}</span>
+            </div>
+          )}
+        </div>
+      </div>
+      
+      <div className="col-md-6">
+        <h6>{t('actions')}</h6>
+        <div className="d-flex gap-2 flex-wrap">
+          {request.attachment_count > 0 && (
+            <button 
+              className="btn btn-sm btn-outline-primary"
+              onClick={() => {
+                setSelectedRequestId(request.request_id);
+                setShowAttachments(true);
+              }}
+            >
+              📎 {t('viewFiles')} ({request.attachment_count})
+            </button>
+          )}
+          
+          {(request.status === 'Informed' || request.status === 'Completed') && (
+            <button 
+              className="btn btn-sm btn-outline-info"
+              onClick={() => {
+                setSelectedRequestForResponses({
+                  id: request.request_id,
+                  title: `#${request.request_id} - ${request.type_name}`
+                });
+                setShowResponsesModal(true);
+              }}
+            >
+              💬 {t('viewResponse')}
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  </div>
+)}
                   </div>
                 </div>
               </div>
@@ -505,31 +498,31 @@ const RequestsPage = () => {
 
       {/* Help Section */}
       <div className="mt-5 pt-4 border-top">
-        <div className="row">
-          <div className="col-md-6">
-            <h5>Need Help?</h5>
-            <p className="text-muted">
-              If you have questions about your requests or need assistance, please contact the guidance office.
-            </p>
-          </div>
-          <div className="col-md-6">
-            <h5>Request Status Guide</h5>
-            <ul className="list-unstyled">
-              <li><span className="badge bg-warning text-dark me-2">{t('pending')}</span> Your request is being reviewed</li>
-              <li><span className="badge bg-info me-2">{t('informed')}</span> Response provided, may need follow-up</li>
-              <li><span className="badge bg-success me-2">{t('completed')}</span> Request fully resolved</li>
-            </ul>
-            
-            <h5 className="mt-3">Priority Guide</h5>
-            <ul className="list-unstyled">
-              <li><span className="badge bg-secondary me-2">🔵 {t('low')}</span> Non-urgent requests</li>
-              <li><span className="badge bg-info me-2">🟡 {t('medium')}</span> Standard requests</li>
-              <li><span className="badge bg-warning text-dark me-2">🟠 {t('high')}</span> Important requests</li>
-              <li><span className="badge bg-danger me-2">🔴 {t('urgent')}</span> Immediate attention required</li>
-            </ul>
-          </div>
-        </div>
-      </div>
+  <div className="row">
+    <div className="col-md-6">
+      <h5>{t('needHelp')}</h5>
+      <p className="text-muted">
+        {t('needHelpDesc')}
+      </p>
+    </div>
+    <div className="col-md-6">
+      <h5>{t('requestStatusGuide')}</h5>
+      <ul className="list-unstyled">
+        <li><span className="badge bg-warning text-dark me-2">{t('pending')}</span> {t('yourRequestBeingReviewed')}</li>
+        <li><span className="badge bg-info me-2">{t('informed')}</span> {t('responseProvided')}</li>
+        <li><span className="badge bg-success me-2">{t('completed')}</span> {t('requestFullyResolved')}</li>
+      </ul>
+      
+      <h5 className="mt-3">{t('priorityGuide')}</h5>
+      <ul className="list-unstyled">
+        <li><span className="badge bg-secondary me-2">🔵 {t('low')}</span> {t('nonUrgentRequests')}</li>
+        <li><span className="badge bg-info me-2">🟡 {t('medium')}</span> {t('standardRequests')}</li>
+        <li><span className="badge bg-warning text-dark me-2">🟠 {t('high')}</span> {t('importantRequests')}</li>
+        <li><span className="badge bg-danger me-2">🔴 {t('urgent')}</span> {t('immediateAttention')}</li>
+      </ul>
+    </div>
+  </div>
+</div>
 
       {/* Attachment Viewer Modal */}
       {showAttachments && selectedRequestId && (

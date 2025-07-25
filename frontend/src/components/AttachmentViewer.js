@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { apiService } from '../services/api';
 import { useToast } from '../contexts/ToastContext';
+import { useTranslation } from '../hooks/useTranslation';
 
 const AttachmentViewer = ({ requestId, onClose }) => {
   const [attachments, setAttachments] = useState([]);
@@ -10,6 +11,9 @@ const AttachmentViewer = ({ requestId, onClose }) => {
   const [previewFile, setPreviewFile] = useState(null);
   const [previewLoading, setPreviewLoading] = useState(false);
   const { showSuccess, showError } = useToast();
+
+  const { t } = useTranslation();
+
 
   const fetchAttachments = useCallback(async () => {
     try {
@@ -129,7 +133,7 @@ const AttachmentViewer = ({ requestId, onClose }) => {
           left: 0,
           width: '100%',
           height: '100%',
-          backgroundColor: 'rgba(0,0,0,0.8)',
+          backgroundColor: 'rgba(0,0,0,0.3)',
           zIndex: 1060,
           display: 'flex',
           alignItems: 'center',
@@ -143,6 +147,7 @@ const AttachmentViewer = ({ requestId, onClose }) => {
             maxWidth: '90vw',
             maxHeight: '90vh',
             overflow: 'auto'
+            
           }}
           onClick={(e) => e.stopPropagation()}
         >
@@ -182,19 +187,19 @@ const AttachmentViewer = ({ requestId, onClose }) => {
             )}
             
             {!type.includes('image') && !type.includes('pdf') && (
-              <div className="alert alert-info">
-                <h6>Preview Not Available</h6>
-                <p>This file type cannot be previewed. Please download to view.</p>
-                <button 
-                  className="btn btn-primary btn-sm"
-                  onClick={() => {
-                    const link = document.createElement('a');
-                    link.href = url;
-                    link.download = name;
-                    link.click();
-                  }}
-                >
-                  📥 Download File
+  <div className="alert alert-info">
+    <h6>Preview Not Available</h6>
+    <p>This file type cannot be previewed. Please download to view.</p>
+    <button 
+      className="btn btn-primary btn-sm"
+      onClick={() => {
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = name;
+        link.click();
+      }}
+    >
+      📥 Download File
                 </button>
               </div>
             )}
@@ -246,38 +251,38 @@ const AttachmentViewer = ({ requestId, onClose }) => {
         >
           <div className="modal-content">
             <div className="modal-header">
-              <h5 className="modal-title">
-                📎 Request Attachments
-              </h5>
-              <button 
-                type="button" 
-                className="btn-close" 
-                onClick={onClose}
-                aria-label="Close"
-              ></button>
-            </div>
+    <h5 className="modal-title">
+      📎 {t('attachments')}
+    </h5>
+    <button 
+      type="button" 
+      className="btn-close" 
+      onClick={onClose}
+      aria-label={t('close')}
+    ></button>
+  </div>
             
             <div className="modal-body">
               {loading ? (
-                <div className="text-center py-4">
-                  <div className="spinner-border text-primary" role="status">
-                    <span className="visually-hidden">Loading...</span>
-                  </div>
-                  <p className="mt-3">Loading attachments...</p>
-                </div>
-              ) : error ? (
-                <div className="alert alert-danger">
-                  <h6>Error Loading Attachments</h6>
-                  <p className="mb-0">{error}</p>
-                </div>
-              ) : attachments.length === 0 ? (
-                <div className="text-center py-5">
-                  <div className="text-muted">
-                    <div style={{ fontSize: '4rem' }}>📂</div>
-                    <h5 className="mt-3">No Attachments</h5>
-                    <p>This request has no attached files.</p>
-                  </div>
-                </div>
+    <div className="text-center py-4">
+      <div className="spinner-border text-primary" role="status">
+        <span className="visually-hidden">{t('loading')}</span>
+      </div>
+      <p className="mt-3">{t('loadingAttachments')}</p>
+    </div>
+  ) : error ? (
+    <div className="alert alert-danger">
+      <h6>{t('failedToLoadAttachments')}</h6>
+      <p className="mb-0">{error}</p>
+    </div>
+  ) : attachments.length === 0 ? (
+    <div className="text-center py-5">
+      <div className="text-muted">
+        <div style={{ fontSize: '4rem' }}>📂</div>
+        <h5 className="mt-3">{t('noAttachments')}</h5>
+        <p>{t('thisRequestHasNoFiles')}</p>
+      </div>
+    </div>
               ) : (
                 <div className="row">
                   {attachments.map((attachment) => (
@@ -298,47 +303,48 @@ const AttachmentViewer = ({ requestId, onClose }) => {
                                 }
                               </h6>
                               <div className="small text-muted mb-3">
-                                <div><strong>Size:</strong> {formatFileSize(attachment.file_size)}</div>
-                                <div><strong>Type:</strong> {attachment.file_type}</div>
-                                <div><strong>Uploaded:</strong> {new Date(attachment.uploaded_at).toLocaleDateString()}</div>
-                              </div>
+    <div><strong>{t('size')}:</strong> {formatFileSize(attachment.file_size)}</div>
+    <div><strong>{t('type')}:</strong> {attachment.file_type}</div>
+    <div><strong>{t('uploaded')}:</strong> {new Date(attachment.uploaded_at).toLocaleDateString()}</div>
+  </div>
                               
                               <div className="d-flex gap-2 flex-wrap">
                                 {canPreview(attachment.file_type) && (
-                                  <button
-                                    className="btn btn-outline-primary btn-sm"
-                                    onClick={() => previewFileHandler(attachment.file_path, attachment.file_type, attachment.file_name)}
-                                    disabled={previewLoading}
-                                  >
-                                    {previewLoading ? (
-                                      <>
-                                        <span className="spinner-border spinner-border-sm me-1" role="status"></span>
-                                        Loading...
-                                      </>
-                                    ) : (
-                                      <>
-                                        👁️ Preview
-                                      </>
-                                    )}
-                                  </button>
-                                )}
-                                
-                                <button
-                                  className="btn btn-primary btn-sm"
-                                  onClick={() => downloadFile(attachment.file_path, attachment.file_name)}
-                                  disabled={downloading === attachment.file_path}
-                                >
-                                  {downloading === attachment.file_path ? (
-                                    <>
-                                      <span className="spinner-border spinner-border-sm me-1" role="status"></span>
-                                      Downloading...
-                                    </>
-                                  ) : (
-                                    <>
-                                      📥 Download
-                                    </>
-                                  )}
-                                </button>
+    <button
+      className="btn btn-outline-primary btn-sm"
+      onClick={() => previewFileHandler(attachment.file_path, attachment.file_type, attachment.file_name)}
+      disabled={previewLoading}
+    >
+      {previewLoading ? (
+        <>
+          <span className="spinner-border spinner-border-sm me-1" role="status"></span>
+          {t('loading')}...
+        </>
+      ) : (
+        <>
+          👁️ {t('preview')}
+        </>
+      )}
+    </button>
+  )}
+
+  <button
+    className="btn btn-primary btn-sm"
+    onClick={() => downloadFile(attachment.file_path, attachment.file_name)}
+    disabled={downloading === attachment.file_path}
+  >
+    {downloading === attachment.file_path ? (
+      <>
+        <span className="spinner-border spinner-border-sm me-1" role="status"></span>
+        {t('downloading')}...
+      </>
+    ) : (
+      <>
+        📥 {t('download')}
+      </>
+    )}
+  </button>
+
                               </div>
                             </div>
                           </div>
@@ -351,17 +357,17 @@ const AttachmentViewer = ({ requestId, onClose }) => {
             </div>
             
             <div className="modal-footer">
-              <div className="text-muted small me-auto">
-                {attachments.length} file(s) found
-              </div>
-              <button 
-                type="button" 
-                className="btn btn-secondary" 
-                onClick={onClose}
-              >
-                Close
-              </button>
-            </div>
+    <div className="text-muted small me-auto">
+      {attachments.length} {t('attachmentsFound')}
+    </div>
+    <button 
+      type="button" 
+      className="btn btn-secondary" 
+      onClick={onClose}
+    >
+      {t('close')}
+    </button>
+  </div>
           </div>
         </div>
       </div>
