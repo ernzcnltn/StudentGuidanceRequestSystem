@@ -23,7 +23,7 @@
   background-color: #b91c1c !important;
   border-color: #b91c1c !important;
 }
-
+ 
 .btn-outline-primary {
   color: var(--fiu-primary) !important;
   border-color: var(--fiu-primary) !important;
@@ -38,7 +38,7 @@
 /* FIU Navbar - Kırmızı Temalı */
 .navbar-dark.bg-primary {
   background: linear-gradient(135deg, var(--fiu-primary) 0%, #b91c1c 100%) !important;
-  border-bottom: 3px solid var(--fiu-secondary);
+
 }
 
 .navbar-brand {
@@ -69,28 +69,13 @@
 
 /* FIU Hero Section - Kırmızı Gradient */
 .jumbotron {
-  background: linear-gradient(135deg, var(--fiu-primary) 0%, var(--fiu-secondary) 100%);
+  background: linear-gradient(135deg, #b91c1c 0%, #dc2626 100%);
   border-radius: 16px;
   padding: 4rem 2rem;
   position: relative;
   overflow: hidden;
 }
 
-.jumbotron::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="50" cy="50" r="2" fill="white" opacity="0.1"/></svg>');
-  background-size: 50px 50px;
-}
-
-.jumbotron * {
-  position: relative;
-  z-index: 1;
-}
 
 /* FIU Status Badges */
 .badge.bg-warning {
@@ -115,7 +100,7 @@
 }
 
 .card.bg-info {
-  background: linear-gradient(135deg, var(--fiu-accent) 0%, #0284c7 100%) !important;
+  background: linear-gradient(135deg, var(--fiu-accent) 0%, #c70202 100%) !important;
 }
 
 .card.bg-warning {

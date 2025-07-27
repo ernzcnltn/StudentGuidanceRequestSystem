@@ -347,14 +347,9 @@ const RequestsPage = () => {
       {filter === 'all' ? t('noRequests') : `${t('noRequestsFound')} (${t(filter.toLowerCase())})`}
     </h4>
     <p className="text-muted mb-4">
-      {filter === 'all' 
-        ? t('noRequestsYet')
-        : `You don't have any ${t(filter.toLowerCase())} requests.`
-      }
+      
     </p>
-    <Link to="/create-request" className="btn btn-primary">
-      {t('createFirstRequest')}
-    </Link>
+    
   </div>
 ) : (
         <div className="row">

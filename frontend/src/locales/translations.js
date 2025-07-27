@@ -3,7 +3,32 @@ export const translations = {
   tr: {
 
 
-    responseTo: 'Yanıt:',
+
+aiChat: {
+  title: 'AI Asistan',
+  welcome: 'Merhaba {name}! Ben AI asistanınızım. Size rehberlik taleplerini hızlıca oluşturmanızda yardımcı olabilirim. Sorununuzu anlatın!',
+  placeholder: 'Sorununuzu yazın...',
+  suggestions: 'Hızlı öneriler:',
+  detected: '{type_name} için {category} departmanına yardım ihtiyacınız var gibi görünüyor.',
+  notSure: 'Tam olarak emin değilim, ama bunlar uyuyor olabilir:',
+  noMatch: 'Talebinizin tam türünü belirleyemedim. Tüm talep türlerine göz atmak veya farklı şekilde anlatmak ister misiniz?',
+  error: 'Üzgünüm, talebinizi işlerken sorun yaşıyorum. Lütfen tekrar deneyin.',
+  requestCreated: 'Harika! {priority} öncelikli #{requestId} numaralı talebinizi oluşturdum.',
+  createError: 'Üzgünüm, talebi oluşturamadım. Lütfen tekrar deneyin.',
+  createRequest: 'Talep Oluştur',
+  tryDifferent: 'Farklı Dene',
+  tryAgain: 'Baştan başlayalım. Size nasıl yardımcı olabilirim?',
+  browseAll: 'Tüm Talep Türlerine Göz At',
+  viewRequest: 'Talebinizi Görüntüleyin',
+  optionSelected: '"{type_name}" seçtiniz. Bu talebi oluşturmak ister misiniz?',
+  openAssistant: 'AI Asistanı Aç',
+  minimize: 'Küçült',
+  maximize: 'Büyüt',
+  close: 'Kapat'
+},
+
+
+ responseTo: 'Yanıt:',
 previousResponses: 'Önceki Yanıtlar',
 noPreviousResponses: 'Bu talep için önceki yanıt yok.',
 addNewResponse: 'Yeni Yanıt Ekle',
@@ -390,6 +415,35 @@ adminLogin: 'Admin Girişi',
   },
 
   en: {
+
+aiChat: {
+  title: 'AI Assistant',
+  welcome: 'Hi {name}! I\'m your AI assistant. I can help you create guidance requests quickly. Just describe your issue!',
+  placeholder: 'Describe your issue...',
+  suggestions: 'Quick suggestions:',
+  detected: 'I understand! It seems you need help with "{type_name}" in the {category} department.',
+  notSure: 'I\'m not completely sure, but here are some options that might match:',
+  noMatch: 'I couldn\'t determine the exact type of your request. Would you like to browse all request types or try describing it differently?',
+  error: 'Sorry, I\'m having trouble processing your request. Please try again.',
+  requestCreated: 'Great! I\'ve created your {priority} priority request #{requestId}.',
+  createError: 'Sorry, I couldn\'t create the request. Please try again.',
+  createRequest: 'Create Request',
+  tryDifferent: 'Try Different',
+  tryAgain: 'Let\'s start over. How can I help you?',
+  browseAll: 'Browse All Request Types',
+  viewRequest: 'View Your Request',
+  optionSelected: 'You selected "{type_name}". Would you like to create this request?',
+  openAssistant: 'Open AI Assistant',
+  minimize: 'Minimize',
+  maximize: 'Maximize',
+  close: 'Close'
+},
+
+
+
+
+
+
     responseTo: 'Response To:',
 previousResponses: 'Previous Responses',
 noPreviousResponses: 'No previous responses for this request.',
@@ -773,6 +827,34 @@ sendResponse: 'Send Response',
   },
 ar: {
 
+  aiChat: {
+    title: 'مساعد الذكاء الاصطناعي',
+    welcome: 'مرحبًا {name}! أنا مساعدك الذكي. يمكنني مساعدتك في إنشاء طلبات الإرشاد بسرعة. فقط صف مشكلتك!',
+    placeholder: 'صف مشكلتك...',
+    suggestions: 'اقتراحات سريعة:',
+    detected: 'أفهم! يبدو أنك بحاجة إلى مساعدة في "{type_name}" في قسم {category}.',
+ 
+   notSure: 'لست متأكدًا تمامًا، لكن إليك بعض الخيارات التي قد تتطابق:',
+    noMatch: 'لم أتمكن من تحديد نوع طلبك بالضبط. هل ترغب في تصفح جميع أنواع الطلبات أو محاولة وصفها بشكل مختلف؟',
+    error: 'عذرًا، أواجه مشكلة في معالجة طلبك. يرجى المحاولة مرة أخرى.',
+    requestCreated: 'رائع! لقد أنشأت طلبك ذي الأولوية {priority} بنجاح #{requestId}.',
+    createError: 'عذرًا، لم أتمكن من إنشاء الطلب. يرجى المحاولة مرة أخرى.',
+    createRequest: 'إنشاء طلب',
+    tryDifferent: 'جرب مختلف',
+    tryAgain: 'لنبدأ من جديد. كيف يمكنني مساعدتك؟',
+    browseAll: 'تصفح جميع أنواع الطلبات',
+    viewRequest: 'عرض طلبك',
+    optionSelected: 'لقد اخترت "{type_name}". هل ترغب في إنشاء هذا الطلب؟',
+    openAssistant: 'فتح مساعد الذكاء الاصطناعي',
+    minimize: 'تصغير',
+    maximize: 'تكبير',
+    close: 'إغلاق'
+  },
+
+
+
+
+
   responseTo: 'الرد على:',
   previousResponses: 'الردود السابقة',
   noPreviousResponses: 'لا توجد ردود سابقة لهذا الطلب.',
@@ -1125,7 +1207,32 @@ ar: {
 
 ru: {
 
-  responseTo: 'Ответ на:',
+ 
+  aiChat: {
+    title: 'AI Помощник',
+    welcome: 'Привет, {name}! Я твой AI помощник. Я могу помочь тебе быстро создать запрос на консультацию. Просто опиши свою проблему!',
+    placeholder: 'Опиши свою проблему...',
+    suggestions: 'Быстрые предложения:',
+    detected: 'Понял! Похоже, тебе нужна помощь по теме "{type_name}" в департаменте {category}.',
+    notSure: 'Я не совсем уверен, но вот несколько подходящих вариантов:',
+    noMatch: 'Не удалось определить точный тип запроса. Хочешь просмотреть все типы запросов или попробовать описать по-другому?',
+    error: 'Извините, возникла проблема при обработке вашего запроса. Пожалуйста, попробуйте снова.',
+    requestCreated: 'Отлично! Я создал твой запрос с приоритетом {priority}, номер запроса: #{requestId}.',
+    createError: 'Извините, не удалось создать запрос. Пожалуйста, попробуйте снова.',
+    createRequest: 'Создать запрос',
+    tryDifferent: 'Попробовать другое',
+    tryAgain: 'Начнем сначала. Чем могу помочь?',
+    browseAll: 'Просмотреть все типы запросов',
+    viewRequest: 'Посмотреть твой запрос',
+    optionSelected: 'Вы выбрали "{type_name}". Хотите создать этот запрос?',
+    openAssistant: 'Открыть AI помощника',
+    minimize: 'Свернуть',
+    maximize: 'Развернуть',
+    close: 'Закрыть'
+  },
+
+  
+ responseTo: 'Ответ на:',
   previousResponses: 'Предыдущие ответы',
   noPreviousResponses: 'Нет предыдущих ответов на этот запрос.',
   addNewResponse: 'Добавить новый ответ',
@@ -1475,6 +1582,31 @@ requestTypes: {
 
 },
 fr: {
+
+aiChat: {
+    title: 'Assistant IA',
+    welcome: 'Salut {name} ! Je suis ton assistant IA. Je peux t’aider à créer rapidement une demande d’assistance. Décris simplement ton problème !',
+    placeholder: 'Décris ton problème...',
+    suggestions: 'Suggestions rapides :',
+    detected: 'Je comprends ! Il semble que tu as besoin d’aide pour "{type_name}" dans le département {category}.',
+    notSure: 'Je ne suis pas totalement sûr, mais voici quelques options possibles :',
+    noMatch: 'Je n’ai pas pu déterminer exactement le type de ta demande. Souhaites-tu consulter tous les types de demandes ou reformuler ta description ?',
+    error: 'Désolé, j’ai rencontré un problème lors du traitement de ta demande. Veuillez réessayer.',
+    requestCreated: 'Parfait ! J’ai créé ta demande de priorité {priority}, numéro de demande : #{requestId}.',
+    createError: 'Désolé, je n’ai pas pu créer la demande. Veuillez réessayer.',
+    createRequest: 'Créer une demande',
+    tryDifferent: 'Essayer autre chose',
+    tryAgain: 'Recommençons. Comment puis-je t’aider ?',
+    browseAll: 'Voir tous les types de demandes',
+    viewRequest: 'Voir ta demande',
+    optionSelected: 'Tu as sélectionné "{type_name}". Souhaites-tu créer cette demande ?',
+    openAssistant: 'Ouvrir l’assistant IA',
+    minimize: 'Réduire',
+    maximize: 'Agrandir',
+    close: 'Fermer'
+  },
+
+
 
   responseTo: 'Réponse à :',
   previousResponses: 'Réponses précédentes',

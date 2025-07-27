@@ -229,6 +229,22 @@ showError(`❌ ${errorMessage}`);
         <div className="card">
           <div className="card-body">
             <form onSubmit={handleSubmit}>
+
+
+            
+              {/* Important Notes */}
+              <div className="alert alert-warning">
+                <h6>{t('guidelines')}:</h6>
+                <ul className="mb-0">
+                  <li>{t('guideline1')}</li>
+                  <li>{t('guideline2')}</li>
+                  <li>{t('guideline4')}</li>
+                 
+                  
+                </ul>
+              </div>
+
+
               {/* Request Type Selection */}
               <div className="mb-3">
           <label htmlFor="requestType" className="form-label">
@@ -311,7 +327,10 @@ showError(`❌ ${errorMessage}`);
   placeholder={t('pleaseDescribe')}
   required
 />
-              </div>
+ </div>
+
+
+
 
               {/* File Upload Section */}
               {selectedType && (
@@ -369,17 +388,23 @@ showError(`❌ ${errorMessage}`);
                 </div>
               )}
 
-              {/* Important Notes */}
-              <div className="alert alert-warning">
-                <h6>{t('guidelines')}:</h6>
-                <ul className="mb-0">
-                  <li>{t('guideline1')}</li>
-                  <li>{t('guideline2')}</li>
-                  <li>{t('guideline4')}</li>
-                  <li>{t('Maximum content length is 300 characters.')}</li>
-                  
-                </ul>
-              </div>
+
+                 {/* Guidelines */}
+       <div className="mt-4">
+  <h5>{t('guidelines')}</h5>
+  <div className="card">
+    <div className="alert alert-warning">
+      <h6>{t('beforeSubmitting')}:</h6>
+      <ul>
+        <li>{t('checkIfResolvable')}</li>
+        <li>{t('ensureCorrectType')}</li>
+        <li>{t('provideDetail')}</li>
+        <li>{t('prepareFiles')}</li>
+        <li>{t('useHighPriority')}</li>
+      </ul>
+    </div>
+  </div>
+</div>
 
               {/* Submit Button */}
               <div className="d-grid gap-2">
@@ -410,23 +435,6 @@ showError(`❌ ${errorMessage}`);
             </form>
           </div>
         </div>
-
-        {/* Guidelines */}
-       <div className="mt-4">
-  <h5>{t('guidelines')}</h5>
-  <div className="card">
-    <div className="card-body">
-      <h6>{t('beforeSubmitting')}:</h6>
-      <ul>
-        <li>{t('checkIfResolvable')}</li>
-        <li>{t('ensureCorrectType')}</li>
-        <li>{t('provideDetail')}</li>
-        <li>{t('prepareFiles')}</li>
-        <li>{t('useHighPriority')}</li>
-      </ul>
-    </div>
-  </div>
-</div>
       </div>
     </div>
   );

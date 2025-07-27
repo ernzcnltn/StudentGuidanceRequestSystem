@@ -1,0 +1,9 @@
+{"timestamp":"2025-07-27T12:57:57.875Z","method":"GET","url":"/api/test","ip":"::1","userAgent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36"}
+{"timestamp":"2025-07-27T12:58:17.457Z","method":"GET","url":"/api/test","ip":"::1","userAgent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36"}
+{"timestamp":"2025-07-27T12:58:45.811Z","method":"GET","url":"/api/test","ip":"::1","userAgent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36"}
+{"timestamp":"2025-07-27T12:58:52.164Z","method":"GET","url":"/api/test","ip":"::1","userAgent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36"}
+{"timestamp":"2025-07-27T12:59:05.656Z","method":"GET","url":"/api/test","ip":"::1","userAgent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36"}
+{"timestamp":"2025-07-27T12:59:06.384Z","method":"GET","url":"/api/test","ip":"::1","userAgent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36"}
+{"timestamp":"2025-07-27T13:01:36.664Z","method":"POST","url":"/api/admin-auth/login","ip":"::1","userAgent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36","body":{"username":"academic_admin","password":"admin123"}}
+{"timestamp":"2025-07-27T13:01:37.495Z","method":"GET","url":"/api/test","ip":"::1","userAgent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36"}
+{"timestamp":"2025-07-27T13:01:37.525Z","method":"GET","url":"/api/test","ip":"::1","userAgent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36"}

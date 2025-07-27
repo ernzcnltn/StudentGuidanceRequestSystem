@@ -56,44 +56,7 @@ const HomePage = () => {
   </Link>
 </div>
 
-      {/* Statistics */}
-      {stats && (
-        <div className="row mb-4">
-          <div className="col-md-3">
-            <div className="card bg-info text-white">
-              <div className="card-body">
-                <h5 className="card-title">{t('totalRequests')}</h5>
-                <h2>{stats.totals.total_requests}</h2>
-              </div>
-            </div>
-          </div>
-          <div className="col-md-3">
-            <div className="card bg-warning text-white">
-              <div className="card-body">
-                <h5 className="card-title">{t('pending')}</h5>
-                <h2>{stats.totals.pending}</h2>
-              </div>
-            </div>
-          </div>
-          <div className="col-md-3">
-            <div className="card bg-primary text-white">
-              <div className="card-body">
-                <h5 className="card-title">{t('informed')}</h5>
-                <h2>{stats.totals.informed}</h2>
-              </div>
-            </div>
-          </div>
-          <div className="col-md-3">
-            <div className="card bg-success text-white">
-              <div className="card-body">
-                <h5 className="card-title">{t('completed')}</h5>
-                <h2>{stats.totals.completed}</h2>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
+     
       {/* Request Categories */}
    <div className="row">
         <div className="col-md-8">
@@ -106,14 +69,14 @@ const HomePage = () => {
                     <h5 className="mb-0">{t(category.toLowerCase().replace(/\s+/g, ''))}</h5>
                   </div>
                   <div className="card-body">
-                    <ul className="list-unstyled">
+                    <ul className=" list-unstyled">
                       {requestTypes[category].slice(0, 3).map((type) => (
                         <li key={type.type_id} className="mb-1">
                           • {translateRequestType(type.type_name)} {/* BURADA ÇEVİRİ */}
                         </li>
                       ))}
-                      {requestTypes[category].length > 3 && (
-                        <li className="text-muted">
+                      {requestTypes[category].length > 5 && (
+                        <li className=" text-muted">
                           ... {t('andMore')} {requestTypes[category].length - 3} {t('more')}
                 </li>
               )}
@@ -136,23 +99,10 @@ const HomePage = () => {
       <h6 className="mb-1">{t('myRequests')}</h6>
       <p className="mb-1">{t('checkStatus')}</p>
     </Link>
-    <a href="http://localhost:5000/api/docs" target="_blank" rel="noopener noreferrer" className="list-group-item list-group-item-action">
-      <h6 className="mb-1">{t('apiDocumentation')}</h6>
-      <p className="mb-1">{t('viewApiDocumentation')}</p>
-    </a>
+    
   </div>
   
-  <div className="mt-4">
-    <h5>{t('guidelines')}</h5>
-    <div className="alert alert-info">
-      <small>
-        • {t('everyDayOneRequest')}<br/>
-        • {t('maximumCharacters')}<br/>
-        • {t('maximumFiles')}<br/>
-        • {t('allowedTypes')}
-      </small>
-    </div>
-  </div>
+  
 </div>
       </div>
     </div>
