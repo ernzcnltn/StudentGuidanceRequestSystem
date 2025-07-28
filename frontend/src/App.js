@@ -16,8 +16,7 @@ import ProtectedAdminRoute from './components/ProtectedAdminRoute';
 import DarkModeToggle from './components/DarkModeToggle';
 import FIULogo from './components/FIULogo';
 import ConfirmationModal from './components/ConfirmationModal';
-
-
+import LanguageDropdown from './components/LanguageDropdown';
 
 // Pages
 import HomePage from './pages/HomePage';
@@ -177,27 +176,9 @@ const StudentRoutes = () => {
   );
 };
 
-// Basit Language Selector Component
+// Navbar'da kullanılacak Language Dropdown
 const SimpleLanguageSelector = () => {
-  const { currentLanguage, changeLanguage, languages } = useLanguage();
-
-  return (
-    <div className="d-flex gap-1 me-2">
-      {Object.entries(languages).map(([code, lang]) => (
-        <button
-          key={code}
-          className={`btn btn-sm ${
-            currentLanguage === code ? 'btn-light' : 'btn-outline-light'
-          }`}
-          onClick={() => changeLanguage(code)}
-          title={lang.name}
-          style={{ fontSize: '14px', padding: '4px 8px' }}
-        >
-          {lang.flag}
-        </button>
-      ))}
-    </div>
-  );
+  return <LanguageDropdown variant="navbar" />;
 };
 
 // Ana uygulama component'i (student sayfaları)
@@ -249,13 +230,13 @@ const MainApp = () => {
               </li>
             </ul>
             
-            {/* User Info, Language Selector ve Logout */}
-            <div className="d-flex align-items-center">
-              <span className="text-white me-3">
+            {/* User Info, Language Dropdown ve Logout */}
+            <div className="d-flex align-items-center gap-3">
+              <span className="text-white d-none d-md-inline">
                 {t('welcome')}, <strong>{user?.name}</strong>
               </span>
               
-              {/* Simple Language Selector */}
+              {/* Language Dropdown */}
               <SimpleLanguageSelector />
               
               <button 
@@ -263,7 +244,8 @@ const MainApp = () => {
                 onClick={handleLogoutClick}
                 title={t('logout')}
               >
-                {t('logout')}
+                <span className="d-none d-md-inline">{t('logout')}</span>
+                <span className="d-md-none">🚪</span>
               </button>
             </div>
           </div>
@@ -279,39 +261,37 @@ const MainApp = () => {
         </Routes>
       </main>
 
-     {/* Footer with FIU Logo */}
-<footer className="bg-light mt-5 py-4">
-  <div className="container text-center">
-    <div className="d-flex justify-content-center align-items-center mb-3">
-      <FIULogo size="md" className="me-3" />
-      <div>
-        <p className="text-muted mb-1">
-          <strong>{t('systemSubtitle')}</strong>
-        </p>
-        <small className="text-muted">
-          {t('studentGuidanceRequestSystem')} &copy; 2025
-        </small>
-      </div>
-    </div>
-    <small className="text-muted">
-      {t('poweredBy')} FIU {t('informationTechnologyDepartment')}
-    </small>
-  </div>
-</footer>
+      {/* Footer with FIU Logo */}
+      <footer className="bg-light mt-5 py-4">
+        <div className="container text-center">
+          <div className="d-flex justify-content-center align-items-center mb-3">
+            <FIULogo size="md" className="me-3" />
+            <div>
+              <p className="text-muted mb-1">
+                <strong>{t('systemSubtitle')}</strong>
+              </p>
+              <small className="text-muted">
+                {t('studentGuidanceRequestSystem')} &copy; 2025
+              </small>
+            </div>
+          </div>
+          <small className="text-muted">
+            {t('poweredBy')} FIU {t('informationTechnologyDepartment')}
+          </small>
+        </div>
+      </footer>
 
       {/* Site İçi Logout Onay Modalı */}
-<ConfirmationModal
-  show={showLogoutModal}
-  title="FIU Guidance System"
-  message={t('areYouSureLogout')}
-  confirmText={t('logout')}
-  cancelText={t('cancel')}
-  type="warning"
-  onConfirm={handleLogoutConfirm}
-  onCancel={handleLogoutCancel}
-/>
-
-
+      <ConfirmationModal
+        show={showLogoutModal}
+        title="FIU Guidance System"
+        message={t('areYouSureLogout')}
+        confirmText={t('logout')}
+        cancelText={t('cancel')}
+        type="warning"
+        onConfirm={handleLogoutConfirm}
+        onCancel={handleLogoutCancel}
+      />
 
       {/* Dark Mode Toggle */}
       <DarkModeToggle />

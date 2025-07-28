@@ -1,4 +1,4 @@
-// frontend/src/components/AdminNotificationCenter.js
+// frontend/src/components/AdminNotificationCenter.js - UPDATED VERSION
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAdminAuth } from '../contexts/AdminAuthContext';
 import { useTranslation } from '../hooks/useTranslation';
@@ -21,7 +21,7 @@ const AdminNotificationCenter = ({ onNotificationClick }) => {
       
       if (response?.data?.success) {
         const newNotifications = response.data.data;
-        console.log('Notifications:', newNotifications); // BU SATIRI EKLEYİN - DEBUG İÇİN
+        console.log('Notifications:', newNotifications);
         setNotifications(newNotifications);
         setUnreadCount(newNotifications.filter(n => !n.is_read).length);
       }
@@ -56,31 +56,29 @@ const AdminNotificationCenter = ({ onNotificationClick }) => {
     }
   };
 
-  const markAllAsRead = async () => {
-    try {
-      await apiService.markAllNotificationsAsRead();
-      
-      // Update local state immediately
-      setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
-      setUnreadCount(0);
-    } catch (error) {
-      console.error('Failed to mark all notifications as read:', error);
-    }
-  };
+  // Hepsini okundu işaretle fonksiyonunu kaldırdık
 
   const handleNotificationClick = async (notification) => {
-    // Mark as read first
+    console.log('Notification clicked:', notification);
+    
+    // Mark as read first (but don't trigger logout)
     if (!notification.is_read) {
-      await markAsRead(notification.id);
+      // Sadece local state'i güncelle, API çağrısı yapma
+      setNotifications(prev => 
+        prev.map(n => 
+          n.id === notification.id ? { ...n, is_read: true } : n
+        )
+      );
+      setUnreadCount(prev => Math.max(0, prev - 1));
     }
     
     // Close dropdown
     setIsOpen(false);
 
-     if (onNotificationClick && notification.related_request_id) {
-    onNotificationClick(notification.related_request_id, notification.type);
-    return;
-  }
+    if (onNotificationClick && notification.related_request_id) {
+      onNotificationClick(notification.related_request_id, notification.type);
+      return;
+    }
     
     // Handle navigation based on notification type
     if (notification.related_request_id) {
@@ -100,18 +98,60 @@ const AdminNotificationCenter = ({ onNotificationClick }) => {
     }
   };
 
+  // Tek tek silme fonksiyonunu düzelt - Safe API çağrısı yap
   const deleteNotification = async (notificationId, event) => {
     event.stopPropagation(); // Prevent notification click
     
     try {
-      // If you have a delete API endpoint
-      // await apiService.deleteNotification(notificationId);
+      console.log('Deleting notification:', notificationId);
       
-      // For now, just mark as read and remove from local state
+      // Safe API çağrısı yap (logout yapmaz)
+      await apiService.deleteNotificationSafe(notificationId);
+      
+      // Local state'den kaldır
       setNotifications(prev => prev.filter(n => n.id !== notificationId));
-      setUnreadCount(prev => Math.max(0, prev - 1));
+      
+      // Unread count'u güncelle
+      const deletedNotification = notifications.find(n => n.id === notificationId);
+      if (deletedNotification && !deletedNotification.is_read) {
+        setUnreadCount(prev => Math.max(0, prev - 1));
+      }
+      
+      console.log('Notification deleted successfully');
+      
     } catch (error) {
       console.error('Failed to delete notification:', error);
+      
+      // Hata olursa sadece local'den kaldır (yeniden yüklendiğinde geri gelmesin)
+      // Bu durumda en azından UI'da kaybolmuş gibi görünür
+      setNotifications(prev => prev.filter(n => n.id !== notificationId));
+      const deletedNotification = notifications.find(n => n.id === notificationId);
+      if (deletedNotification && !deletedNotification.is_read) {
+        setUnreadCount(prev => Math.max(0, prev - 1));
+      }
+    }
+  };
+
+  // Hepsini sil fonksiyonu - Safe API kullan
+  const deleteAllNotifications = async () => {
+    try {
+      console.log('Deleting all notifications');
+      
+      // Safe API çağrısı yap
+      await apiService.deleteAllNotificationsSafe();
+      
+      // Local state'i temizle
+      setNotifications([]);
+      setUnreadCount(0);
+      
+      console.log('All notifications deleted successfully');
+      
+    } catch (error) {
+      console.error('Failed to delete all notifications:', error);
+      
+      // Hata olursa da local'i temizle
+      setNotifications([]);
+      setUnreadCount(0);
     }
   };
 
@@ -184,15 +224,19 @@ const AdminNotificationCenter = ({ onNotificationClick }) => {
           <div className="dropdown-header d-flex justify-content-between align-items-center">
             <h6 className="mb-0">📢 {t('adminNotifications', 'Admin Bildirimleri')}</h6>
             <div className="d-flex gap-2">
-              {unreadCount > 0 && (
+              {/* HEPSINI OKUNDU İŞARETLE BUTONU KALDIRILDI */}
+              
+              {/* Hepsini sil butonu ekle */}
+              {notifications.length > 0 && (
                 <button 
-                  className="btn btn-sm btn-outline-primary"
-                  onClick={markAllAsRead}
-                  title={t('markAllAsRead', 'Tümünü okundu işaretle')}
+                  className="btn btn-sm btn-outline-danger"
+                  onClick={deleteAllNotifications}
+                  title={t('deleteAll', 'Hepsini sil')}
                 >
-                  ✓
+                  🗑️
                 </button>
               )}
+              
               <button 
                 className="btn btn-sm btn-outline-secondary"
                 onClick={() => setIsOpen(false)}

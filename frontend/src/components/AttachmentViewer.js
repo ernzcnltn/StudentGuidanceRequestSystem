@@ -125,6 +125,8 @@ const AttachmentViewer = ({ requestId, onClose }) => {
     const { url, type, name } = previewFile;
 
     return (
+
+      
       <div 
         className="modal-backdrop fade show" 
         style={{ 
@@ -134,7 +136,7 @@ const AttachmentViewer = ({ requestId, onClose }) => {
           width: '100%',
           height: '100%',
           backgroundColor: 'rgba(0,0,0,0.3)',
-          zIndex: 1060,
+          zIndex: 9999,
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center'
@@ -210,7 +212,13 @@ const AttachmentViewer = ({ requestId, onClose }) => {
   };
 
   return (
+
+    
     <>
+
+       {/* File Preview Modal */}
+      {previewFile && renderPreview()}
+    
       {/* Modal Backdrop */}
       <div 
         className="modal-backdrop fade show" 
@@ -237,12 +245,13 @@ const AttachmentViewer = ({ requestId, onClose }) => {
           width: '100%',
           height: '100%',
           zIndex: 1050,
-          overflow: 'auto'
+          overflow: 'auto',
+      
         }}
         onClick={handleBackdropClick}
       >
         <div 
-          className="modal-dialog modal-lg"
+          className="modal-dialog modal-lg modal-dialog-scrollable"
           style={{
             margin: '3rem auto',
             maxWidth: '800px'
@@ -372,8 +381,12 @@ const AttachmentViewer = ({ requestId, onClose }) => {
         </div>
       </div>
 
-      {/* File Preview Modal */}
-      {previewFile && renderPreview()}
+      
+
+   
+
+      
+
     </>
   );
 };

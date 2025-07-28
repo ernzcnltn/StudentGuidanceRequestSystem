@@ -39,6 +39,15 @@ const CreateRequestPage = () => {
     fetchRequestTypes();
   }, [showError]);
 
+
+  const getFileIcon = (fileType) => {
+  if (fileType.includes('pdf')) return '📄';
+  if (fileType.includes('image')) return '🖼️';
+  if (fileType.includes('word') || fileType.includes('document')) return '📝';
+  if (fileType.includes('csv') || fileType.includes('excel')) return '📊';
+  return '📎';
+};
+
   useEffect(() => {
     if (user) {
       setFormData(prev => ({
@@ -75,50 +84,71 @@ const CreateRequestPage = () => {
   };
 
   const handleFileChange = (e) => {
-    const selectedFiles = Array.from(e.target.files);
-    
-    if (selectedFiles.length > 3) {
-      showError('Maximum 3 files allowed');
-      e.target.value = '';
+  const selectedFiles = Array.from(e.target.files);
+  
+  // Mevcut dosya sayısını kontrol et
+  const totalFiles = files.length + selectedFiles.length;
+  
+  if (totalFiles > 3) {
+    showError(`Maximum 3 files allowed. You have ${files.length} files, trying to add ${selectedFiles.length} more.`);
+    e.target.value = '';
+    return;
+  }
+  
+  // File validation
+  const validFiles = [];
+  const errors = [];
+  
+  selectedFiles.forEach(file => {
+    // Aynı isimde dosya var mı kontrol et
+    const isDuplicate = files.some(existingFile => existingFile.name === file.name);
+    if (isDuplicate) {
+      errors.push(`${file.name}: File already added`);
       return;
     }
     
-    // File validation
-    const validFiles = [];
-    const errors = [];
+    const validTypes = [
+      'image/jpeg', 
+      'image/jpg', 
+      'image/png', 
+      'application/pdf', 
+      'application/msword', 
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 
+      'text/csv'
+    ];
+    const maxSize = 2 * 1024 * 1024; // 2MB
     
-    selectedFiles.forEach(file => {
-      const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'text/csv'];
-      const maxSize = 2 * 1024 * 1024; // 2MB
-      
-      if (!validTypes.includes(file.type)) {
-  errors.push(`${file.name}: ${t('invalidFileType')}`);
-  return;
-}
+    if (!validTypes.includes(file.type)) {
+      errors.push(`${file.name}: ${t('invalidFileType')}`);
+      return;
+    }
 
       
-     if (file.size > maxSize) {
-  errors.push(`${file.name}: ${t('fileTooLarge')}`);
-  return;
-}
-      
-      validFiles.push(file);
-    });
+   if (file.size > maxSize) {
+      errors.push(`${file.name}: ${t('fileTooLarge')}`);
+      return;
+    }
     
-   if (errors.length > 0) {
-  showError(`${t('fileValidationFailed')}: ${errors.join(', ')}`);
+    validFiles.push(file);
+  });
+  
+  if (errors.length > 0) {
+    showError(`${t('fileValidationFailed')}: ${errors.join(', ')}`);
+    e.target.value = '';
+    return;
+  }
+  
+  // Mevcut dosyalara yeni dosyaları ekle
+  setFiles(prevFiles => [...prevFiles, ...validFiles]);
+  setError(null);
+  
+  // Input'u temizle ki aynı dosya tekrar seçilebilsin
   e.target.value = '';
-  return;
-}
-    
-    setFiles(validFiles);
-    setError(null);
-    
+  
   if (validFiles.length > 0) {
-  showSuccess(`${validFiles.length} ${t('fileSelectedSuccessfully')}`);
-}
-  };
-
+    showSuccess(`${validFiles.length} ${t('fileSelectedSuccessfully')}. Total: ${files.length + validFiles.length} files.`);
+  }
+};
   const removeFile = (index) => {
     const newFiles = files.filter((_, i) => i !== index);
     setFiles(newFiles);
@@ -140,6 +170,8 @@ const CreateRequestPage = () => {
   showWarning(t('requestAlreadyBeingSubmitted'));
   return;
 }
+
+
 
     // Required document kontrolü
     if (selectedType?.is_document_required && files.length === 0) {
@@ -333,60 +365,213 @@ showError(`❌ ${errorMessage}`);
 
 
               {/* File Upload Section */}
-              {selectedType && (
-                <div className="mb-3">
-                  <label className="form-label">
-                    <strong>{t('attachment')}</strong>
-                    {selectedType.is_document_required && (
-                      <span className="text-danger"> ({t('required')})</span>
-                    )}
-                  </label>
-                  
-                  <div className="border rounded p-3 bg-light">
-                    <div className="mb-3">
-                      <input
-                        type="file"
-                        className="form-control"
-                        multiple
-                        accept=".jpeg,.jpg,.png,.pdf,.doc,.docx,.csv"
-                        onChange={handleFileChange}
-                        disabled={loading || submitting}
-                      />
-                      <div className="form-text">
-                        <strong>{t('allowed')}:</strong> JPEG, JPG, PNG, PDF, DOC, DOCX, CSV<br/>
-  <strong>{t('maxFileSize')}</strong> | <strong>{t('maximumFiles')}:</strong> 3
-  {selectedType.is_document_required && (
-                          <span className="text-warning d-block">
-                             <strong>⚠️ {t('documentUploadRequired')}</strong>
-                          </span>
-                        )}
-                      </div>
-                    </div>
+              {/* File Upload Section - Bu kısım mevcut kodunuzu tamamen değiştirecek */}
+{selectedType && (
+  <div className="mb-3">
+    <label className="form-label">
+      <strong>{t('attachment')}</strong>
+      {selectedType.is_document_required && (
+        <span className="text-danger"> ({t('required')})</span>
+      )}
+    </label>
+    
+    <div className="border rounded p-3" style={{ backgroundColor: '#f8f9fa' }}>
+      {/* Hidden File Input */}
+      <input
+        type="file"
+        className="d-none"
+        id="file-upload-input"
+        multiple
+        accept=".jpeg,.jpg,.png,.pdf,.doc,.docx,.csv"
+        onChange={handleFileChange}
+        disabled={loading || submitting}
+      />
+      
+      {/* File Upload Area */}
+      <div className="row">
+        {/* Upload Button Section */}
+        <div className="col-md-4">
+          <div className="text-center">
+            <label 
+              htmlFor="file-upload-input" 
+              className="btn btn-primary d-flex flex-column align-items-center p-4 h-100"
+              style={{ 
+                cursor: loading || submitting ? 'not-allowed' : 'pointer',
+                opacity: loading || submitting ? 0.6 : 1,
+                borderRadius: '12px',
+                border: 'none',
+                minHeight: '150px',
+                justifyContent: 'center'
+              }}
+            >
+              <div style={{ fontSize: '3rem', marginBottom: '10px' }}>
+                📁
+              </div>
+              <div className="fw-bold mb-2">
+                {files.length > 0 ? 'Add More Files' : t('chooseFiles')}
+              </div>
+              <small className="text-white-50">
+                Max 3 files • 2MB each
+              </small>
+            </label>
+          </div>
+        </div>
+        
+        {/* Drag & Drop Area */}
+        <div className="col-md-8">
+          <div 
+            className="border border-2 border-dashed rounded p-4 h-100 d-flex flex-column justify-content-center align-items-center"
+            style={{ 
+              borderColor: '#dee2e6',
+              backgroundColor: '#ffffff',
+              transition: 'all 0.3s ease',
+              minHeight: '150px'
+            }}
+            onDragOver={(e) => {
+              e.preventDefault();
+              e.currentTarget.style.borderColor = '#0d6efd';
+              e.currentTarget.style.backgroundColor = '#e7f3ff';
+            }}
+            onDragLeave={(e) => {
+              e.preventDefault();
+              e.currentTarget.style.borderColor = '#dee2e6';
+              e.currentTarget.style.backgroundColor = '#ffffff';
+            }}
+            onDrop={(e) => {
+              e.preventDefault();
+              e.currentTarget.style.borderColor = '#dee2e6';
+              e.currentTarget.style.backgroundColor = '#ffffff';
+              
+              const droppedFiles = Array.from(e.dataTransfer.files);
+              if (droppedFiles.length > 0) {
+                const fakeEvent = {
+                  target: {
+                    files: droppedFiles,
+                    value: ''
+                  }
+                };
+                handleFileChange(fakeEvent);
+              }
+            }}
+          >
+            <div className="text-muted text-center">
+              <div style={{ fontSize: '2.5rem', marginBottom: '15px' }}>📎</div>
+              <h6 className="mb-2">Drag files here</h6>
+              <p className="mb-0 small">
+                or use the button to browse
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      {/* File Info */}
+      <div className="row mt-3">
+        <div className="col-12">
+          <div className="d-flex justify-content-between align-items-center">
+            <div className="form-text">
+              <strong>Allowed:</strong> PDF, Images, DOC, CSV
+            </div>
+            <div className="text-end">
+              <span className={`badge ${files.length >= 3 ? 'bg-warning' : 'bg-info'}`}>
+                {files.length} / 3 files
+              </span>
+            </div>
+          </div>
+          
+          {selectedType.is_document_required && (
+            <div className="alert alert-warning mt-2 py-2">
+              <small>
+                <strong>⚠️ Required:</strong> {t('documentUploadRequired')}
+              </small>
+            </div>
+          )}
+        </div>
+      </div>
 
-                    {files.length > 0 && (
-                      <div>
-                       <strong>{t('selectedFiles')}:</strong>
-                        {files.map((file, index) => (
-                          <div key={index} className="d-flex justify-content-between align-items-center border rounded p-2 mb-2 bg-white">
-                            <div>
-                              <strong>{file.name}</strong><br/>
-                              <small className="text-muted">{formatFileSize(file.size)}</small>
-                            </div>
+      {/* Selected Files Display */}
+      {files.length > 0 && (
+        <div className="mt-4">
+          <div className="d-flex justify-content-between align-items-center mb-3">
+            <h6 className="mb-0">
+              📋 Selected Files ({files.length})
+            </h6>
+            <button
+              type="button"
+              className="btn btn-outline-danger btn-sm"
+              onClick={() => setFiles([])}
+              disabled={loading || submitting}
+            >
+              🗑️ Clear All
+            </button>
+          </div>
+          
+          <div className="row">
+            {files.map((file, index) => (
+              <div key={index} className="col-lg-6 mb-2">
+                <div className="card shadow-sm border-0" style={{ borderLeft: '4px solid #0d6efd' }}>
+                  <div className="card-body p-3">
+                    <div className="d-flex align-items-center">
+                      <div className="me-3">
+                        <div 
+                          className="rounded-circle bg-primary text-white d-flex align-items-center justify-content-center"
+                          style={{ width: '45px', height: '45px', fontSize: '1.2rem' }}
+                        >
+                          {getFileIcon(file.type)}
+                        </div>
+                      </div>
+                      <div className="flex-grow-1">
+                        <h6 className="card-title mb-1" style={{ fontSize: '0.9rem' }}>
+                          {file.name.length > 25 
+                            ? file.name.substring(0, 25) + '...' 
+                            : file.name
+                          }
+                        </h6>
+                        <div className="d-flex justify-content-between align-items-center">
+                          <small className="text-muted">
+                            {formatFileSize(file.size)}
+                          </small>
+                          <div className="d-flex gap-1">
+                            <span className="badge bg-light text-dark">
+                              #{index + 1}
+                            </span>
                             <button
                               type="button"
                               className="btn btn-sm btn-outline-danger"
                               onClick={() => removeFile(index)}
                               disabled={loading || submitting}
+                              title="Remove file"
+                              style={{ padding: '2px 6px', fontSize: '0.7rem' }}
                             >
-                              {t('delete')}
+                              ✕
                             </button>
                           </div>
-                        ))}
+                        </div>
                       </div>
-                    )}
+                    </div>
+                    
+                    {/* File type indicator */}
+                    <div className="mt-2">
+                      <div className="progress" style={{ height: '3px' }}>
+                        <div 
+                          className="progress-bar bg-success" 
+                          style={{ width: '100%' }}
+                        ></div>
+                      </div>
+                      <small className="text-success">
+                        ✓ Ready to upload
+                      </small>
+                    </div>
                   </div>
                 </div>
-              )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  </div>
+)}
 
 
                  {/* Guidelines */}

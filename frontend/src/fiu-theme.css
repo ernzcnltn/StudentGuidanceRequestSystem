@@ -131,6 +131,7 @@ footer {
 /* FIU Active Navigation */
 .nav-link.active {
   color: var(--fiu-primary) !important;
+   color: var(--fiu-white) !important;
 }
 
 /* FIU Button Variants */
@@ -169,13 +170,16 @@ footer {
 .request-highlight {
   background-color: #fff3cd !important;
   border: 2px solid #ffc107 !important;
+  border-radius: 8px !important;
   transition: all 0.3s ease;
+  box-shadow: 0 4px 12px rgba(255, 193, 7, 0.3) !important;
 }
 
 /* Notification dropdown custom styles */
 .dropdown-menu {
   box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
   border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: 8px;
 }
 
 .dropdown-item:hover {
@@ -192,13 +196,36 @@ footer {
   border-left: 4px solid #007bff;
 }
 
-/* Notification animation */
-@keyframes notificationPulse {
-  0% { transform: scale(1); }
-  50% { transform: scale(1.05); }
-  100% { transform: scale(1); }
+/* fiu-theme.css dosyasına eklenecek notification highlight stilleri */
+
+/* Notification highlight effect */
+.request-highlight {
+  background-color: #fff3cd !important;
+  border: 2px solid #ffc107 !important;
+  border-radius: 8px !important;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 12px rgba(255, 193, 7, 0.3) !important;
 }
 
+/* Notification highlight animation */
+@keyframes notificationPulse {
+  0% { 
+    transform: scale(1); 
+    box-shadow: 0 4px 12px rgba(255, 193, 7, 0.3);
+  }
+  50% { 
+    transform: scale(1.02); 
+    box-shadow: 0 6px 16px rgba(255, 193, 7, 0.5);
+  }
+  100% { 
+    transform: scale(1); 
+    box-shadow: 0 4px 12px rgba(255, 193, 7, 0.3);
+  }
+}
+
+.notification-new {
+  animation: notificationPulse 2s ease-in-out 3;
+}
 .notification-new {
   animation: notificationPulse 2s ease-in-out;
 }
@@ -216,6 +243,150 @@ footer {
   .navbar-brand {
     font-size: 1.25rem;
   }
+}
+
+
+/* Notification badge pulse animation */
+@keyframes badgePulse {
+  0% { 
+    transform: scale(1); 
+  }
+  50% { 
+    transform: scale(1.1); 
+  }
+  100% { 
+    transform: scale(1); 
+  }
+}
+
+.badge.bg-danger {
+  animation: badgePulse 2s ease-in-out infinite;
+}
+
+/* Notification center improvements */
+.notification-center {
+  position: relative;
+}
+
+.notification-center .btn {
+  transition: all 0.2s ease;
+}
+
+.notification-center .btn:hover {
+  transform: scale(1.05);
+}
+
+/* Dark mode notification styles */
+.dark-theme .dropdown-menu {
+  background-color: #2d2d2d;
+  border-color: #404040;
+}
+
+.dark-theme .dropdown-item {
+  color: #ffffff;
+}
+
+.dark-theme .dropdown-item:hover {
+  background-color: #383838;
+}
+
+.dark-theme .dropdown-item.bg-light {
+  background-color: #383838 !important;
+  border-left: 4px solid #0d6efd;
+}
+
+.dark-theme .request-highlight {
+  background-color: #4a4a2a !important;
+  border-color: #ffc107 !important;
+}
+
+/* Notification loading states */
+.notification-loading {
+  opacity: 0.6;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+}
+
+.notification-loading::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 20px;
+  height: 20px;
+  margin: -10px 0 0 -10px;
+  border: 2px solid #ccc;
+  border-top-color: #007bff;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Notification action buttons */
+.notification-actions {
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.dropdown-item:hover .notification-actions {
+  opacity: 1;
+}
+
+/* Notification priority indicators */
+.notification-priority-urgent {
+  border-left: 4px solid #dc3545 !important;
+}
+
+.notification-priority-high {
+  border-left: 4px solid #fd7e14 !important;
+}
+
+.notification-priority-medium {
+  border-left: 4px solid #ffc107 !important;
+}
+
+.notification-priority-low {
+  border-left: 4px solid #6c757d !important;
+}
+
+/* Responsive notification styles */
+@media (max-width: 768px) {
+  .dropdown-menu {
+    width: 90vw !important;
+    max-width: 350px;
+    left: 50% !important;
+    transform: translateX(-50%);
+  }
+  
+  .notification-center .btn {
+    padding: 8px 12px;
+  }
+}
+
+
+
+/* Notification scroll improvements */
+.dropdown-menu::-webkit-scrollbar {
+  width: 6px;
+}
+
+.dropdown-menu::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 3px;
+}
+
+.dropdown-menu::-webkit-scrollbar-thumb {
+  background: #888;
+  border-radius: 3px;
+}
+
+.dropdown-menu::-webkit-scrollbar-thumb:hover {
+  background: #555;
 }
 
 /* FIU Link Colors */
@@ -244,3 +415,91 @@ a:hover {
   border-color: var(--fiu-accent);
   color: #0c4a6e;
 }
+
+/* Language dropdown enhancements */
+.dropdown-menu {
+  box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: 8px;
+  min-width: 120px;
+}
+
+.dropdown-item {
+  padding: 0.5rem 1rem;
+  transition: background-color 0.15s ease-in-out;
+  font-size: 0.9rem;
+}
+
+.dropdown-item:hover {
+  background-color: #f8f9fa;
+}
+
+.dropdown-item.active {
+  background-color: #bb040a;
+  color: white;
+}
+
+.dropdown-item.active:hover {
+  background-color: #930707;
+  color: white;
+}
+
+.dropdown-toggle::after {
+  margin-left: 0.5rem;
+}
+
+/* Language dropdown navbar variant */
+.navbar .dropdown-toggle {
+  border: 1px solid rgba(255, 255, 255, 0.5);
+}
+
+.navbar .dropdown-toggle:hover {
+  border-color: rgba(255, 255, 255, 0.8);
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+/* Language dropdown admin variant */
+.dropdown-toggle.btn-outline-secondary {
+  border-color: #6c757d;
+}
+
+.dropdown-toggle.btn-outline-secondary:hover {
+  background-color: #6c757d;
+  border-color: #6c757d;
+  color: white;
+}
+
+/* Dark theme support */
+.dark-theme .dropdown-menu {
+  background-color: #2d2d2d;
+  border-color: #404040;
+}
+
+.dark-theme .dropdown-item {
+  color: #ffffff;
+}
+
+.dark-theme .dropdown-item:hover {
+  background-color: #404040;
+}
+
+.dark-theme .dropdown-item.active {
+  background-color: #960808;
+}
+
+/* Mobile responsive */
+@media (max-width: 768px) {
+  .navbar .dropdown-toggle .d-none.d-md-inline {
+    display: none !important;
+  }
+  
+  .dropdown-menu {
+    min-width: 100px;
+  }
+  
+  .dropdown-item {
+    padding: 0.4rem 0.8rem;
+    font-size: 0.85rem;
+  }
+}
+

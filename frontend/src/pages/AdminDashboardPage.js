@@ -9,9 +9,9 @@ import AdminResponseModal from '../components/AdminResponseModal';
 import AdminNotificationCenter from '../components/AdminNotificationCenter';
 import FIULogo from '../components/FIULogo';
 import ConfirmationModal from '../components/ConfirmationModal';
+import LanguageDropdown from '../components/LanguageDropdown';
 import 'bootstrap/dist/js/bootstrap.bundle.min.js';
-
-
+import { useToast } from '../contexts/ToastContext'; 
 const AdminDashboardPage = () => {
   const [selectedRequestForResponse, setSelectedRequestForResponse] = useState(null);
   const [showResponseModal, setShowResponseModal] = useState(false);
@@ -30,6 +30,7 @@ const AdminDashboardPage = () => {
   const [selectedRequestId, setSelectedRequestId] = useState(null);
   const [showAttachments, setShowAttachments] = useState(false);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
+  const { showSuccess, showError } = useToast();
 
   // Add Request Type Form State
   const [showAddForm, setShowAddForm] = useState(false);
@@ -39,25 +40,9 @@ const AdminDashboardPage = () => {
     is_document_required: false
   });
 
-  // Admin Language Selector - Logo ile birlikte
+  // Admin Language Dropdown - dropdown olarak güncellendi
   const AdminLanguageSelector = () => {
-    return (
-      <div className="d-flex gap-1 me-2">
-        {Object.entries(languages).map(([code, lang]) => (
-          <button
-            key={code}
-            className={`btn btn-sm ${
-              currentLanguage === code ? 'btn-primary' : 'btn-outline-secondary'
-            }`}
-            onClick={() => changeLanguage(code)}
-            title={lang.name}
-            style={{ fontSize: '14px', padding: '4px 8px' }}
-          >
-            {lang.flag}
-          </button>
-        ))}
-      </div>
-    );
+    return <LanguageDropdown variant="admin" />;
   };
 
   // Logout İşlemleri
@@ -90,19 +75,23 @@ const AdminDashboardPage = () => {
   }, []);
 
   const fetchRequests = useCallback(async () => {
-    try {
-      setLoading(true);
-      const response = await apiService.getAdminRequests(filters);
-      if (response.data && response.data.success) {
-        setRequests(response.data.data || []);
-      }
-    } catch (error) {
-      console.error('Error fetching requests:', error);
-      setRequests([]);
-    } finally {
-      setLoading(false);
+  try {
+    setLoading(true);
+    const response = await apiService.getAdminRequests(filters);
+    if (response.data && response.data.success) {
+      const fetchedRequests = response.data.data || [];
+      
+      // Requestleri sırala
+      const sortedRequests = sortRequestsByPriorityAndStatus(fetchedRequests);
+      setRequests(sortedRequests);
     }
-  }, [filters]);
+  } catch (error) {
+    console.error('Error fetching requests:', error);
+    setRequests([]);
+  } finally {
+    setLoading(false);
+  }
+}, [filters]);
 
   const fetchRequestTypes = useCallback(async () => {
     try {
@@ -119,6 +108,50 @@ const AdminDashboardPage = () => {
     }
   }, []);
 
+  const sortRequestsByPriorityAndStatus = (requests) => {
+  return requests.sort((a, b) => {
+    // Önce status'e göre ayır - Completed olanlar en alta
+    if (a.status === 'Completed' && b.status !== 'Completed') {
+      return 1; // a alta git
+    }
+    if (b.status === 'Completed' && a.status !== 'Completed') {
+      return -1; // b alta git
+    }
+    
+    // İkisi de completed veya ikisi de active ise priority'ye göre sırala
+    const priorityOrder = {
+      'Urgent': 1,
+      'High': 2,
+      'Medium': 3,
+      'Low': 4
+    };
+    
+    const aPriority = priorityOrder[a.priority] || 3;
+    const bPriority = priorityOrder[b.priority] || 3;
+    
+    if (aPriority !== bPriority) {
+      return aPriority - bPriority;
+    }
+    
+    // Priority aynıysa, status'e göre sırala
+    const statusOrder = {
+      'Pending': 1,
+      'Informed': 2,
+      'Completed': 3
+    };
+    
+    const aStatus = statusOrder[a.status] || 2;
+    const bStatus = statusOrder[b.status] || 2;
+    
+    if (aStatus !== bStatus) {
+      return aStatus - bStatus;
+    }
+    
+    // Her şey aynıysa, tarih sırasına göre
+    return new Date(b.submitted_at) - new Date(a.submitted_at);
+  });
+};
+
   useEffect(() => {
     if (activeTab === 'dashboard') {
       fetchDashboardData();
@@ -130,29 +163,27 @@ const AdminDashboardPage = () => {
   }, [activeTab, fetchDashboardData, fetchRequests, fetchRequestTypes]);
 
   const updateRequestStatus = async (requestId, newStatus) => {
-    try {
-      await apiService.updateAdminRequestStatus(requestId, { 
-        status: newStatus
-      });
-      
-      fetchRequests();
-      alert(`Request #${requestId} status updated to ${newStatus}`);
-    } catch (error) {
-      console.error('Error updating request status:', error);
-      alert('Failed to update request status');
+  try {
+    await apiService.updateAdminRequestStatus(requestId, { 
+      status: newStatus
+    });
+    
+    // Requests'i yeniden fetch et ve sırala
+    fetchRequests();
+    
+    // Success mesajı
+    if (newStatus === 'Completed') {
+      showSuccess(`✅ Request #${requestId} marked as completed and moved to bottom`);
+    } else {
+      showSuccess(`📊 Request #${requestId} status updated to ${newStatus}`);
     }
-  };
+  } catch (error) {
+    console.error('Error updating request status:', error);
+    showError('Failed to update request status');
+  }
+};
 
-  const updateRequestPriority = async (requestId, newPriority) => {
-    try {
-      await apiService.updateRequestPriority(requestId, newPriority);
-      fetchRequests();
-      alert(`Request #${requestId} priority updated to ${newPriority}`);
-    } catch (error) {
-      console.error('Error updating priority:', error);
-      alert('Failed to update request priority');
-    }
-  };
+ 
 
   const toggleRequestType = async (typeId) => {
     try {
@@ -164,20 +195,47 @@ const AdminDashboardPage = () => {
     }
   };
 
+  useEffect(() => {
+    // Listen for notification clicks
+    const handleNotificationNavigation = (event) => {
+      const { requestId } = event.detail;
+      
+      // Switch to requests tab
+      setActiveTab('requests');
+      
+      // Clear any existing filters to show all requests
+      setFilters({ status: '' });
+      
+      // After a short delay, scroll to the specific request
+      setTimeout(() => {
+        const requestElement = document.getElementById(`request-${requestId}`);
+        if (requestElement) {
+          requestElement.scrollIntoView({ 
+            behavior: 'smooth', 
+            block: 'center' 
+          });
+          // Highlight the request briefly
+          requestElement.style.backgroundColor = '#fff3cd';
+          setTimeout(() => {
+            requestElement.style.backgroundColor = '';
+          }, 3000);
+        }
+      }, 500);
+    };
 
-// BU useEffect'İ EKLEYİN:
-useEffect(() => {
-  // Listen for notification clicks
-  const handleNotificationNavigation = (event) => {
-    const { requestId } = event.detail;
+    window.addEventListener('switchToRequestsTab', handleNotificationNavigation);
     
-    // Switch to requests tab
+    return () => {
+      window.removeEventListener('switchToRequestsTab', handleNotificationNavigation);
+    };
+  }, []);
+
+  const handleNotificationClick = (requestId, type) => {
+    // Switch to requests tab and highlight specific request
     setActiveTab('requests');
-    
-    // Clear any existing filters to show all requests
     setFilters({ status: '' });
     
-    // After a short delay, scroll to the specific request
+    // Scroll to request after tab switch
     setTimeout(() => {
       const requestElement = document.getElementById(`request-${requestId}`);
       if (requestElement) {
@@ -185,47 +243,14 @@ useEffect(() => {
           behavior: 'smooth', 
           block: 'center' 
         });
-        // Highlight the request briefly
+        // Highlight effect
         requestElement.style.backgroundColor = '#fff3cd';
         setTimeout(() => {
           requestElement.style.backgroundColor = '';
         }, 3000);
       }
-    }, 500);
+    }, 300);
   };
-
-  window.addEventListener('switchToRequestsTab', handleNotificationNavigation);
-  
-  return () => {
-    window.removeEventListener('switchToRequestsTab', handleNotificationNavigation);
-  };
-}, []);
-
-
-const handleNotificationClick = (requestId, type) => {
-  // Switch to requests tab and highlight specific request
-  setActiveTab('requests');
-  setFilters({ status: '' });
-  
-  // Scroll to request after tab switch
-  setTimeout(() => {
-    const requestElement = document.getElementById(`request-${requestId}`);
-    if (requestElement) {
-      requestElement.scrollIntoView({ 
-        behavior: 'smooth', 
-        block: 'center' 
-      });
-      // Highlight effect
-      requestElement.style.backgroundColor = '#fff3cd';
-      setTimeout(() => {
-        requestElement.style.backgroundColor = '';
-      }, 3000);
-    }
-  }, 300);
-};
-
- 
-
 
   const handleAddRequestType = async (e) => {
     e.preventDefault();
@@ -283,11 +308,6 @@ const handleNotificationClick = (requestId, type) => {
     return icons[priority] || '🟡';
   };
 
-
-
-
-
-
   const getDepartmentIcon = (dept) => {
     const icons = {
       'Accounting': '',
@@ -299,9 +319,6 @@ const handleNotificationClick = (requestId, type) => {
     return icons[dept] || '';
   };
 
-
-  
-
   const renderDashboard = () => (
     <div>
       <div className="d-flex justify-content-between align-items-center mb-4">
@@ -312,10 +329,10 @@ const handleNotificationClick = (requestId, type) => {
       </div>
       
       {loading ? (
-  <div className="text-center">
-    <div className="spinner-border" role="status"></div>
-    <p>{t('loading')} dashboard...</p>
-  </div>
+        <div className="text-center">
+          <div className="spinner-border" role="status"></div>
+          <p>{t('loading')} dashboard...</p>
+        </div>
       ) : dashboardData && dashboardData.totals ? (
         <div>
           <div className="row mb-4">
@@ -325,16 +342,16 @@ const handleNotificationClick = (requestId, type) => {
                   <h5>{t('requesttype')} Statistics</h5>
                 </div>
                 <div className="card-body">
-                 {dashboardData.type_stats && dashboardData.type_stats.length > 0 ? (
-  dashboardData.type_stats.map((stat) => (
-    <div key={stat.type_name} className="d-flex justify-content-between align-items-center mb-2 p-2 border rounded">
-      <span><strong>{translateRequestType(stat.type_name)}</strong></span>
-      <span className="badge bg-primary">{stat.count || 0}</span>
-    </div>
-  ))
-) : (
-  <p className="text-muted">{t('noRequestTypeData')}</p>
-)}
+                  {dashboardData.type_stats && dashboardData.type_stats.length > 0 ? (
+                    dashboardData.type_stats.map((stat) => (
+                      <div key={stat.type_name} className="d-flex justify-content-between align-items-center mb-2 p-2 border rounded">
+                        <span><strong>{translateRequestType(stat.type_name)}</strong></span>
+                        <span className="badge bg-primary">{stat.count || 0}</span>
+                      </div>
+                    ))
+                  ) : (
+                    <p className="text-muted">{t('noRequestTypeData')}</p>
+                  )}
                 </div>
               </div>
             </div>
@@ -436,22 +453,22 @@ const handleNotificationClick = (requestId, type) => {
       ) : (
         <div className="row">
           {!requests || requests.length === 0 ? (
-  <div className="col-12 text-center py-5">
-    <div className="alert alert-info">
-      <h5>{t('noRequests')}</h5>
-      <p className="mb-0">
-        {filters.status 
-          ? t('noRequestsFoundForStatus', `No ${filters.status.toLowerCase()} requests found for ${department} department.`, {
-              status: filters.status.toLowerCase(),
-              department: department
-            })
-          : t('noRequestsSubmittedYet', `No requests have been submitted to ${department} department yet.`, {
-              department: department
-            })
-        }
-      </p>
-    </div>
-  </div>
+            <div className="col-12 text-center py-5">
+              <div className="alert alert-info">
+                <h5>{t('noRequests')}</h5>
+                <p className="mb-0">
+                  {filters.status 
+                    ? t('noRequestsFoundForStatus', `No ${filters.status.toLowerCase()} requests found for ${department} department.`, {
+                        status: filters.status.toLowerCase(),
+                        department: department
+                      })
+                    : t('noRequestsSubmittedYet', `No requests have been submitted to ${department} department yet.`, {
+                        department: department
+                      })
+                  }
+                </p>
+              </div>
+            </div>
           ) : (
             requests.map((request) => (
               <div 
@@ -463,7 +480,7 @@ const handleNotificationClick = (requestId, type) => {
                   <div className="card-header d-flex justify-content-between align-items-center">
                     <div>
                       <h6 className="mb-1">
-                      {translateRequestType(request.type_name)} {/* BURADA ÇEVİRİ */}
+                        {translateRequestType(request.type_name)}
                       </h6>
                       <small className="text-muted">
                         {request.student_name} ({request.student_number})
@@ -567,24 +584,24 @@ const handleNotificationClick = (requestId, type) => {
 
   const renderSettings = () => (
     <div>
-    <div className="d-flex justify-content-between align-items-center mb-4">
-  <div>
-    <h3>⚙️ {t('settings')} - {department} {t('requestType')}</h3>
-    <p className="text-muted">{t('enableDisableRequestTypes')}</p>
-  </div>
-  
-  <button 
-    className="btn btn-primary"
-    onClick={() => setShowAddForm(!showAddForm)}
-  >
-    ➕ {t('addNewType')}
-  </button>
-</div>
+      <div className="d-flex justify-content-between align-items-center mb-4">
+        <div>
+          <h3>⚙️ {t('settings')} - {department} {t('requestType')}</h3>
+          <p className="text-muted">{t('enableDisableRequestTypes')}</p>
+        </div>
+        
+        <button 
+          className="btn btn-primary"
+          onClick={() => setShowAddForm(!showAddForm)}
+        >
+          ➕ {t('addNewType')}
+        </button>
+      </div>
 
       {showAddForm && (
         <div className="card mb-4">
           <div className="card-header">
-           <h6>{t('addNewTypeFor', 'Add New Type ')} {department}</h6>
+            <h6>{t('addNewTypeFor', 'Add New Type ')} {department}</h6>
           </div>
           <div className="card-body">
             <form onSubmit={handleAddRequestType}>
@@ -624,14 +641,13 @@ const handleNotificationClick = (requestId, type) => {
                     onChange={(e) => setNewTypeData({...newTypeData, is_document_required: e.target.checked})}
                   />
                   <label className="form-check-label">
-                   📎 {t('documentUploadRequiredForType')}
+                    📎 {t('documentUploadRequiredForType')}
                   </label>
                 </div>
               </div>
               <div className="d-flex gap-2">
                 <button type="submit" className="btn btn-success">
                   ✅ {t('addRequestType')}
-
                 </button>
                 <button 
                   type="button" 
@@ -653,17 +669,17 @@ const handleNotificationClick = (requestId, type) => {
         </div>
       ) : (
         <div className="row">
-         {requestTypes.length === 0 ? (
-  <div className="col-12">
-    <div className="alert alert-info">
-      <h5>{t('noRequestTypes')}</h5>
-      <p className="mb-0">
-        {t('noRequestTypesAvailable', `No request types available for ${department} department.`, {
-          department: department
-        })}
-      </p>
-    </div>
-  </div>
+          {requestTypes.length === 0 ? (
+            <div className="col-12">
+              <div className="alert alert-info">
+                <h5>{t('noRequestTypes')}</h5>
+                <p className="mb-0">
+                  {t('noRequestTypesAvailable', `No request types available for ${department} department.`, {
+                    department: department
+                  })}
+                </p>
+              </div>
+            </div>
           ) : (
             requestTypes.map((type) => (
               <div key={type.type_id} className="col-md-6 mb-3">
@@ -671,7 +687,7 @@ const handleNotificationClick = (requestId, type) => {
                   <div className="card-body">
                     <div className="d-flex justify-content-between align-items-start">
                       <div>
- <h6 className="card-title">{translateRequestType(type.type_name)}</h6>
+                        <h6 className="card-title">{translateRequestType(type.type_name)}</h6>
                         <p className="card-text text-muted">
                           {type.description_en || t('noDescriptionAvailable')}
                         </p>
@@ -719,19 +735,20 @@ const handleNotificationClick = (requestId, type) => {
               </div>
             </div>
             <div className="d-flex align-items-center gap-3">
-              <span className="text-muted">{t('welcome')}, <strong>{admin?.name}</strong></span>
+              <span className="text-muted d-none d-lg-inline">{t('welcome')}, <strong>{admin?.name}</strong></span>
               
               {/* Admin Notification Center */}
-             <AdminNotificationCenter onNotificationClick={handleNotificationClick} />
+              <AdminNotificationCenter onNotificationClick={handleNotificationClick} />
               
-              {/* Admin Language Selector */}
+              {/* Admin Language Dropdown */}
               <AdminLanguageSelector />
               
               <button 
                 className="btn btn-outline-danger btn-sm" 
                 onClick={handleLogoutClick}
               >
-                {t('logout')}
+                <span className="d-none d-md-inline">{t('logout')}</span>
+                <span className="d-md-none">🚪</span>
               </button>
             </div>
           </div>
@@ -741,29 +758,29 @@ const handleNotificationClick = (requestId, type) => {
       {/* Navigation Tabs */}
       <ul className="nav nav-tabs mb-4">
         <li className="nav-item">
-  <button
-    className={`nav-link ${activeTab === 'dashboard' ? 'active' : ''}`}
-    onClick={() => setActiveTab('dashboard')}
-  >
-    📊 {t('dashboard')}
-  </button>
-</li>
-<li className="nav-item">
-  <button
-    className={`nav-link ${activeTab === 'requests' ? 'active' : ''}`}
-    onClick={() => setActiveTab('requests')}
-  >
-    📋 {t('manageRequests')}
-  </button>
-</li>
-<li className="nav-item">
-  <button
-    className={`nav-link ${activeTab === 'settings' ? 'active' : ''}`}
-    onClick={() => setActiveTab('settings')}
-  >
-    ⚙️ {t('settings')}
-  </button>
-</li>
+          <button
+            className={`nav-link ${activeTab === 'dashboard' ? 'active' : ''}`}
+            onClick={() => setActiveTab('dashboard')}
+          >
+            📊 {t('dashboard')}
+          </button>
+        </li>
+        <li className="nav-item">
+          <button
+            className={`nav-link ${activeTab === 'requests' ? 'active' : ''}`}
+            onClick={() => setActiveTab('requests')}
+          >
+            📋 {t('manageRequests')}
+          </button>
+        </li>
+        <li className="nav-item">
+          <button
+            className={`nav-link ${activeTab === 'settings' ? 'active' : ''}`}
+            onClick={() => setActiveTab('settings')}
+          >
+            ⚙️ {t('settings')}
+          </button>
+        </li>
       </ul>
 
       {/* Tab Content */}

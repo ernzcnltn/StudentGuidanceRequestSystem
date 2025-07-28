@@ -3,30 +3,23 @@ export const translations = {
   tr: {
 
 
-
-aiChat: {
-  title: 'AI Asistan',
-  welcome: 'Merhaba {name}! Ben AI asistanınızım. Size rehberlik taleplerini hızlıca oluşturmanızda yardımcı olabilirim. Sorununuzu anlatın!',
-  placeholder: 'Sorununuzu yazın...',
-  suggestions: 'Hızlı öneriler:',
-  detected: '{type_name} için {category} departmanına yardım ihtiyacınız var gibi görünüyor.',
-  notSure: 'Tam olarak emin değilim, ama bunlar uyuyor olabilir:',
-  noMatch: 'Talebinizin tam türünü belirleyemedim. Tüm talep türlerine göz atmak veya farklı şekilde anlatmak ister misiniz?',
-  error: 'Üzgünüm, talebinizi işlerken sorun yaşıyorum. Lütfen tekrar deneyin.',
-  requestCreated: 'Harika! {priority} öncelikli #{requestId} numaralı talebinizi oluşturdum.',
-  createError: 'Üzgünüm, talebi oluşturamadım. Lütfen tekrar deneyin.',
-  createRequest: 'Talep Oluştur',
-  tryDifferent: 'Farklı Dene',
-  tryAgain: 'Baştan başlayalım. Size nasıl yardımcı olabilirim?',
-  browseAll: 'Tüm Talep Türlerine Göz At',
-  viewRequest: 'Talebinizi Görüntüleyin',
-  optionSelected: '"{type_name}" seçtiniz. Bu talebi oluşturmak ister misiniz?',
-  openAssistant: 'AI Asistanı Aç',
-  minimize: 'Küçült',
-  maximize: 'Büyüt',
-  close: 'Kapat'
-},
-
+'Clear Form': 'Formu Temizle',
+dragAndDropFiles: 'Dosyaları buraya sürükleyin',
+  orClickToSelect: 'veya dosya seçmek için yandaki butona tıklayın',
+  attachFiles: 'Dosya Ekle',
+  attachFilesOptional: 'Dosya Ekle (İsteğe Bağlı)',
+  adminResponseFiles: 'Admin Yanıt Dosyaları',
+  maxFileSizeAdmin: 'Maksimum dosya boyutu: 5MB',
+  filesAttachedToResponse: 'Bu yanıta eklenmiş dosyalar',
+ addMoreFiles: 'Daha Fazla Dosya Ekle',
+  clearAll: 'Tümünü Temizle',
+  dragFilesHere: 'Dosyaları buraya sürükleyin',
+  orUseButtonToBrowse: 'veya göz atmak için butonu kullanın',
+  readyToUpload: 'Yüklemeye hazır',
+  fileAlreadyAdded: 'Dosya zaten eklendi',
+  totalFiles: 'Toplam dosya',
+  SelectedFiles: 'Seçilen Dosyalar',
+  chooseFiles: 'Dosyaları Seç',
 
  responseTo: 'Yanıt:',
 previousResponses: 'Önceki Yanıtlar',
@@ -87,7 +80,7 @@ documentUploadRequiredForType: 'Bu talep türü için doküman yükleme gerekli'
 enterYourPassword: 'Şifrenizi girin',
 enterYourUsername: 'Kullanıcı adınızı girin',
 studentLogin: 'Öğrenci Girişi',
-adminLogin: 'Admin Girişi',
+adminLogin: 'Akademik Personel Girişi',
 
     
     // Navigation
@@ -104,7 +97,7 @@ adminLogin: 'Admin Girişi',
     systemTitle: 'FIU Rehberlik Sistemi',
     systemSubtitle: 'Final International University',
     studentPortal: 'Öğrenci Portalı',
-    adminPortal: 'Yönetici Portalı',
+    adminPortal: 'Akademik Personel Portalı',
     
     // Admin Panel
     adminPanel: 'Yönetici Paneli',
@@ -416,29 +409,23 @@ adminLogin: 'Admin Girişi',
 
   en: {
 
-aiChat: {
-  title: 'AI Assistant',
-  welcome: 'Hi {name}! I\'m your AI assistant. I can help you create guidance requests quickly. Just describe your issue!',
-  placeholder: 'Describe your issue...',
-  suggestions: 'Quick suggestions:',
-  detected: 'I understand! It seems you need help with "{type_name}" in the {category} department.',
-  notSure: 'I\'m not completely sure, but here are some options that might match:',
-  noMatch: 'I couldn\'t determine the exact type of your request. Would you like to browse all request types or try describing it differently?',
-  error: 'Sorry, I\'m having trouble processing your request. Please try again.',
-  requestCreated: 'Great! I\'ve created your {priority} priority request #{requestId}.',
-  createError: 'Sorry, I couldn\'t create the request. Please try again.',
-  createRequest: 'Create Request',
-  tryDifferent: 'Try Different',
-  tryAgain: 'Let\'s start over. How can I help you?',
-  browseAll: 'Browse All Request Types',
-  viewRequest: 'View Your Request',
-  optionSelected: 'You selected "{type_name}". Would you like to create this request?',
-  openAssistant: 'Open AI Assistant',
-  minimize: 'Minimize',
-  maximize: 'Maximize',
-  close: 'Close'
-},
-
+'Clear Form': 'Clear Form',
+ dragAndDropFiles: 'Drag and drop files here',
+  orClickToSelect: 'or click the button above to select files',
+  attachFiles: 'Attach Files',
+  attachFilesOptional: 'Attach Files (Optional)',
+  adminResponseFiles: 'Admin Response Files',
+  maxFileSizeAdmin: 'Maximum file size: 5MB',
+  filesAttachedToResponse: 'Files attached to this response',
+ addMoreFiles: 'Add More Files',
+  clearAll: 'Clear All',
+  dragFilesHere: 'Drag files here',
+  orUseButtonToBrowse: 'or use the button to browse',
+  readyToUpload: 'Ready to upload',
+  fileAlreadyAdded: 'File already added',
+  totalFiles: 'Total files',
+  SelectedFiles: 'Selected Files',
+  chooseFiles: 'Choose Files',
 
 
 
@@ -506,7 +493,7 @@ sendResponse: 'Send Response',
     enterYourPassword: 'Enter your password', 
     enterYourUsername: 'Enter your username',
     studentLogin: 'Student Login',
-    adminLogin: 'Admin Login',
+    adminLogin: 'Academic Staff Login',
     
     
     // Navigation
@@ -523,7 +510,7 @@ sendResponse: 'Send Response',
     systemTitle: 'FIU Guidance System',
     systemSubtitle: 'Final International University',
     studentPortal: 'Student Portal',
-    adminPortal: 'Admin Portal',
+    adminPortal: 'Academic Staff Portal',
     
     // Admin Panel
     adminPanel: 'Admin Panel',
@@ -827,30 +814,23 @@ sendResponse: 'Send Response',
   },
 ar: {
 
-  aiChat: {
-    title: 'مساعد الذكاء الاصطناعي',
-    welcome: 'مرحبًا {name}! أنا مساعدك الذكي. يمكنني مساعدتك في إنشاء طلبات الإرشاد بسرعة. فقط صف مشكلتك!',
-    placeholder: 'صف مشكلتك...',
-    suggestions: 'اقتراحات سريعة:',
-    detected: 'أفهم! يبدو أنك بحاجة إلى مساعدة في "{type_name}" في قسم {category}.',
- 
-   notSure: 'لست متأكدًا تمامًا، لكن إليك بعض الخيارات التي قد تتطابق:',
-    noMatch: 'لم أتمكن من تحديد نوع طلبك بالضبط. هل ترغب في تصفح جميع أنواع الطلبات أو محاولة وصفها بشكل مختلف؟',
-    error: 'عذرًا، أواجه مشكلة في معالجة طلبك. يرجى المحاولة مرة أخرى.',
-    requestCreated: 'رائع! لقد أنشأت طلبك ذي الأولوية {priority} بنجاح #{requestId}.',
-    createError: 'عذرًا، لم أتمكن من إنشاء الطلب. يرجى المحاولة مرة أخرى.',
-    createRequest: 'إنشاء طلب',
-    tryDifferent: 'جرب مختلف',
-    tryAgain: 'لنبدأ من جديد. كيف يمكنني مساعدتك؟',
-    browseAll: 'تصفح جميع أنواع الطلبات',
-    viewRequest: 'عرض طلبك',
-    optionSelected: 'لقد اخترت "{type_name}". هل ترغب في إنشاء هذا الطلب؟',
-    openAssistant: 'فتح مساعد الذكاء الاصطناعي',
-    minimize: 'تصغير',
-    maximize: 'تكبير',
-    close: 'إغلاق'
-  },
-
+  'Clear Form': 'مسح النموذج',
+  dragAndDropFiles: 'اسحب الملفات هنا',
+  orClickToSelect: 'أو انقر على الزر أعلاه لتحديد الملفات',
+  attachFiles: 'إرفاق ملفات',
+  attachFilesOptional: 'إرفاق ملفات (اختياري)',
+  adminResponseFiles: 'ملفات رد المدير',
+  maxFileSizeAdmin: 'الحد الأقصى لحجم الملف: 5 ميجابايت',
+  filesAttachedToResponse: 'الملفات المرفقة بهذا الرد',
+  addMoreFiles: 'إضافة المزيد من الملفات',
+  clearAll: 'مسح الكل',
+  dragFilesHere: 'اسحب الملفات هنا',
+  orUseButtonToBrowse: 'أو استخدم الزر للتصفح',
+  readyToUpload: 'جاهز للتحميل',
+  fileAlreadyAdded: 'تم إضافة الملف بالفعل',
+  totalFiles: 'إجمالي الملفات',
+  SelectedFiles: 'الملفات المحددة',
+  chooseFiles: 'اختر الملفات',
 
 
 
@@ -911,7 +891,7 @@ ar: {
   enterYourPassword: 'أدخل كلمة المرور الخاصة بك',
   enterYourUsername: 'أدخل اسم المستخدم الخاص بك',
   studentLogin: 'تسجيل دخول الطالب',
-  adminLogin: 'تسجيل دخول المدير',
+  adminLogin: ' تسجيل دخول أعضاء هيئة التدريس',
 
 
   home: 'الصفحة الرئيسية',
@@ -926,7 +906,7 @@ ar: {
   systemTitle: 'نظام التوجيه الطلابي FIU',
   systemSubtitle: 'جامعة فاينال الدولية',
   studentPortal: 'بوابة الطالب',
-  adminPortal: 'بوابة المدير',
+  adminPortal: 'بوابة أعضاء هيئة التدريس',
 
   adminPanel: 'لوحة الإدارة',
   departmentAdmin: 'مدير القسم',
@@ -1207,29 +1187,24 @@ ar: {
 
 ru: {
 
- 
-  aiChat: {
-    title: 'AI Помощник',
-    welcome: 'Привет, {name}! Я твой AI помощник. Я могу помочь тебе быстро создать запрос на консультацию. Просто опиши свою проблему!',
-    placeholder: 'Опиши свою проблему...',
-    suggestions: 'Быстрые предложения:',
-    detected: 'Понял! Похоже, тебе нужна помощь по теме "{type_name}" в департаменте {category}.',
-    notSure: 'Я не совсем уверен, но вот несколько подходящих вариантов:',
-    noMatch: 'Не удалось определить точный тип запроса. Хочешь просмотреть все типы запросов или попробовать описать по-другому?',
-    error: 'Извините, возникла проблема при обработке вашего запроса. Пожалуйста, попробуйте снова.',
-    requestCreated: 'Отлично! Я создал твой запрос с приоритетом {priority}, номер запроса: #{requestId}.',
-    createError: 'Извините, не удалось создать запрос. Пожалуйста, попробуйте снова.',
-    createRequest: 'Создать запрос',
-    tryDifferent: 'Попробовать другое',
-    tryAgain: 'Начнем сначала. Чем могу помочь?',
-    browseAll: 'Просмотреть все типы запросов',
-    viewRequest: 'Посмотреть твой запрос',
-    optionSelected: 'Вы выбрали "{type_name}". Хотите создать этот запрос?',
-    openAssistant: 'Открыть AI помощника',
-    minimize: 'Свернуть',
-    maximize: 'Развернуть',
-    close: 'Закрыть'
-  },
+  'Clear Form': 'Очистить форму',
+    dragAndDropFiles: 'Перетащите файлы сюда',
+  orClickToSelect: 'или нажмите кнопку выше для выбора файлов',
+  attachFiles: 'Прикрепить файлы',
+  attachFilesOptional: 'Прикрепить файлы (необязательно)',
+  adminResponseFiles: 'Файлы ответа администратора',
+  maxFileSizeAdmin: 'Максимальный размер файла: 5МБ',
+  filesAttachedToResponse: 'Файлы, прикрепленные к этому ответу',
+ addMoreFiles: 'Добавить больше файлов',
+  clearAll: 'Очистить все',
+  dragFilesHere: 'Перетащите файлы сюда',
+  orUseButtonToBrowse: 'или используйте кнопку для просмотра',
+  readyToUpload: 'Готово к загрузке',
+  fileAlreadyAdded: 'Файл уже добавлен',
+  totalFiles: 'Всего файлов',
+  SelectedFiles: 'Выбранные файлы',
+  chooseFiles: 'Выбрать файлы',
+
 
   
  responseTo: 'Ответ на:',
@@ -1287,7 +1262,7 @@ ru: {
   enterYourPassword: 'Введите ваш пароль',
   enterYourUsername: 'Введите ваше имя пользователя',
   studentLogin: 'Вход студента',
-  adminLogin: 'Вход администратора',
+  adminLogin: 'вход академического персонала',
 
   home: 'Главная',
   dashboard: 'Панель управления',
@@ -1301,7 +1276,7 @@ ru: {
   systemTitle: 'Система студенческого сопровождения FIU',
   systemSubtitle: 'Международный Университет Final',
   studentPortal: 'Студенческий портал',
-  adminPortal: 'Портал администратора',
+  adminPortal: 'портал академического персонала',
 
   adminPanel: 'Панель администратора',
   departmentAdmin: 'Администратор отдела',
@@ -1583,29 +1558,24 @@ requestTypes: {
 },
 fr: {
 
-aiChat: {
-    title: 'Assistant IA',
-    welcome: 'Salut {name} ! Je suis ton assistant IA. Je peux t’aider à créer rapidement une demande d’assistance. Décris simplement ton problème !',
-    placeholder: 'Décris ton problème...',
-    suggestions: 'Suggestions rapides :',
-    detected: 'Je comprends ! Il semble que tu as besoin d’aide pour "{type_name}" dans le département {category}.',
-    notSure: 'Je ne suis pas totalement sûr, mais voici quelques options possibles :',
-    noMatch: 'Je n’ai pas pu déterminer exactement le type de ta demande. Souhaites-tu consulter tous les types de demandes ou reformuler ta description ?',
-    error: 'Désolé, j’ai rencontré un problème lors du traitement de ta demande. Veuillez réessayer.',
-    requestCreated: 'Parfait ! J’ai créé ta demande de priorité {priority}, numéro de demande : #{requestId}.',
-    createError: 'Désolé, je n’ai pas pu créer la demande. Veuillez réessayer.',
-    createRequest: 'Créer une demande',
-    tryDifferent: 'Essayer autre chose',
-    tryAgain: 'Recommençons. Comment puis-je t’aider ?',
-    browseAll: 'Voir tous les types de demandes',
-    viewRequest: 'Voir ta demande',
-    optionSelected: 'Tu as sélectionné "{type_name}". Souhaites-tu créer cette demande ?',
-    openAssistant: 'Ouvrir l’assistant IA',
-    minimize: 'Réduire',
-    maximize: 'Agrandir',
-    close: 'Fermer'
-  },
+  'Clear Form': 'Effacer le formulaire',
 
+ dragAndDropFiles: 'Glissez et déposez les fichiers ici',
+  orClickToSelect: 'ou cliquez sur le bouton ci-dessus pour sélectionner les fichiers',
+  attachFiles: 'Joindre des fichiers',
+  attachFilesOptional: 'Joindre des fichiers (optionnel)',
+  adminResponseFiles: 'Fichiers de réponse administrateur',
+  maxFileSizeAdmin: 'Taille maximale du fichier : 5 Mo',
+  filesAttachedToResponse: 'Fichiers joints à cette réponse',
+   addMoreFiles: 'Ajouter plus de fichiers',
+  clearAll: 'Tout effacer',
+  dragFilesHere: 'Glissez les fichiers ici',
+  orUseButtonToBrowse: 'ou utilisez le bouton pour parcourir',
+  readyToUpload: 'Prêt à télécharger',
+  fileAlreadyAdded: 'Fichier déjà ajouté',
+  totalFiles: 'Total des fichiers',
+  SelectedFiles: 'Fichiers sélectionnés',
+  chooseFiles: 'Choisir des fichiers',
 
 
   responseTo: 'Réponse à :',
@@ -1679,7 +1649,7 @@ aiChat: {
   enterYourPassword: 'Entrez votre mot de passe',
   enterYourUsername: "Entrez votre nom d'utilisateur",
   studentLogin: 'Connexion Étudiant',
-  adminLogin: 'Connexion Administrateur',  
+  adminLogin: 'connexion du personnel académique',  
 
   // Navigation
   home: 'Accueil',
@@ -1695,7 +1665,7 @@ aiChat: {
   systemTitle: 'Système d’Orientation FIU',
   systemSubtitle: 'Université Internationale Final',
   studentPortal: 'Portail Étudiant',
-  adminPortal: 'Portail Administrateur',
+  adminPortal: 'portail du personnel académique',
 
   // Admin Panel
   adminPanel: 'Panneau d’administration',
