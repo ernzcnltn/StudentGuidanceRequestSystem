@@ -5,6 +5,7 @@ import { useAdminAuth } from '../contexts/AdminAuthContext';
 import DarkModeToggle from '../components/DarkModeToggle';
 import { useTranslation } from '../hooks/useTranslation';
 import { useLanguage } from '../contexts/LanguageContext';
+import FIULogo from '../components/FIULogo';
 
 const UnifiedLoginPage = () => {
   const navigate = useNavigate();
@@ -125,34 +126,36 @@ const UnifiedLoginPage = () => {
             left: 0,
             right: 0,
             bottom: 0,
-            background: 'linear-gradient(135deg, rgba(220, 38, 38, 0.9) 0%, rgba(185, 28, 28, 0.9) 100%)',
+          //  background: 'linear-gradient(135deg, rgba(220, 38, 38, 0.9) 0%, rgba(185, 28, 28, 0.9) 100%)',
             display: 'flex',
+           // border: '2px solid red',
+           // boxShadow: '2px 4px 20px 5px rgba(52, 14, 14, 1)',
             alignItems: 'center',
             justifyContent: 'center',
             flexDirection: 'column',
             padding: '2rem'
           }}
         >
-          <h1 className="text-white display-3 fw-bold mb-4">FIU</h1>
-          <h2 className="text-white mb-3">Guidance System</h2>
-          <p className="text-white text-center" style={{ maxWidth: '400px', opacity: 0.9 }}>
-        
-          </p>
+
         </div>
       </div>
 
       {/* Right Side - Login Form */}
-      <div className="col-12 col-lg-6 d-flex align-items-center justify-content-center p-4 bg-light">
+      <div className="col-12 col-lg-6 d-flex align-items-center justify-content-center p-4 bg-light " > 
+          
+
         <div className="w-100" style={{ maxWidth: '450px' }}>
           {/* Dark Mode Toggle */}
           <DarkModeToggle />
           
-          {/* Logo for mobile */}
-          <div className="d-block d-lg-none text-center mb-4">
-            <h1 className="text-danger fw-bold">FIU</h1>
-            <p className="text-muted">Guidance System</p>
-          </div>
-
+           {/* Logo - HEM MOBİL HEM DESKTOP */}
+    <div className="text-center mb-4">
+      <div className="mb-3">
+        <FIULogo size=" xl " />
+      </div>
+      <h1 className="text-danger fw-bold d-lg-none">FIU</h1> {/* Sadece mobilde yazı */}
+      <p className="text-muted d-lg-none">Guidance System</p> {/* Sadece mobilde yazı */}
+    </div>
           {/* Language Selector */}
           <LoginLanguageSelector />
 
@@ -331,7 +334,7 @@ const UnifiedLoginPage = () => {
                         {t('signingIn')}...
                       </>
                     ) : (
-                      t('signin') + ' ' + t('asAdmin', 'as Admin')
+                      t('signin') + ' ' + t('asAcademic')
                     )}
                   </button>
                 </div>

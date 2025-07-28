@@ -11,9 +11,7 @@ const AttachmentViewer = ({ requestId, onClose }) => {
   const [previewFile, setPreviewFile] = useState(null);
   const [previewLoading, setPreviewLoading] = useState(false);
   const { showSuccess, showError } = useToast();
-
   const { t } = useTranslation();
-
 
   const fetchAttachments = useCallback(async () => {
     try {
@@ -39,7 +37,6 @@ const AttachmentViewer = ({ requestId, onClose }) => {
       setDownloading(filename);
       const response = await apiService.downloadAttachment(filename);
       
-      // Response'un blob olduğundan emin ol
       const blob = response.data instanceof Blob ? response.data : new Blob([response.data]);
       const url = window.URL.createObjectURL(blob);
       
@@ -65,11 +62,15 @@ const AttachmentViewer = ({ requestId, onClose }) => {
   const previewFileHandler = async (filename, fileType, originalName) => {
     try {
       setPreviewLoading(true);
-      const response = await apiService.downloadAttachment(filename);
+      console.log('Starting preview for:', filename, fileType);
       
-      // Response'un blob olduğundan emin ol
+      const response = await apiService.downloadAttachment(filename);
+      console.log('API response received:', response);
+      
       const blob = response.data instanceof Blob ? response.data : new Blob([response.data], { type: fileType });
       const url = window.URL.createObjectURL(blob);
+      
+      console.log('Preview URL created:', url);
       
       setPreviewFile({
         url,
@@ -86,12 +87,13 @@ const AttachmentViewer = ({ requestId, onClose }) => {
     }
   };
 
-  const closePreview = () => {
+  const closePreview = useCallback(() => {
+    console.log('Closing preview');
     if (previewFile) {
       window.URL.revokeObjectURL(previewFile.url);
       setPreviewFile(null);
     }
-  };
+  }, [previewFile]);
 
   const formatFileSize = (bytes) => {
     if (bytes === 0) return '0 Bytes';
@@ -119,62 +121,100 @@ const AttachmentViewer = ({ requestId, onClose }) => {
     }
   };
 
+  const handlePreviewBackdropClick = (e) => {
+    if (e.target === e.currentTarget) {
+      closePreview();
+    }
+  };
+
+  // Prevent body scroll when preview is open
+  useEffect(() => {
+    if (previewFile) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'unset';
+    }
+    
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, [previewFile]);
+
   const renderPreview = () => {
     if (!previewFile) return null;
 
     const { url, type, name } = previewFile;
+    console.log('Rendering preview for:', name, type);
 
     return (
-
-      
       <div 
         className="modal-backdrop fade show" 
         style={{ 
           position: 'fixed',
           top: 0,
           left: 0,
-          width: '100%',
-          height: '100%',
-          backgroundColor: 'rgba(0,0,0,0.3)',
-          zIndex: 9999,
+          width: '100vw',
+          height: '100vh',
+          backgroundColor: 'rgba(0,0,0,0.9)',
+          zIndex: 99999, // Much higher than main modal
           display: 'flex',
           alignItems: 'center',
-          justifyContent: 'center'
+          justifyContent: 'center',
+          padding: '20px'
         }}
-        onClick={closePreview}
+        onClick={handlePreviewBackdropClick}
       >
         <div 
-          className="bg-white rounded p-3"
+          className="bg-white rounded shadow-lg"
           style={{ 
-            maxWidth: '90vw',
-            maxHeight: '90vh',
-            overflow: 'auto'
-            
+            maxWidth: '95vw',
+            maxHeight: '95vh',
+            overflow: 'auto',
+            position: 'relative'
           }}
           onClick={(e) => e.stopPropagation()}
         >
-          <div className="d-flex justify-content-between align-items-center mb-3">
-            <h5 className="mb-0">📁 {name}</h5>
-            <button 
-              className="btn btn-sm btn-outline-secondary" 
-              onClick={closePreview}
-            >
-              ✕ Close
-            </button>
+          {/* Header */}
+          <div className="d-flex justify-content-between align-items-center p-3 border-bottom">
+            <h5 className="mb-0 d-flex align-items-center">
+              <span className="me-2">📁</span>
+              <span title={name}>{name}</span>
+            </h5>
+            <div className="d-flex gap-2">
+              <button 
+                className="btn btn-sm btn-outline-primary" 
+                onClick={() => downloadFile(previewFile.filename, name)}
+                title="Download"
+              >
+                📥 Download
+              </button>
+              <button 
+                className="btn btn-sm btn-outline-secondary" 
+                onClick={closePreview}
+                title="Close"
+              >
+                ✕
+              </button>
+            </div>
           </div>
           
-          <div className="text-center">
+          {/* Content */}
+          <div className="p-3" style={{ textAlign: 'center' }}>
             {type.includes('image') && (
               <img 
                 src={url} 
                 alt={name}
                 style={{ 
                   maxWidth: '100%',
-                  maxHeight: '70vh',
-                  objectFit: 'contain'
+                  maxHeight: '80vh',
+                  objectFit: 'contain',
+                  borderRadius: '4px'
                 }}
-                onLoad={() => console.log('Image loaded')}
-                onError={() => console.log('Image error')}
+                onLoad={() => console.log('Image loaded successfully')}
+                onError={(e) => {
+                  console.error('Image failed to load:', e);
+                  showError('Failed to load image preview');
+                }}
               />
             )}
             
@@ -183,25 +223,44 @@ const AttachmentViewer = ({ requestId, onClose }) => {
                 src={url}
                 type="application/pdf"
                 width="100%"
-                height="600px"
-                style={{ border: 'none' }}
+                height="80vh"
+                style={{ 
+                  border: 'none',
+                  borderRadius: '4px',
+                  minHeight: '600px'
+                }}
               />
             )}
             
-            {!type.includes('image') && !type.includes('pdf') && (
-  <div className="alert alert-info">
-    <h6>Preview Not Available</h6>
-    <p>This file type cannot be previewed. Please download to view.</p>
-    <button 
-      className="btn btn-primary btn-sm"
-      onClick={() => {
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = name;
-        link.click();
-      }}
-    >
-      📥 Download File
+            {type.includes('text') && (
+              <div style={{ 
+                maxHeight: '80vh', 
+                overflow: 'auto',
+                textAlign: 'left',
+                backgroundColor: '#f8f9fa',
+                padding: '20px',
+                borderRadius: '4px',
+                fontFamily: 'monospace'
+              }}>
+                <iframe
+                  src={url}
+                  width="100%"
+                  height="600px"
+                  style={{ border: 'none' }}
+                  title={`Preview of ${name}`}
+                />
+              </div>
+            )}
+            
+            {!canPreview(type) && (
+              <div className="alert alert-info">
+                <h6>Preview Not Available</h6>
+                <p>This file type cannot be previewed in the browser.</p>
+                <button 
+                  className="btn btn-primary btn-sm"
+                  onClick={() => downloadFile(previewFile.filename, name)}
+                >
+                  📥 Download File
                 </button>
               </div>
             )}
@@ -212,29 +271,25 @@ const AttachmentViewer = ({ requestId, onClose }) => {
   };
 
   return (
-
-    
     <>
+      {/* Main Modal Backdrop */}
+      {!previewFile && (
+        <div 
+          className="modal-backdrop fade show" 
+          style={{ 
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            width: '100%',
+            height: '100%',
+            backgroundColor: 'rgba(0,0,0,0.5)',
+            zIndex: 1040
+          }}
+          onClick={handleBackdropClick}
+        />
+      )}
 
-       {/* File Preview Modal */}
-      {previewFile && renderPreview()}
-    
-      {/* Modal Backdrop */}
-      <div 
-        className="modal-backdrop fade show" 
-        style={{ 
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          width: '100%',
-          height: '100%',
-          backgroundColor: 'rgba(0,0,0,0.5)',
-          zIndex: 1040
-        }}
-        onClick={handleBackdropClick}
-      ></div>
-
-      {/* Modal */}
+      {/* Main Modal */}
       <div 
         className="modal fade show d-block" 
         tabIndex="-1"
@@ -244,9 +299,8 @@ const AttachmentViewer = ({ requestId, onClose }) => {
           left: 0,
           width: '100%',
           height: '100%',
-          zIndex: 1050,
-          overflow: 'auto',
-      
+          zIndex: previewFile ? 9999 : 1050, // Lower z-index when preview is open
+          overflow: 'auto'
         }}
         onClick={handleBackdropClick}
       >
@@ -260,38 +314,38 @@ const AttachmentViewer = ({ requestId, onClose }) => {
         >
           <div className="modal-content">
             <div className="modal-header">
-    <h5 className="modal-title">
-      📎 {t('attachments')}
-    </h5>
-    <button 
-      type="button" 
-      className="btn-close" 
-      onClick={onClose}
-      aria-label={t('close')}
-    ></button>
-  </div>
+              <h5 className="modal-title">
+                📎 {t('attachments')}
+              </h5>
+              <button 
+                type="button" 
+                className="btn-close" 
+                onClick={onClose}
+                aria-label={t('close')}
+              />
+            </div>
             
             <div className="modal-body">
               {loading ? (
-    <div className="text-center py-4">
-      <div className="spinner-border text-primary" role="status">
-        <span className="visually-hidden">{t('loading')}</span>
-      </div>
-      <p className="mt-3">{t('loadingAttachments')}</p>
-    </div>
-  ) : error ? (
-    <div className="alert alert-danger">
-      <h6>{t('failedToLoadAttachments')}</h6>
-      <p className="mb-0">{error}</p>
-    </div>
-  ) : attachments.length === 0 ? (
-    <div className="text-center py-5">
-      <div className="text-muted">
-        <div style={{ fontSize: '4rem' }}>📂</div>
-        <h5 className="mt-3">{t('noAttachments')}</h5>
-        <p>{t('thisRequestHasNoFiles')}</p>
-      </div>
-    </div>
+                <div className="text-center py-4">
+                  <div className="spinner-border text-primary" role="status">
+                    <span className="visually-hidden">{t('loading')}</span>
+                  </div>
+                  <p className="mt-3">{t('loadingAttachments')}</p>
+                </div>
+              ) : error ? (
+                <div className="alert alert-danger">
+                  <h6>{t('failedToLoadAttachments')}</h6>
+                  <p className="mb-0">{error}</p>
+                </div>
+              ) : attachments.length === 0 ? (
+                <div className="text-center py-5">
+                  <div className="text-muted">
+                    <div style={{ fontSize: '4rem' }}>📂</div>
+                    <h5 className="mt-3">{t('noAttachments')}</h5>
+                    <p>{t('thisRequestHasNoFiles')}</p>
+                  </div>
+                </div>
               ) : (
                 <div className="row">
                   {attachments.map((attachment) => (
@@ -312,48 +366,52 @@ const AttachmentViewer = ({ requestId, onClose }) => {
                                 }
                               </h6>
                               <div className="small text-muted mb-3">
-    <div><strong>{t('size')}:</strong> {formatFileSize(attachment.file_size)}</div>
-    <div><strong>{t('type')}:</strong> {attachment.file_type}</div>
-    <div><strong>{t('uploaded')}:</strong> {new Date(attachment.uploaded_at).toLocaleDateString()}</div>
-  </div>
+                                <div><strong>{t('size')}:</strong> {formatFileSize(attachment.file_size)}</div>
+                                <div><strong>{t('type')}:</strong> {attachment.file_type}</div>
+                                <div><strong>{t('uploaded')}:</strong> {new Date(attachment.uploaded_at).toLocaleDateString()}</div>
+                              </div>
                               
                               <div className="d-flex gap-2 flex-wrap">
                                 {canPreview(attachment.file_type) && (
-    <button
-      className="btn btn-outline-primary btn-sm"
-      onClick={() => previewFileHandler(attachment.file_path, attachment.file_type, attachment.file_name)}
-      disabled={previewLoading}
-    >
-      {previewLoading ? (
-        <>
-          <span className="spinner-border spinner-border-sm me-1" role="status"></span>
-          {t('loading')}...
-        </>
-      ) : (
-        <>
-          👁️ {t('preview')}
-        </>
-      )}
-    </button>
-  )}
+                                  <button
+                                    className="btn btn-outline-primary btn-sm"
+                                    onClick={(e) => {
+                                      e.preventDefault();
+                                      e.stopPropagation();
+                                      console.log('Preview button clicked for:', attachment.file_name);
+                                      previewFileHandler(attachment.file_path, attachment.file_type, attachment.file_name);
+                                    }}
+                                    disabled={previewLoading}
+                                  >
+                                    {previewLoading ? (
+                                      <>
+                                        <span className="spinner-border spinner-border-sm me-1" role="status"></span>
+                                        {t('loading')}...
+                                      </>
+                                    ) : (
+                                      <>
+                                        👁️ {t('preview')}
+                                      </>
+                                    )}
+                                  </button>
+                                )}
 
-  <button
-    className="btn btn-primary btn-sm"
-    onClick={() => downloadFile(attachment.file_path, attachment.file_name)}
-    disabled={downloading === attachment.file_path}
-  >
-    {downloading === attachment.file_path ? (
-      <>
-        <span className="spinner-border spinner-border-sm me-1" role="status"></span>
-        {t('downloading')}...
-      </>
-    ) : (
-      <>
-        📥 {t('download')}
-      </>
-    )}
-  </button>
-
+                                <button
+                                  className="btn btn-primary btn-sm"
+                                  onClick={() => downloadFile(attachment.file_path, attachment.file_name)}
+                                  disabled={downloading === attachment.file_path}
+                                >
+                                  {downloading === attachment.file_path ? (
+                                    <>
+                                      <span className="spinner-border spinner-border-sm me-1" role="status"></span>
+                                      {t('downloading')}...
+                                    </>
+                                  ) : (
+                                    <>
+                                      📥 {t('download')}
+                                    </>
+                                  )}
+                                </button>
                               </div>
                             </div>
                           </div>
@@ -366,27 +424,23 @@ const AttachmentViewer = ({ requestId, onClose }) => {
             </div>
             
             <div className="modal-footer">
-    <div className="text-muted small me-auto">
-      {attachments.length} {t('attachmentsFound')}
-    </div>
-    <button 
-      type="button" 
-      className="btn btn-secondary" 
-      onClick={onClose}
-    >
-      {t('close')}
-    </button>
-  </div>
+              <div className="text-muted small me-auto">
+                {attachments.length} {t('attachmentsFound')}
+              </div>
+              <button 
+                type="button" 
+                className="btn btn-secondary" 
+                onClick={onClose}
+              >
+                {t('close')}
+              </button>
+            </div>
           </div>
         </div>
       </div>
 
-      
-
-   
-
-      
-
+      {/* File Preview Modal - Render AFTER main modal with highest z-index */}
+      {previewFile && renderPreview()}
     </>
   );
 };

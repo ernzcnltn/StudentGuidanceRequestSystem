@@ -2,6 +2,8 @@
 export const translations = {
   tr: {
 
+maxFileSizeStudent: 'Maksimum dosya boyutu: 2MB',
+
 
 'Clear Form': 'Formu Temizle',
 dragAndDropFiles: 'Dosyaları buraya sürükleyin',
@@ -20,6 +22,9 @@ dragAndDropFiles: 'Dosyaları buraya sürükleyin',
   totalFiles: 'Toplam dosya',
   SelectedFiles: 'Seçilen Dosyalar',
   chooseFiles: 'Dosyaları Seç',
+
+
+asAcademic: 'Akademik Personel olarak',
 
  responseTo: 'Yanıt:',
 previousResponses: 'Önceki Yanıtlar',
@@ -427,6 +432,8 @@ adminLogin: 'Akademik Personel Girişi',
   SelectedFiles: 'Selected Files',
   chooseFiles: 'Choose Files',
 
+asAcademic: 'As Academic Staff',  
+
 
 
 
@@ -831,7 +838,7 @@ ar: {
   totalFiles: 'إجمالي الملفات',
   SelectedFiles: 'الملفات المحددة',
   chooseFiles: 'اختر الملفات',
-
+  asAcademic: 'كأعضاء هيئة التدريس',
 
 
 
@@ -1204,6 +1211,7 @@ ru: {
   totalFiles: 'Всего файлов',
   SelectedFiles: 'Выбранные файлы',
   chooseFiles: 'Выбрать файлы',
+  asAcademic: 'Как преподаватель',
 
 
   
@@ -1576,6 +1584,7 @@ fr: {
   totalFiles: 'Total des fichiers',
   SelectedFiles: 'Fichiers sélectionnés',
   chooseFiles: 'Choisir des fichiers',
+  asAcademic: 'En tant que personnel académique',
 
 
   responseTo: 'Réponse à :',

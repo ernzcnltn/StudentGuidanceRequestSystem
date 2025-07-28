@@ -8,7 +8,7 @@ const FIULogo = ({ size = 'xl', className = '', style = {} }) => {
       sm: { width: '42px', height: '42px' },
       md: { width: '52px', height: '52px' },
       lg: { width: '72px', height: '72px' },
-      xl: { width: '92px', height: '92px' }
+      xl: { width: '250px', height: '250px' }
     };
     return sizes[size] || sizes.xl;
   };

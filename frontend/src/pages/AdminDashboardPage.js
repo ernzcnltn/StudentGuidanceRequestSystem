@@ -11,7 +11,8 @@ import FIULogo from '../components/FIULogo';
 import ConfirmationModal from '../components/ConfirmationModal';
 import LanguageDropdown from '../components/LanguageDropdown';
 import 'bootstrap/dist/js/bootstrap.bundle.min.js';
-import { useToast } from '../contexts/ToastContext'; 
+import { useToast } from '../contexts/ToastContext';
+
 const AdminDashboardPage = () => {
   const [selectedRequestForResponse, setSelectedRequestForResponse] = useState(null);
   const [showResponseModal, setShowResponseModal] = useState(false);
@@ -40,7 +41,7 @@ const AdminDashboardPage = () => {
     is_document_required: false
   });
 
-  // Admin Language Dropdown - dropdown olarak güncellendi
+  // Admin Language Dropdown
   const AdminLanguageSelector = () => {
     return <LanguageDropdown variant="admin" />;
   };
@@ -75,23 +76,21 @@ const AdminDashboardPage = () => {
   }, []);
 
   const fetchRequests = useCallback(async () => {
-  try {
-    setLoading(true);
-    const response = await apiService.getAdminRequests(filters);
-    if (response.data && response.data.success) {
-      const fetchedRequests = response.data.data || [];
-      
-      // Requestleri sırala
-      const sortedRequests = sortRequestsByPriorityAndStatus(fetchedRequests);
-      setRequests(sortedRequests);
+    try {
+      setLoading(true);
+      const response = await apiService.getAdminRequests(filters);
+      if (response.data && response.data.success) {
+        const fetchedRequests = response.data.data || [];
+        const sortedRequests = sortRequestsByPriorityAndStatus(fetchedRequests);
+        setRequests(sortedRequests);
+      }
+    } catch (error) {
+      console.error('Error fetching requests:', error);
+      setRequests([]);
+    } finally {
+      setLoading(false);
     }
-  } catch (error) {
-    console.error('Error fetching requests:', error);
-    setRequests([]);
-  } finally {
-    setLoading(false);
-  }
-}, [filters]);
+  }, [filters]);
 
   const fetchRequestTypes = useCallback(async () => {
     try {
@@ -109,48 +108,44 @@ const AdminDashboardPage = () => {
   }, []);
 
   const sortRequestsByPriorityAndStatus = (requests) => {
-  return requests.sort((a, b) => {
-    // Önce status'e göre ayır - Completed olanlar en alta
-    if (a.status === 'Completed' && b.status !== 'Completed') {
-      return 1; // a alta git
-    }
-    if (b.status === 'Completed' && a.status !== 'Completed') {
-      return -1; // b alta git
-    }
-    
-    // İkisi de completed veya ikisi de active ise priority'ye göre sırala
-    const priorityOrder = {
-      'Urgent': 1,
-      'High': 2,
-      'Medium': 3,
-      'Low': 4
-    };
-    
-    const aPriority = priorityOrder[a.priority] || 3;
-    const bPriority = priorityOrder[b.priority] || 3;
-    
-    if (aPriority !== bPriority) {
-      return aPriority - bPriority;
-    }
-    
-    // Priority aynıysa, status'e göre sırala
-    const statusOrder = {
-      'Pending': 1,
-      'Informed': 2,
-      'Completed': 3
-    };
-    
-    const aStatus = statusOrder[a.status] || 2;
-    const bStatus = statusOrder[b.status] || 2;
-    
-    if (aStatus !== bStatus) {
-      return aStatus - bStatus;
-    }
-    
-    // Her şey aynıysa, tarih sırasına göre
-    return new Date(b.submitted_at) - new Date(a.submitted_at);
-  });
-};
+    return requests.sort((a, b) => {
+      if (a.status === 'Completed' && b.status !== 'Completed') {
+        return 1;
+      }
+      if (b.status === 'Completed' && a.status !== 'Completed') {
+        return -1;
+      }
+      
+      const priorityOrder = {
+        'Urgent': 1,
+        'High': 2,
+        'Medium': 3,
+        'Low': 4
+      };
+      
+      const aPriority = priorityOrder[a.priority] || 3;
+      const bPriority = priorityOrder[b.priority] || 3;
+      
+      if (aPriority !== bPriority) {
+        return aPriority - bPriority;
+      }
+      
+      const statusOrder = {
+        'Pending': 1,
+        'Informed': 2,
+        'Completed': 3
+      };
+      
+      const aStatus = statusOrder[a.status] || 2;
+      const bStatus = statusOrder[b.status] || 2;
+      
+      if (aStatus !== bStatus) {
+        return aStatus - bStatus;
+      }
+      
+      return new Date(b.submitted_at) - new Date(a.submitted_at);
+    });
+  };
 
   useEffect(() => {
     if (activeTab === 'dashboard') {
@@ -163,27 +158,23 @@ const AdminDashboardPage = () => {
   }, [activeTab, fetchDashboardData, fetchRequests, fetchRequestTypes]);
 
   const updateRequestStatus = async (requestId, newStatus) => {
-  try {
-    await apiService.updateAdminRequestStatus(requestId, { 
-      status: newStatus
-    });
-    
-    // Requests'i yeniden fetch et ve sırala
-    fetchRequests();
-    
-    // Success mesajı
-    if (newStatus === 'Completed') {
-      showSuccess(`✅ Request #${requestId} marked as completed and moved to bottom`);
-    } else {
-      showSuccess(`📊 Request #${requestId} status updated to ${newStatus}`);
+    try {
+      await apiService.updateAdminRequestStatus(requestId, { 
+        status: newStatus
+      });
+      
+      fetchRequests();
+      
+      if (newStatus === 'Completed') {
+        showSuccess(`✅ Request #${requestId} marked as completed`);
+      } else {
+        showSuccess(`📊 Request #${requestId} status updated to ${newStatus}`);
+      }
+    } catch (error) {
+      console.error('Error updating request status:', error);
+      showError('Failed to update request status');
     }
-  } catch (error) {
-    console.error('Error updating request status:', error);
-    showError('Failed to update request status');
-  }
-};
-
- 
+  };
 
   const toggleRequestType = async (typeId) => {
     try {
@@ -195,47 +186,10 @@ const AdminDashboardPage = () => {
     }
   };
 
-  useEffect(() => {
-    // Listen for notification clicks
-    const handleNotificationNavigation = (event) => {
-      const { requestId } = event.detail;
-      
-      // Switch to requests tab
-      setActiveTab('requests');
-      
-      // Clear any existing filters to show all requests
-      setFilters({ status: '' });
-      
-      // After a short delay, scroll to the specific request
-      setTimeout(() => {
-        const requestElement = document.getElementById(`request-${requestId}`);
-        if (requestElement) {
-          requestElement.scrollIntoView({ 
-            behavior: 'smooth', 
-            block: 'center' 
-          });
-          // Highlight the request briefly
-          requestElement.style.backgroundColor = '#fff3cd';
-          setTimeout(() => {
-            requestElement.style.backgroundColor = '';
-          }, 3000);
-        }
-      }, 500);
-    };
-
-    window.addEventListener('switchToRequestsTab', handleNotificationNavigation);
-    
-    return () => {
-      window.removeEventListener('switchToRequestsTab', handleNotificationNavigation);
-    };
-  }, []);
-
   const handleNotificationClick = (requestId, type) => {
-    // Switch to requests tab and highlight specific request
     setActiveTab('requests');
     setFilters({ status: '' });
     
-    // Scroll to request after tab switch
     setTimeout(() => {
       const requestElement = document.getElementById(`request-${requestId}`);
       if (requestElement) {
@@ -243,7 +197,6 @@ const AdminDashboardPage = () => {
           behavior: 'smooth', 
           block: 'center' 
         });
-        // Highlight effect
         requestElement.style.backgroundColor = '#fff3cd';
         setTimeout(() => {
           requestElement.style.backgroundColor = '';
@@ -310,85 +263,215 @@ const AdminDashboardPage = () => {
 
   const getDepartmentIcon = (dept) => {
     const icons = {
-      'Accounting': '',
-      'Academic': '',
-      'Dormitory': '',
-      'Student Affairs': '',
-      'Campus Services': ''
+      'Accounting': '💰',
+      'Academic': '📚',
+      'Dormitory': '🏠',
+      'Student Affairs': '👥',
+      'Campus Services': '🏢'
     };
-    return icons[dept] || '';
+    return icons[dept] || '🏢';
   };
 
   const renderDashboard = () => (
     <div>
-      <div className="d-flex justify-content-between align-items-center mb-4">
-        <div>
-          <h3>{getDepartmentIcon(department)} {department} {t('dashboard')}</h3>
-          <p className="text-muted">{t('welcomeBack')}, {admin?.name}</p>
-        </div>
-      </div>
-      
-      {loading ? (
-        <div className="text-center">
-          <div className="spinner-border" role="status"></div>
-          <p>{t('loading')} dashboard...</p>
-        </div>
-      ) : dashboardData && dashboardData.totals ? (
-        <div>
-          <div className="row mb-4">
-            <div className="col-md-6">
-              <div className="card">
-                <div className="card-header">
-                  <h5>{t('requesttype')} Statistics</h5>
+      <div className="row mb-4">
+        <div className="col-12">
+          <div 
+            className="card border-0 shadow-sm" 
+            style={{ 
+              borderRadius: '12px',
+              backgroundColor: isDark ? '#000000' : '#ffffff',
+              border: isDark ? '1px solid #333333' : '1px solid #e5e7eb'
+            }}
+          >
+            <div className="card-body p-4">
+              <div className="d-flex justify-content-between align-items-center">
+                <div>
+                  <h5 className="text-danger mb-1">
+                    {department} {t('dashboard')}
+                  </h5>
+                  <p className={`mb-0 ${isDark ? 'text-light' : 'text-muted'}`}>
+                    {t('welcomeBack')}, {admin?.name}
+                  </p>
                 </div>
-                <div className="card-body">
-                  {dashboardData.type_stats && dashboardData.type_stats.length > 0 ? (
-                    dashboardData.type_stats.map((stat) => (
-                      <div key={stat.type_name} className="d-flex justify-content-between align-items-center mb-2 p-2 border rounded">
-                        <span><strong>{translateRequestType(stat.type_name)}</strong></span>
-                        <span className="badge bg-primary">{stat.count || 0}</span>
-                      </div>
-                    ))
-                  ) : (
-                    <p className="text-muted">{t('noRequestTypeData')}</p>
-                  )}
+                <div className="text-end">
+                  <div className="h4 text-danger mb-0">
+                  
+                  </div>
+                  <small className={isDark ? 'text-light' : 'text-muted'}>
+                   
+                  </small>
                 </div>
               </div>
             </div>
-            
-            <div className="col-md-6">
-              <div className="card">
-                <div className="card-header">
-                  <h5>{t('quickActions')}</h5>
+          </div>
+        </div>
+      </div>
+
+      {loading ? (
+        <div className="text-center py-5">
+          <div className="spinner-border text-danger" role="status"></div>
+          <p className={`mt-3 ${isDark ? 'text-light' : 'text-dark'}`}>
+            {t('loading')} dashboard...
+          </p>
+        </div>
+      ) : dashboardData && dashboardData.totals ? (
+        <div className="row">
+          {/* Quick Stats Cards */}
+          <div className="col-lg-8">
+            <div className="row mb-4">
+              <div className="col-md-4 mb-3">
+                <div 
+                  className="card border-0 shadow-sm h-100" 
+                  style={{ 
+                    borderRadius: '12px',
+                    backgroundColor: isDark ? '#000000' : '#ffffff',
+                    border: isDark ? '1px solid #333333' : '1px solid #e5e7eb'
+                  }}
+                >
+                  <div className="card-body text-center p-4">
+                    <div className="text-warning mb-3" style={{ fontSize: '2.5rem' }}>⏳</div>
+                    <h3 className="text-warning mb-1">{dashboardData.totals.pending || 0}</h3>
+                    <p className={`mb-0 ${isDark ? 'text-light' : 'text-muted'}`}>
+                      {t('pending')}
+                    </p>
+                  </div>
                 </div>
-                <div className="card-body">
+              </div>
+              <div className="col-md-4 mb-3">
+                <div 
+                  className="card border-0 shadow-sm h-100" 
+                  style={{ 
+                    borderRadius: '12px',
+                    backgroundColor: isDark ? '#000000' : '#ffffff',
+                    border: isDark ? '1px solid #333333' : '1px solid #e5e7eb'
+                  }}
+                >
+                  <div className="card-body text-center p-4">
+                    <div className="text-info mb-3" style={{ fontSize: '2.5rem' }}>💬</div>
+                    <h3 className="text-info mb-1">{dashboardData.totals.informed || 0}</h3>
+                    <p className={`mb-0 ${isDark ? 'text-light' : 'text-muted'}`}>
+                      {t('informed')}
+                    </p>
+                  </div>
+                </div>
+              </div>
+              <div className="col-md-4 mb-3">
+                <div 
+                  className="card border-0 shadow-sm h-100" 
+                  style={{ 
+                    borderRadius: '12px',
+                    backgroundColor: isDark ? '#000000' : '#ffffff',
+                    border: isDark ? '1px solid #333333' : '1px solid #e5e7eb'
+                  }}
+                >
+                  <div className="card-body text-center p-4">
+                    <div className="text-success mb-3" style={{ fontSize: '2.5rem' }}>✅</div>
+                    <h3 className="text-success mb-1">{dashboardData.totals.completed || 0}</h3>
+                    <p className={`mb-0 ${isDark ? 'text-light' : 'text-muted'}`}>
+                      {t('completed')}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Request Type Statistics */}
+            <div 
+              className="card border-0 shadow-sm" 
+              style={{ 
+                borderRadius: '12px',
+                backgroundColor: isDark ? '#000000' : '#ffffff',
+                border: isDark ? '1px solid #333333' : '1px solid #e5e7eb'
+              }}
+            >
+              <div className="card-header bg-transparent border-0 p-4">
+                <h5 className="text-danger mb-0">📊 {t('requesttype')} Statistics</h5>
+              </div>
+              <div className="card-body p-4">
+                {dashboardData.type_stats && dashboardData.type_stats.length > 0 ? (
+                  <div className="row">
+                    {dashboardData.type_stats.map((stat, index) => (
+                      <div key={stat.type_name} className="col-md-6 mb-3">
+                        <div 
+                          className="d-flex justify-content-between align-items-center p-3 rounded-3"
+                          style={{ 
+                            borderLeft: `4px solid ${['#dc2626', '#f59e0b', '#10b981', '#3b82f6', '#8b5cf6'][index % 5]}`,
+                            backgroundColor: isDark ? '#111111' : '#f8f9fa',
+                            border: isDark ? '1px solid #333333' : '1px solid #e5e7eb'
+                          }}
+                        >
+                          <span className={`fw-semibold ${isDark ? 'text-light' : 'text-dark'}`}>
+                            {translateRequestType(stat.type_name)}
+                          </span>
+                          <span 
+                            className="badge"
+                            style={{ 
+                              backgroundColor: ['#dc2626', '#f59e0b', '#10b981', '#3b82f6', '#8b5cf6'][index % 5],
+                              color: 'white'
+                            }}
+                          >
+                            {stat.count || 0}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className={isDark ? 'text-light' : 'text-muted'}>
+                    {t('noRequestTypeData')}
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
+          
+          {/* Quick Actions */}
+          <div className="col-lg-4">
+            <div 
+              className="card border-0 shadow-sm" 
+              style={{ 
+                borderRadius: '12px',
+                backgroundColor: isDark ? '#000000' : '#ffffff',
+                border: isDark ? '1px solid #333333' : '1px solid #e5e7eb'
+              }}
+            >
+              <div className="card-header bg-transparent border-0 p-4">
+                <h5 className="text-danger mb-0">⚡ {t('quickActions')}</h5>
+              </div>
+              <div className="card-body p-4">
+                <div className="d-grid gap-2">
                   <button 
-                    className="btn btn-outline-primary me-2 mb-2"
+                    className="btn btn-outline-danger"
                     onClick={() => setActiveTab('requests')}
+                    style={{ borderRadius: '8px' }}
                   >
                     📋 {t('viewAll')} {t('requests')}
                   </button>
                   <button 
-                    className="btn btn-outline-warning me-2 mb-2"
+                    className="btn btn-outline-warning"
                     onClick={() => {
                       setFilters({...filters, status: 'Pending'});
                       setActiveTab('requests');
                     }}
+                    style={{ borderRadius: '8px' }}
                   >
                     ⏳ {t('pending')} ({dashboardData.totals.pending || 0})
                   </button>
                   <button 
-                    className="btn btn-outline-info me-2 mb-2"
+                    className="btn btn-outline-info"
                     onClick={() => {
                       setFilters({...filters, status: 'Informed'});
                       setActiveTab('requests');
                     }}
+                    style={{ borderRadius: '8px' }}
                   >
                     💬 {t('informed')} ({dashboardData.totals.informed || 0})
                   </button>
                   <button 
-                    className="btn btn-outline-secondary me-2 mb-2"
+                    className="btn btn-outline-secondary"
                     onClick={() => setActiveTab('settings')}
+                    style={{ borderRadius: '8px' }}
                   >
                     ⚙️ {t('settings')}
                   </button>
@@ -398,12 +481,26 @@ const AdminDashboardPage = () => {
           </div>
         </div>
       ) : (
-        <div className="alert alert-danger">
-          <h5>{t('failedToLoadDashboard')}</h5>
-          <p>{t('pleaseCheckConnection')}</p>
-          <button className="btn btn-outline-danger" onClick={fetchDashboardData}>
-            {t('retry')}
-          </button>
+        <div 
+          className="card border-0 shadow-sm" 
+          style={{ 
+            borderRadius: '12px',
+            backgroundColor: isDark ? '#000000' : '#ffffff',
+            border: isDark ? '1px solid #333333' : '1px solid #e5e7eb'
+          }}
+        >
+          <div className="card-body text-center p-5">
+            <div className="text-danger mb-3" style={{ fontSize: '3rem' }}>⚠️</div>
+            <h5 className={isDark ? 'text-light' : 'text-dark'}>
+              {t('failedToLoadDashboard')}
+            </h5>
+            <p className={isDark ? 'text-light' : 'text-muted'}>
+              {t('pleaseCheckConnection')}
+            </p>
+            <button className="btn btn-danger" onClick={fetchDashboardData}>
+              🔄 {t('retry')}
+            </button>
+          </div>
         </div>
       )}
     </div>
@@ -412,13 +509,20 @@ const AdminDashboardPage = () => {
   const renderRequests = () => (
     <div>
       <div className="d-flex justify-content-between align-items-center mb-4">
-        <h3>📋 {t('manageRequests')} - {department}</h3>
+        <h3 className={isDark ? 'text-light' : 'text-dark'}>
+          📋 {t('manageRequests')} - {department}
+        </h3>
         
         <div className="d-flex gap-2">
           <select
             className="form-select form-select-sm"
             value={filters.status}
             onChange={(e) => setFilters({...filters, status: e.target.value})}
+            style={{
+              backgroundColor: isDark ? '#000000' : '#ffffff',
+              borderColor: isDark ? '#333333' : '#ced4da',
+              color: isDark ? '#ffffff' : '#000000'
+            }}
           >
             <option value="">{t('allStatus')}</option>
             <option value="Pending">{t('pending')}</option>
@@ -448,23 +552,25 @@ const AdminDashboardPage = () => {
       {loading ? (
         <div className="text-center">
           <div className="spinner-border" role="status"></div>
-          <p>{t('loading')} requests...</p>
+          <p className={isDark ? 'text-light' : 'text-dark'}>{t('loading')} requests...</p>
         </div>
       ) : (
         <div className="row">
           {!requests || requests.length === 0 ? (
             <div className="col-12 text-center py-5">
-              <div className="alert alert-info">
-                <h5>{t('noRequests')}</h5>
-                <p className="mb-0">
+              <div 
+                className="alert" 
+                style={{
+                  backgroundColor: isDark ? '#000000' : '#d1ecf1',
+                  borderColor: isDark ? '#333333' : '#bee5eb',
+                  color: isDark ? '#ffffff' : '#0c5460'
+                }}
+              >
+                <h5 className={isDark ? 'text-light' : 'text-dark'}>{t('noRequests')}</h5>
+                <p className={`mb-0 ${isDark ? 'text-light' : 'text-muted'}`}>
                   {filters.status 
-                    ? t('noRequestsFoundForStatus', `No ${filters.status.toLowerCase()} requests found for ${department} department.`, {
-                        status: filters.status.toLowerCase(),
-                        department: department
-                      })
-                    : t('noRequestsSubmittedYet', `No requests have been submitted to ${department} department yet.`, {
-                        department: department
-                      })
+                    ? `No ${filters.status.toLowerCase()} requests found for ${department} department.`
+                    : `No requests have been submitted to ${department} department yet.`
                   }
                 </p>
               </div>
@@ -476,13 +582,26 @@ const AdminDashboardPage = () => {
                 id={`request-${request.request_id}`}
                 className="col-12 mb-3"
               >
-                <div className="card">
-                  <div className="card-header d-flex justify-content-between align-items-center">
+                <div 
+                  className="card"
+                  style={{
+                    backgroundColor: isDark ? '#000000' : '#ffffff',
+                    borderColor: isDark ? '#333333' : '#dee2e6',
+                    color: isDark ? '#ffffff' : '#000000'
+                  }}
+                >
+                  <div 
+                    className="card-header d-flex justify-content-between align-items-center"
+                    style={{
+                      backgroundColor: isDark ? '#111111' : '#f8f9fa',
+                      borderColor: isDark ? '#333333' : '#dee2e6'
+                    }}
+                  >
                     <div>
-                      <h6 className="mb-1">
+                      <h6 className={`mb-1 ${isDark ? 'text-light' : 'text-dark'}`}>
                         {translateRequestType(request.type_name)}
                       </h6>
-                      <small className="text-muted">
+                      <small className={isDark ? 'text-light' : 'text-muted'}>
                         {request.student_name} ({request.student_number})
                       </small>
                     </div>
@@ -498,24 +617,29 @@ const AdminDashboardPage = () => {
                   </div>
                   
                   <div className="card-body">
-                    <p className="mb-3">
+                    <p className={`mb-3 ${isDark ? 'text-light' : 'text-dark'}`}>
                       <strong>{t('content')}:</strong> {request.content}
                     </p>
                     
                     <div className="row text-sm mb-3">
                       <div className="col-md-4">
-                        <strong>{t('studentEmail')}:</strong><br/>
-                        <a href={`mailto:${request.student_email}`}>
+                        <strong className={isDark ? 'text-light' : 'text-dark'}>{t('studentEmail')}:</strong><br/>
+                        <a 
+                          href={`mailto:${request.student_email}`}
+                          className={isDark ? 'text-info' : 'text-primary'}
+                        >
                           {request.student_email}
                         </a>
                       </div>
                       <div className="col-md-4">
-                        <strong>{t('submitted')}:</strong><br/>
-                        {new Date(request.submitted_at).toLocaleDateString()} {new Date(request.submitted_at).toLocaleTimeString()}
+                        <strong className={isDark ? 'text-light' : 'text-dark'}>{t('submitted')}:</strong><br/>
+                        <span className={isDark ? 'text-light' : 'text-muted'}>
+                          {new Date(request.submitted_at).toLocaleDateString()} {new Date(request.submitted_at).toLocaleTimeString()}
+                        </span>
                       </div>
                       <div className="col-md-4">
-                        <strong>{t('attachments')}:</strong><br/>
-                        <span className={request.attachment_count > 0 ? 'text-success' : 'text-muted'}>
+                        <strong className={isDark ? 'text-light' : 'text-dark'}>{t('attachments')}:</strong><br/>
+                        <span className={request.attachment_count > 0 ? 'text-success' : (isDark ? 'text-light' : 'text-muted')}>
                           {request.attachment_count || 0} {t('files')}
                         </span>
                       </div>
@@ -586,8 +710,12 @@ const AdminDashboardPage = () => {
     <div>
       <div className="d-flex justify-content-between align-items-center mb-4">
         <div>
-          <h3>⚙️ {t('settings')} - {department} {t('requestType')}</h3>
-          <p className="text-muted">{t('enableDisableRequestTypes')}</p>
+          <h3 className={isDark ? 'text-light' : 'text-dark'}>
+            ⚙️ {t('settings')} - {department} {t('requestType')}
+          </h3>
+          <p className={isDark ? 'text-light' : 'text-muted'}>
+            {t('enableDisableRequestTypes')}
+          </p>
         </div>
         
         <button 
@@ -599,35 +727,43 @@ const AdminDashboardPage = () => {
       </div>
 
       {showAddForm && (
-        <div className="card mb-4">
-          <div className="card-header">
-            <h6>{t('addNewTypeFor', 'Add New Type ')} {department}</h6>
+        <div 
+          className="card mb-4"
+          style={{
+            backgroundColor: isDark ? '#000000' : '#ffffff',
+            borderColor: isDark ? '#333333' : '#dee2e6'
+          }}
+        >
+          <div 
+            className="card-header"
+            style={{
+              backgroundColor: isDark ? '#111111' : '#f8f9fa',
+              borderColor: isDark ? '#333333' : '#dee2e6'
+            }}
+          >
+            <h6 className={isDark ? 'text-light' : 'text-dark'}>
+              {t('addNewTypeFor')} {department}
+            </h6>
           </div>
           <div className="card-body">
             <form onSubmit={handleAddRequestType}>
               <div className="row">
                 <div className="col-md-6">
                   <div className="mb-3">
-                    <label className="form-label">{t('typeName')} *</label>
-                    <input
-                      type="text"
-                      className="form-control"
-                      value={newTypeData.type_name}
-                      onChange={(e) => setNewTypeData({...newTypeData, type_name: e.target.value})}
-                      placeholder={t('typeNamePlaceholder')}
-                      required
-                    />
-                  </div>
-                </div>
-                <div className="col-md-6">
-                  <div className="mb-3">
-                    <label className="form-label">{t('description')}</label>
+                    <label className={`form-label ${isDark ? 'text-light' : 'text-dark'}`}>
+                      {t('description')}
+                    </label>
                     <input
                       type="text"
                       className="form-control"
                       value={newTypeData.description_en}
                       onChange={(e) => setNewTypeData({...newTypeData, description_en: e.target.value})}
                       placeholder={t('briefDescription')}
+                      style={{
+                        backgroundColor: isDark ? '#000000' : '#ffffff',
+                        borderColor: isDark ? '#333333' : '#ced4da',
+                        color: isDark ? '#ffffff' : '#000000'
+                      }}
                     />
                   </div>
                 </div>
@@ -640,7 +776,7 @@ const AdminDashboardPage = () => {
                     checked={newTypeData.is_document_required}
                     onChange={(e) => setNewTypeData({...newTypeData, is_document_required: e.target.checked})}
                   />
-                  <label className="form-check-label">
+                  <label className={`form-check-label ${isDark ? 'text-light' : 'text-dark'}`}>
                     📎 {t('documentUploadRequiredForType')}
                   </label>
                 </div>
@@ -665,30 +801,43 @@ const AdminDashboardPage = () => {
       {loading ? (
         <div className="text-center">
           <div className="spinner-border" role="status"></div>
-          <p>{t('loading')} request types...</p>
+          <p className={isDark ? 'text-light' : 'text-dark'}>{t('loading')} request types...</p>
         </div>
       ) : (
         <div className="row">
           {requestTypes.length === 0 ? (
             <div className="col-12">
-              <div className="alert alert-info">
-                <h5>{t('noRequestTypes')}</h5>
-                <p className="mb-0">
-                  {t('noRequestTypesAvailable', `No request types available for ${department} department.`, {
-                    department: department
-                  })}
+              <div 
+                className="alert"
+                style={{
+                  backgroundColor: isDark ? '#000000' : '#d1ecf1',
+                  borderColor: isDark ? '#333333' : '#bee5eb',
+                  color: isDark ? '#ffffff' : '#0c5460'
+                }}
+              >
+                <h5 className={isDark ? 'text-light' : 'text-dark'}>{t('noRequestTypes')}</h5>
+                <p className={`mb-0 ${isDark ? 'text-light' : 'text-muted'}`}>
+                  No request types available for {department} department.
                 </p>
               </div>
             </div>
           ) : (
             requestTypes.map((type) => (
               <div key={type.type_id} className="col-md-6 mb-3">
-                <div className="card">
+                <div 
+                  className="card"
+                  style={{
+                    backgroundColor: isDark ? '#000000' : '#ffffff',
+                    borderColor: isDark ? '#333333' : '#dee2e6'
+                  }}
+                >
                   <div className="card-body">
                     <div className="d-flex justify-content-between align-items-start">
                       <div>
-                        <h6 className="card-title">{translateRequestType(type.type_name)}</h6>
-                        <p className="card-text text-muted">
+                        <h6 className={`card-title ${isDark ? 'text-light' : 'text-dark'}`}>
+                          {translateRequestType(type.type_name)}
+                        </h6>
+                        <p className={`card-text ${isDark ? 'text-light' : 'text-muted'}`}>
                           {type.description_en || t('noDescriptionAvailable')}
                         </p>
                         {type.is_document_required && (
@@ -705,7 +854,7 @@ const AdminDashboardPage = () => {
                             checked={!type.is_disabled}
                             onChange={() => toggleRequestType(type.type_id)}
                           />
-                          <label className="form-check-label">
+                          <label className={`form-check-label ${isDark ? 'text-light' : 'text-dark'}`}>
                             {type.is_disabled ? t('disabled') : t('active')}
                           </label>
                         </div>
@@ -722,71 +871,169 @@ const AdminDashboardPage = () => {
   );
 
   return (
-    <div className="container-fluid mt-4">
-      {/* Header with FIU Logo */}
-      <div className="row mb-4">
-        <div className="col-12">
-          <div className="d-flex justify-content-between align-items-center">
-            <div className="d-flex align-items-center">
-              <FIULogo size="lg" className="me-3" />
-              <div>
-                <h2>{getDepartmentIcon(department)} {department} {t('adminPanel')}</h2>
-                <p className="text-muted mb-0">{t('manageDepartment')}</p>
+    <div 
+      className="min-vh-100" 
+      style={{ 
+        backgroundColor: isDark ? '#000000' : '#f8f9fa',
+        color: isDark ? '#ffffff' : '#000000'
+      }}
+    >
+      {/* Modern Header - Kırmızı Tema (Her zaman kırmızı) */}
+      <div 
+        className="shadow-sm"
+        style={{
+          background: 'linear-gradient(135deg, #dc2626 0%, #b91c1c 100%)',
+          borderBottom: '3px solid #991b1b'
+        }}
+      >
+        <div className="container-fluid">
+          <div className="row">
+            <div className="col-12">
+              <div className="d-flex justify-content-between align-items-center py-3">
+                {/* Sol taraf - Logo ve Başlık */}
+                <div className="d-flex align-items-center">
+                  <div className="me-3">
+                    <FIULogo 
+                      size="md" 
+                      style={{ 
+                        filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.3))'
+                      }} 
+                    />
+                  </div>
+                  <div className="text-white">
+                    <h4 className="mb-0 fw-bold">
+                      {department} {t('adminPanel')}
+                    </h4>
+                    <small className="opacity-90">
+                      {t('manageDepartment')}
+                    </small>
+                  </div>
+                </div>
+
+                {/* Sağ taraf - Kullanıcı Bilgileri ve Kontroller */}
+                <div className="d-flex align-items-center gap-3">
+                  <div className="text-white d-none d-lg-block text-end">
+                    <div className="fw-semibold">{admin?.name}</div>
+                    <small className="opacity-75">{department} Admin</small>
+                  </div>
+                  
+                  {/* Admin Notification Center */}
+                  <AdminNotificationCenter onNotificationClick={handleNotificationClick} />
+                  
+                  {/* Language Dropdown */}
+                  <AdminLanguageSelector />
+                  
+                  {/* Logout Button */}
+                  <button 
+                    className="btn btn-outline-light btn-sm d-flex align-items-center gap-2" 
+                    onClick={handleLogoutClick}
+                    style={{ 
+                      borderRadius: '25px',
+                      padding: '8px 16px',
+                      transition: 'all 0.3s ease'
+                    }}
+                    onMouseEnter={(e) => {
+                      e.target.style.backgroundColor = 'rgba(255,255,255,0.2)';
+                      e.target.style.transform = 'translateY(-1px)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.target.style.backgroundColor = 'transparent';
+                      e.target.style.transform = 'translateY(0)';
+                    }}
+                  >
+                    <span className="d-none d-md-inline">{t('logout')}</span>
+                    <span>🚪</span>
+                  </button>
+                </div>
               </div>
-            </div>
-            <div className="d-flex align-items-center gap-3">
-              <span className="text-muted d-none d-lg-inline">{t('welcome')}, <strong>{admin?.name}</strong></span>
-              
-              {/* Admin Notification Center */}
-              <AdminNotificationCenter onNotificationClick={handleNotificationClick} />
-              
-              {/* Admin Language Dropdown */}
-              <AdminLanguageSelector />
-              
-              <button 
-                className="btn btn-outline-danger btn-sm" 
-                onClick={handleLogoutClick}
-              >
-                <span className="d-none d-md-inline">{t('logout')}</span>
-                <span className="d-md-none">🚪</span>
-              </button>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Navigation Tabs */}
-      <ul className="nav nav-tabs mb-4">
-        <li className="nav-item">
-          <button
-            className={`nav-link ${activeTab === 'dashboard' ? 'active' : ''}`}
-            onClick={() => setActiveTab('dashboard')}
-          >
-            📊 {t('dashboard')}
-          </button>
-        </li>
-        <li className="nav-item">
-          <button
-            className={`nav-link ${activeTab === 'requests' ? 'active' : ''}`}
-            onClick={() => setActiveTab('requests')}
-          >
-            📋 {t('manageRequests')}
-          </button>
-        </li>
-        <li className="nav-item">
-          <button
-            className={`nav-link ${activeTab === 'settings' ? 'active' : ''}`}
-            onClick={() => setActiveTab('settings')}
-          >
-            ⚙️ {t('settings')}
-          </button>
-        </li>
-      </ul>
+      {/* Navigation Tabs - Dark Mode Desteği */}
+      <div 
+        className="shadow-sm" 
+        style={{ 
+          backgroundColor: isDark ? '#000000' : '#ffffff',
+          borderBottom: `1px solid ${isDark ? '#333333' : '#e5e7eb'}`
+        }}
+      >
+        <div className="container-fluid">
+          <ul className="nav nav-tabs border-0 pt-3" style={{ 
+            borderBottom: `2px solid ${isDark ? '#333333' : '#e5e7eb'}` 
+          }}>
+            <li className="nav-item">
+              <button
+                className={`nav-link border-0 px-4 py-3 fw-semibold ${
+                  activeTab === 'dashboard' 
+                    ? 'text-danger border-bottom border-danger border-3' 
+                    : isDark ? 'text-light' : 'text-muted'
+                }`}
+                onClick={() => setActiveTab('dashboard')}
+                style={{
+                  backgroundColor: activeTab === 'dashboard' 
+                    ? 'rgba(220, 38, 38, 0.1)' 
+                    : 'transparent',
+                  borderRadius: '8px 8px 0 0',
+                  transition: 'all 0.3s ease'
+                }}
+              >
+                📊 {t('dashboard')}
+              </button>
+            </li>
+            <li className="nav-item">
+              <button
+                className={`nav-link border-0 px-4 py-3 fw-semibold ${
+                  activeTab === 'requests' 
+                    ? 'text-danger border-bottom border-danger border-3' 
+                    : isDark ? 'text-light' : 'text-muted'
+                }`}
+                onClick={() => setActiveTab('requests')}
+                style={{
+                  backgroundColor: activeTab === 'requests' 
+                    ? 'rgba(220, 38, 38, 0.1)' 
+                    : 'transparent',
+                  borderRadius: '8px 8px 0 0',
+                  transition: 'all 0.3s ease'
+                }}
+              >
+                📋 {t('manageRequests')}
+                {requests.length > 0 && (
+                  <span className="badge bg-danger ms-2">{requests.length}</span>
+                )}
+              </button>
+            </li>
+            <li className="nav-item">
+              <button
+                className={`nav-link border-0 px-4 py-3 fw-semibold ${
+                  activeTab === 'settings' 
+                    ? 'text-danger border-bottom border-danger border-3' 
+                    : isDark ? 'text-light' : 'text-muted'
+                }`}
+                onClick={() => setActiveTab('settings')}
+                style={{
+                  backgroundColor: activeTab === 'settings' 
+                    ? 'rgba(220, 38, 38, 0.1)' 
+                    : 'transparent',
+                  borderRadius: '8px 8px 0 0',
+                  transition: 'all 0.3s ease'
+                }}
+              >
+                ⚙️ {t('settings')}
+              </button>
+            </li>
+          </ul>
+        </div>
+      </div>
 
-      {/* Tab Content */}
-      {activeTab === 'dashboard' && renderDashboard()}
-      {activeTab === 'requests' && renderRequests()}
-      {activeTab === 'settings' && renderSettings()}
+      {/* Main Content Area */}
+      <div className="container-fluid py-4">
+        {/* Tab Content */}
+        {activeTab === 'dashboard' && renderDashboard()}
+        {activeTab === 'requests' && renderRequests()}
+        {activeTab === 'settings' && renderSettings()}
+      </div>
 
       {/* Attachment Viewer Modal */}
       {showAttachments && selectedRequestId && (
@@ -814,7 +1061,7 @@ const AdminDashboardPage = () => {
         />
       )}
 
-      {/* Site İçi Admin Logout Onay Modalı */}
+      {/* Logout Confirmation Modal */}
       <ConfirmationModal
         show={showLogoutModal}
         title="FIU Admin Panel"
@@ -826,7 +1073,7 @@ const AdminDashboardPage = () => {
         onCancel={handleLogoutCancel}
       />
 
-      {/* Dark Mode Toggle */}
+      {/* Dark Mode Toggle - Modern */}
       <div 
         style={{
           position: 'fixed',
@@ -836,14 +1083,14 @@ const AdminDashboardPage = () => {
         }}
       >
         <button
-          className={`btn ${isDark ? 'btn-light' : 'btn-dark'}`}
+          className={`btn ${isDark ? 'btn-light' : 'btn-dark'} shadow-lg`}
           onClick={toggleTheme}
           style={{
             borderRadius: '50%',
             width: '60px',
             height: '60px',
             fontSize: '1.5rem',
-            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.3)',
+            border: 'none',
             transition: 'all 0.3s ease'
           }}
           title={isDark ? t('switchToLightMode') : t('switchToDarkMode')}
@@ -858,3 +1105,4 @@ const AdminDashboardPage = () => {
 };
 
 export default AdminDashboardPage;
+                  

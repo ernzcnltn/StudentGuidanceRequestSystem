@@ -201,7 +201,7 @@ footer {
 /* Notification highlight effect */
 .request-highlight {
   background-color: #fff3cd !important;
-  border: 2px solid #ffc107 !important;
+  border: 2px solid #b20427 !important;
   border-radius: 8px !important;
   transition: all 0.3s ease;
   box-shadow: 0 4px 12px rgba(255, 193, 7, 0.3) !important;
@@ -297,7 +297,7 @@ footer {
 
 .dark-theme .request-highlight {
   background-color: #4a4a2a !important;
-  border-color: #ffc107 !important;
+  border-color: #840314 !important;
 }
 
 /* Notification loading states */
