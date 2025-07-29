@@ -67,8 +67,337 @@ const initializeTokens = () => {
 // Sayfa yüklendiğinde token'ları initialize et
 initializeTokens();
 
+// ===== RBAC CACHE MANAGEMENT =====
+const rbacCache = {
+  permissions: new Map(),
+  roles: new Map(),
+  users: new Map(),
+  
+  set: function(type, key, data, expiry = 300000) { // 5 minutes default
+    const cache = this[type];
+    if (cache) {
+      cache.set(key, {
+        data,
+        expiry: Date.now() + expiry
+      });
+    }
+  },
+  
+  get: function(type, key) {
+    const cache = this[type];
+    if (!cache) return null;
+    
+    const item = cache.get(key);
+    if (!item) return null;
+    
+    if (Date.now() > item.expiry) {
+      cache.delete(key);
+      return null;
+    }
+    
+    return item.data;
+  },
+  
+  clear: function(type = null) {
+    if (type) {
+      this[type]?.clear();
+    } else {
+      this.permissions.clear();
+      this.roles.clear();
+      this.users.clear();
+    }
+  },
+  
+  clearAll: function() {
+    this.clear();
+  }
+};
+
+// ===== RBAC API METHODS =====
+const rbacApiMethods = {
+  // ===== ROLES MANAGEMENT =====
+  rbacGetAllRoles: () => adminApi.get('/admin-auth/rbac/roles'),
+  rbacGetAllRolesCached: () => {
+    const cached = rbacCache.get('roles', 'all');
+    if (cached) {
+      return Promise.resolve({ data: { success: true, data: cached } });
+    }
+    return adminApi.get('/admin-auth/rbac/roles').then(response => {
+      if (response.data.success) {
+        rbacCache.set('roles', 'all', response.data.data);
+      }
+      return response;
+    });
+  },
+  rbacCreateRole: (roleData) => adminApi.post('/admin-auth/rbac/create-role', roleData),
+  rbacUpdateRole: (roleId, roleData) => adminApi.put(`/admin-auth/rbac/role/${roleId}`, roleData),
+  rbacDeleteRole: (roleId) => adminApi.delete(`/admin-auth/rbac/role/${roleId}`),
+  
+  // ===== PERMISSIONS MANAGEMENT =====
+  rbacGetAllPermissions: () => adminApi.get('/admin-auth/rbac/permissions'),
+  rbacGetAllPermissionsCached: () => {
+    const cached = rbacCache.get('permissions', 'all');
+    if (cached) {
+      return Promise.resolve({ data: { success: true, data: cached } });
+    }
+    return adminApi.get('/admin-auth/rbac/permissions').then(response => {
+      if (response.data.success) {
+        rbacCache.set('permissions', 'all', response.data.data);
+      }
+      return response;
+    });
+  },
+  rbacCreatePermission: (permissionData) => adminApi.post('/admin-auth/rbac/create-permission', permissionData),
+  rbacDeletePermission: (permissionId) => adminApi.delete(`/admin-auth/rbac/permission/${permissionId}`),
+  
+  // ===== ROLE PERMISSIONS =====
+  rbacGetRolePermissions: (roleId) => adminApi.get(`/admin-auth/rbac/role/${roleId}/permissions`),
+  rbacUpdateRolePermissions: (roleId, permissionIds) => 
+    adminApi.put(`/admin-auth/rbac/role/${roleId}/permissions`, { permission_ids: permissionIds }),
+  
+  // ===== USER ROLES =====
+  rbacGetUsersWithRoles: () => adminApi.get('/admin-auth/rbac/users'),
+  rbacGetUserRoles: (userId) => adminApi.get(`/admin-auth/rbac/user/${userId}/roles`),
+  rbacGetUserPermissions: (userId) => adminApi.get(`/admin-auth/rbac/user/${userId}/permissions`),
+  rbacGetUserPermissionSummary: (userId) => adminApi.get(`/admin-auth/rbac/user/${userId}/permissions`),
+  
+  // ===== ROLE ASSIGNMENT =====
+  rbacAssignRole: (userId, roleId, expiresAt = null) => 
+    adminApi.post('/admin-auth/rbac/assign-role', { user_id: userId, role_id: roleId, expires_at: expiresAt }),
+  rbacRemoveRole: (userId, roleId) => 
+    adminApi.post('/admin-auth/rbac/remove-role', { user_id: userId, role_id: roleId }),
+  
+  // ===== PERMISSION CHECKS =====
+  rbacCheckPermission: (userId, resource, action) => 
+    adminApi.post('/admin-auth/rbac/check-permission', { user_id: userId, resource, action }),
+  rbacCheckMultiplePermissions: (userId, permissions) =>
+    adminApi.post('/admin-auth/rbac/check-permissions', { user_id: userId, permissions }),
+  
+  // ===== BULK OPERATIONS =====
+  rbacBulkAssignRoles: (assignments) => 
+    adminApi.post('/admin-auth/rbac/bulk-assign-roles', { assignments }),
+  rbacBulkRemoveRoles: (removals) =>
+    adminApi.post('/admin-auth/rbac/bulk-remove-roles', { removals }),
+  
+  // ===== SUPER ADMIN MANAGEMENT =====
+  rbacUpdateSuperAdminStatus: (userId, isSuperAdmin) =>
+    adminApi.put(`/admin-auth/rbac/user/${userId}/super-admin`, { is_super_admin: isSuperAdmin }),
+  
+  // ===== DEPARTMENT ACCESS =====
+  rbacCheckDepartmentAccess: (userId, department) =>
+    adminApi.get(`/admin-auth/rbac/department-access/${userId}?department=${department}`),
+  
+  // ===== STATISTICS =====
+  rbacGetStatistics: () => adminApi.get('/admin-auth/rbac/statistics'),
+  
+  // ===== AUDIT LOG =====
+  rbacGetAuditLog: (params = {}) => adminApi.get('/admin-auth/rbac/audit-log', { params }),
+  
+  // ===== USER MANAGEMENT =====
+  createAdminUser: (userData) => adminApi.post('/admin-auth/users', userData),
+  updateAdminUser: (userId, userData) => adminApi.put(`/admin-auth/users/${userId}`, userData),
+  deleteAdminUser: (userId) => adminApi.delete(`/admin-auth/users/${userId}`),
+  resetAdminUserPassword: (userId) => adminApi.post(`/admin-auth/users/${userId}/reset-password`),
+};
+
+// ===== RBAC BATCH OPERATIONS HELPER =====
+const rbacBatchOperations = {
+  bulkAssignRoles: async (assignments) => {
+    try {
+      const response = await adminApi.post('/admin-auth/rbac/bulk-assign-roles', { assignments });
+      
+      // Clear cache after bulk operations
+      rbacCache.clear('users');
+      rbacCache.clear('roles');
+      
+      return {
+        ...response,
+        data: {
+          ...response.data,
+          data: {
+            ...response.data.data,
+            summary: {
+              total: assignments.length,
+              successful: response.data.data.filter(r => r.success).length,
+              failed: response.data.data.filter(r => !r.success).length
+            }
+          }
+        }
+      };
+    } catch (error) {
+      console.error('Bulk assign roles error:', error);
+      throw error;
+    }
+  },
+  
+  bulkRemoveRoles: async (removals) => {
+    try {
+      const response = await adminApi.post('/admin-auth/rbac/bulk-remove-roles', { removals });
+      
+      // Clear cache after bulk operations
+      rbacCache.clear('users');
+      rbacCache.clear('roles');
+      
+      return response;
+    } catch (error) {
+      console.error('Bulk remove roles error:', error);
+      throw error;
+    }
+  },
+  
+  bulkUpdatePermissions: async (roleId, permissionIds) => {
+    try {
+      const response = await adminApi.put(`/admin-auth/rbac/role/${roleId}/permissions`, { 
+        permission_ids: permissionIds 
+      });
+      
+      // Clear relevant caches
+      rbacCache.clear('roles');
+      rbacCache.clear('permissions');
+      
+      return response;
+    } catch (error) {
+      console.error('Bulk update permissions error:', error);
+      throw error;
+    }
+  }
+};
+
+// ===== RBAC HELPER FUNCTIONS =====
+const rbacHelpers = {
+  // Validation helpers
+  validateRoleData: (roleData) => {
+    return roleData.role_name && roleData.display_name;
+  },
+  
+  validatePermissionData: (permissionData) => {
+    return permissionData.display_name && permissionData.resource && permissionData.action;
+  },
+  
+  // Formatting helpers
+  formatRoleName: (role) => {
+    return role.display_name || role.role_name;
+  },
+  
+  formatLastUpdated: (timestamp) => {
+    if (!timestamp) return 'Never';
+    return new Date(timestamp).toLocaleDateString();
+  },
+  
+  // Permission grouping
+  groupPermissionsByResource: (permissions) => {
+    return permissions.reduce((groups, permission) => {
+      const resource = permission.resource;
+      if (!groups[resource]) {
+        groups[resource] = [];
+      }
+      groups[resource].push(permission);
+      return groups;
+    }, {});
+  },
+  
+  // Role color mapping
+  getRoleColor: (roleName) => {
+    const colors = {
+      'super_admin': 'danger',
+      'department_admin': 'primary',
+      'department_staff': 'success',
+      'read_only_admin': 'info',
+      'trainee_admin': 'warning'
+    };
+    return colors[roleName] || 'secondary';
+  },
+  
+  // Permission icons
+  getPermissionIcon: (resource) => {
+    const icons = {
+      'requests': '📋',
+      'responses': '💬',
+      'users': '👥',
+      'analytics': '📊',
+      'settings': '⚙️',
+      'notifications': '🔔',
+      'system': '🛠️',
+      'files': '📎'
+    };
+    return icons[resource] || '🔹';
+  },
+  
+  // Cache management
+  clearRBACCache: () => {
+    rbacCache.clearAll();
+    console.log('🧹 RBAC cache cleared');
+  },
+  
+  // Permission checking helpers
+  hasAnyPermission: (userPermissions, requiredPermissions) => {
+    return requiredPermissions.some(required => 
+      userPermissions.some(user => 
+        user.resource === required.resource && user.action === required.action
+      )
+    );
+  },
+  
+  hasAllPermissions: (userPermissions, requiredPermissions) => {
+    return requiredPermissions.every(required => 
+      userPermissions.some(user => 
+        user.resource === required.resource && user.action === required.action
+      )
+    );
+  },
+  
+  // Role hierarchy checking
+  isHigherRole: (role1, role2) => {
+    const hierarchy = {
+      'super_admin': 5,
+      'department_admin': 4,
+      'department_staff': 3,
+      'read_only_admin': 2,
+      'trainee_admin': 1
+    };
+    return (hierarchy[role1] || 0) > (hierarchy[role2] || 0);
+  },
+  
+  // Permission name generation
+  generatePermissionName: (resource, action) => {
+    return `${resource}.${action}`;
+  },
+  
+  // Role assignment validation
+  canAssignRole: (assignerRoles, targetRole) => {
+    // Super admins can assign any role
+    if (assignerRoles.includes('super_admin')) return true;
+    
+    // Department admins can't assign super admin roles
+    if (targetRole === 'super_admin') return false;
+    
+    // Department admins can assign lower level roles
+    if (assignerRoles.includes('department_admin')) {
+      return ['department_staff', 'read_only_admin', 'trainee_admin'].includes(targetRole);
+    }
+    
+    return false;
+  },
+  
+  // Error handling
+  handleRBACError: (error) => {
+    if (error.response?.status === 403) {
+      return 'Insufficient permissions for this operation';
+    }
+    if (error.response?.status === 404) {
+      return 'Resource not found';
+    }
+    if (error.response?.status === 409) {
+      return 'Conflict: Resource already exists';
+    }
+    return error.response?.data?.message || 'An error occurred';
+  }
+};
+
 // API functions
 export const apiService = {
+  // ===== EXISTING METHODS (PRESERVED) =====
+  
   // ===== STUDENT AUTH =====
   login: (student_number, password) => studentApi.post('/auth/login', { student_number, password }),
   register: (userData) => studentApi.post('/auth/register', userData),
@@ -171,7 +500,7 @@ export const apiService = {
     return api.post('/notifications/mark-all-read');
   },
 
- // Notification delete methods
+  // Notification delete methods
   deleteNotification: (notificationId) => {
     // Admin notification ise admin API kullan, student ise student API kullan
     const adminToken = localStorage.getItem('admin_token');
@@ -204,25 +533,24 @@ export const apiService = {
     return adminApi.get('/notifications/admin/unread-count');
   },
 
+  // Admin Response ile dosya yükleme
+  uploadAdminResponseFiles: (responseId, formData) => {
+    return adminApi.post(`/admin-auth/responses/${responseId}/upload`, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+  },
 
-// Admin Response ile dosya yükleme
-uploadAdminResponseFiles: (responseId, formData) => {
-  return adminApi.post(`/admin-auth/responses/${responseId}/upload`, formData, {
-    headers: {
-      'Content-Type': 'multipart/form-data',
-    },
-  });
-},
+  // Admin response dosyalarını getirme
+  getAdminResponseFiles: (responseId) => adminApi.get(`/admin-auth/responses/${responseId}/files`),
 
-// Admin response dosyalarını getirme
-getAdminResponseFiles: (responseId) => adminApi.get(`/admin-auth/responses/${responseId}/files`),
-
-// Admin response dosya indirme
-downloadAdminResponseFile: (filename) => {
-  return adminApi.get(`/admin-auth/responses/files/${filename}`, {
-    responseType: 'blob',
-  });
-},
+  // Admin response dosya indirme
+  downloadAdminResponseFile: (filename) => {
+    return adminApi.get(`/admin-auth/responses/files/${filename}`, {
+      responseType: 'blob',
+    });
+  },
 
   // Create notification (admin only)
   createNotification: (notificationData) => adminApi.post('/notifications/create', notificationData),
@@ -537,13 +865,6 @@ downloadAdminResponseFile: (filename) => {
     // WebSocket implementation would go here
   },
 
-  // ===== ADMIN USER MANAGEMENT =====
-  getAdminUsers: () => adminApi.get('/admin-auth/users'),
-  createAdminUser: (userData) => adminApi.post('/admin-auth/users', userData),
-  updateAdminUser: (userId, userData) => adminApi.put(`/admin-auth/users/${userId}`, userData),
-  deleteAdminUser: (userId) => adminApi.delete(`/admin-auth/users/${userId}`),
-  resetAdminPassword: (userId) => adminApi.post(`/admin-auth/users/${userId}/reset-password`),
-
   // ===== SYSTEM CONFIGURATION =====
   getSystemConfig: () => adminApi.get('/admin-auth/system/config'),
   updateSystemConfig: (config) => adminApi.put('/admin-auth/system/config', config),
@@ -577,6 +898,49 @@ downloadAdminResponseFile: (filename) => {
   syncWithLMS: () => adminApi.post('/integrations/lms/sync'),
   syncWithSIS: () => adminApi.post('/integrations/sis/sync'),
   getIntegrationLogs: () => adminApi.get('/integrations/logs'),
+
+  // ===== RBAC METHODS =====
+  ...rbacApiMethods,
+  
+  // ===== RBAC UTILITIES =====
+  rbacCache,
+  rbacBatchOperations,
+  rbacHelpers,
+  
+  // ===== RBAC DEBUG AND TESTING =====
+  testRBACEndpoints: async () => {
+    const results = {
+      permissions: false,
+      roles: false,
+      users: false,
+      statistics: false,
+      assignment: false
+    };
+    
+    try {
+      // Test permissions endpoint
+      const permissionsResponse = await apiService.rbacGetAllPermissions();
+      results.permissions = permissionsResponse.data.success;
+      
+      // Test roles endpoint
+      const rolesResponse = await apiService.rbacGetAllRoles();
+      results.roles = rolesResponse.data.success;
+      
+      // Test users endpoint
+      const usersResponse = await apiService.rbacGetUsersWithRoles();
+      results.users = usersResponse.data.success;
+      
+      // Test statistics endpoint
+      const statsResponse = await apiService.rbacGetStatistics();
+      results.statistics = statsResponse.data.success;
+      
+      console.log('🧪 RBAC Endpoints Test Results:', results);
+      return results;
+    } catch (error) {
+      console.error('❌ RBAC endpoints test failed:', error);
+      return results;
+    }
+  },
 };
 
 // Student API Response interceptor
@@ -702,7 +1066,7 @@ export const cacheUtils = {
 export const rateLimiter = {
   calls: new Map(),
   
-  canMakeCall: (endpoint, limit = 10, window = 60000) => { // 10 calls per minute default
+  canMakeCall: function(endpoint, limit = 10, window = 60000) { // 10 calls per minute default
     const now = Date.now();
     const calls = this.calls.get(endpoint) || [];
     
@@ -718,8 +1082,5 @@ export const rateLimiter = {
     return true;
   }
 };
-
-
-
 
 export default { studentApi, adminApi };
