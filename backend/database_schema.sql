@@ -394,3 +394,278 @@ LEFT JOIN user_roles ur ON au.admin_id = ur.user_id
 LEFT JOIN roles r ON ur.role_id = r.role_id
 WHERE au.is_active = TRUE
 ORDER BY au.username, r.role_name;
+
+-- RBAC Seed Data - Additional roles and permissions
+-- Run this after rbac_migration.sql
+
+-- 1. Additional specialized roles based on your departments
+INSERT INTO roles (role_name, display_name, description, is_system_role) VALUES
+('accounting_specialist', 'Accounting Specialist', 'Specialized role for accounting department tasks', FALSE),
+('academic_coordinator', 'Academic Coordinator', 'Coordinates academic department processes', FALSE),
+('dormitory_supervisor', 'Dormitory Supervisor', 'Supervises dormitory operations and requests', FALSE),
+('student_affairs_officer', 'Student Affairs Officer', 'Handles student affairs and disciplinary matters', FALSE),
+('campus_services_manager', 'Campus Services Manager', 'Manages campus facilities and IT services', FALSE),
+('guest_user', 'Guest User', 'Temporary access for guests or vendors', FALSE);
+
+-- 2. Department-specific permissions
+INSERT INTO permissions (permission_name, display_name, description, resource, action, is_system_permission) VALUES
+-- Accounting specific
+('accounting.manage_payments', 'Manage Payments', 'Can process and manage payment requests', 'accounting', 'manage_payments', FALSE),
+('accounting.view_financial_reports', 'View Financial Reports', 'Can access financial reports and analytics', 'accounting', 'view_financial_reports', FALSE),
+('accounting.process_refunds', 'Process Refunds', 'Can initiate and process refund requests', 'accounting', 'process_refunds', FALSE),
+
+-- Academic specific  
+('academic.manage_transcripts', 'Manage Transcripts', 'Can process transcript requests', 'academic', 'manage_transcripts', FALSE),
+('academic.process_grade_appeals', 'Process Grade Appeals', 'Can handle grade appeal processes', 'academic', 'process_grade_appeals', FALSE),
+('academic.manage_enrollment', 'Manage Enrollment', 'Can handle course registration issues', 'academic', 'manage_enrollment', FALSE),
+
+-- Dormitory specific
+('dormitory.assign_rooms', 'Assign Rooms', 'Can assign and manage room assignments', 'dormitory', 'assign_rooms', FALSE),
+('dormitory.handle_maintenance', 'Handle Maintenance', 'Can process maintenance requests', 'dormitory', 'handle_maintenance', FALSE),
+('dormitory.manage_contracts', 'Manage Contracts', 'Can modify dormitory contracts', 'dormitory', 'manage_contracts', FALSE),
+
+-- Student Affairs specific
+('student_affairs.handle_disciplinary', 'Handle Disciplinary Issues', 'Can process disciplinary matters', 'student_affairs', 'handle_disciplinary', FALSE),
+('student_affairs.manage_organizations', 'Manage Student Organizations', 'Can oversee student organization requests', 'student_affairs', 'manage_organizations', FALSE),
+('student_affairs.issue_certificates', 'Issue Certificates', 'Can issue student certificates and documents', 'student_affairs', 'issue_certificates', FALSE),
+
+-- Campus Services specific
+('campus_services.manage_it_support', 'Manage IT Support', 'Can handle IT support requests', 'campus_services', 'manage_it_support', FALSE),
+('campus_services.manage_facilities', 'Manage Facilities', 'Can handle facility booking and issues', 'campus_services', 'manage_facilities', FALSE),
+('campus_services.handle_parking', 'Handle Parking', 'Can process parking permit requests', 'campus_services', 'handle_parking', FALSE),
+
+-- File and attachment permissions
+('files.upload', 'Upload Files', 'Can upload files to requests', 'files', 'upload', TRUE),
+('files.download', 'Download Files', 'Can download attached files', 'files', 'download', TRUE),
+('files.delete', 'Delete Files', 'Can delete attached files', 'files', 'delete', TRUE),
+('files.view_metadata', 'View File Metadata', 'Can view file information and metadata', 'files', 'view_metadata', TRUE),
+
+-- Advanced request permissions
+('requests.bulk_update', 'Bulk Update Requests', 'Can update multiple requests at once', 'requests', 'bulk_update', TRUE),
+('requests.view_history', 'View Request History', 'Can view request audit trail and history', 'requests', 'view_history', TRUE),
+('requests.escalate', 'Escalate Requests', 'Can escalate requests to higher authorities', 'requests', 'escalate', TRUE),
+
+-- Reporting permissions
+('reports.create_custom', 'Create Custom Reports', 'Can create custom report templates', 'reports', 'create_custom', TRUE),
+('reports.schedule', 'Schedule Reports', 'Can schedule automated reports', 'reports', 'schedule', TRUE),
+('reports.view_advanced', 'View Advanced Reports', 'Can access advanced analytics and reports', 'reports', 'view_advanced', TRUE);
+
+-- 3. Assign department-specific permissions to specialized roles
+
+-- Accounting Specialist
+INSERT INTO role_permissions (role_id, permission_id)
+SELECT r.role_id, p.permission_id
+FROM roles r, permissions p
+WHERE r.role_name = 'accounting_specialist'
+AND p.permission_name IN (
+    'requests.view_department', 'requests.create', 'requests.update_status',
+    'responses.create', 'responses.update',
+    'accounting.manage_payments', 'accounting.view_financial_reports', 'accounting.process_refunds',
+    'files.upload', 'files.download', 'files.view_metadata',
+    'analytics.view_department'
+);
+
+-- Academic Coordinator  
+INSERT INTO role_permissions (role_id, permission_id)
+SELECT r.role_id, p.permission_id
+FROM roles r, permissions p
+WHERE r.role_name = 'academic_coordinator'
+AND p.permission_name IN (
+    'requests.view_department', 'requests.create', 'requests.update_status', 'requests.assign',
+    'responses.create', 'responses.update', 'responses.view_internal',
+    'academic.manage_transcripts', 'academic.process_grade_appeals', 'academic.manage_enrollment',
+    'files.upload', 'files.download', 'files.delete', 'files.view_metadata',
+    'analytics.view_department', 'analytics.export'
+);
+
+-- Dormitory Supervisor
+INSERT INTO role_permissions (role_id, permission_id)
+SELECT r.role_id, p.permission_id
+FROM roles r, permissions p
+WHERE r.role_name = 'dormitory_supervisor'
+AND p.permission_name IN (
+    'requests.view_department', 'requests.create', 'requests.update_status', 'requests.assign',
+    'responses.create', 'responses.update',
+    'dormitory.assign_rooms', 'dormitory.handle_maintenance', 'dormitory.manage_contracts',
+    'files.upload', 'files.download', 'files.view_metadata',
+    'analytics.view_department'
+);
+
+-- Student Affairs Officer
+INSERT INTO role_permissions (role_id, permission_id)
+SELECT r.role_id, p.permission_id
+FROM roles r, permissions p
+WHERE r.role_name = 'student_affairs_officer'
+AND p.permission_name IN (
+    'requests.view_department', 'requests.create', 'requests.update_status', 'requests.escalate',
+    'responses.create', 'responses.update', 'responses.view_internal',
+    'student_affairs.handle_disciplinary', 'student_affairs.manage_organizations', 'student_affairs.issue_certificates',
+    'files.upload', 'files.download', 'files.view_metadata',
+    'analytics.view_department'
+);
+
+-- Campus Services Manager
+INSERT INTO role_permissions (role_id, permission_id)
+SELECT r.role_id, p.permission_id
+FROM roles r, permissions p
+WHERE r.role_name = 'campus_services_manager'
+AND p.permission_name IN (
+    'requests.view_department', 'requests.create', 'requests.update_status', 'requests.assign',
+    'responses.create', 'responses.update', 'responses.view_internal',
+    'campus_services.manage_it_support', 'campus_services.manage_facilities', 'campus_services.handle_parking',
+    'files.upload', 'files.download', 'files.delete', 'files.view_metadata',
+    'analytics.view_department', 'analytics.export'
+);
+
+-- Guest User (Very limited access)
+INSERT INTO role_permissions (role_id, permission_id)
+SELECT r.role_id, p.permission_id
+FROM roles r, permissions p
+WHERE r.role_name = 'guest_user'
+AND p.permission_name IN (
+    'requests.view_assigned',
+    'settings.view'
+);
+
+-- 4. Update existing roles with file permissions
+-- Add file permissions to existing roles
+INSERT INTO role_permissions (role_id, permission_id)
+SELECT r.role_id, p.permission_id
+FROM roles r, permissions p
+WHERE r.role_name IN ('department_admin', 'department_staff')
+AND p.permission_name IN ('files.upload', 'files.download', 'files.view_metadata')
+AND NOT EXISTS (
+    SELECT 1 FROM role_permissions rp2 
+    WHERE rp2.role_id = r.role_id AND rp2.permission_id = p.permission_id
+);
+
+-- Add file delete permission to department_admin
+INSERT INTO role_permissions (role_id, permission_id)
+SELECT r.role_id, p.permission_id
+FROM roles r, permissions p
+WHERE r.role_name = 'department_admin'
+AND p.permission_name = 'files.delete'
+AND NOT EXISTS (
+    SELECT 1 FROM role_permissions rp2 
+    WHERE rp2.role_id = r.role_id AND rp2.permission_id = p.permission_id
+);
+
+-- 5. Create sample department-specific admin accounts with specialized roles
+-- These will use the existing password hash format from your system
+
+-- Check if we need to create specialized admin accounts (optional)
+-- This is commented out - you can run this if you want sample accounts
+
+/*
+-- Sample Accounting Specialist
+INSERT INTO admin_users (username, password_hash, full_name, name, email, department, role, is_active)
+VALUES ('accounting_specialist', '$2a$10$hash_placeholder', 'Sarah Johnson', 'Sarah Johnson', 'sarah.johnson@fiu.edu.tr', 'Accounting', 'admin', TRUE);
+
+-- Assign specialized role
+INSERT INTO user_roles (user_id, role_id, assigned_by)
+SELECT au.admin_id, r.role_id, 1
+FROM admin_users au, roles r
+WHERE au.username = 'accounting_specialist' AND r.role_name = 'accounting_specialist';
+
+-- Sample Academic Coordinator  
+INSERT INTO admin_users (username, password_hash, full_name, name, email, department, role, is_active)
+VALUES ('academic_coordinator', '$2a$10$hash_placeholder', 'Dr. Michael Brown', 'Dr. Michael Brown', 'michael.brown@fiu.edu.tr', 'Academic', 'admin', TRUE);
+
+INSERT INTO user_roles (user_id, role_id, assigned_by)
+SELECT au.admin_id, r.role_id, 1
+FROM admin_users au, roles r
+WHERE au.username = 'academic_coordinator' AND r.role_name = 'academic_coordinator';
+*/
+
+-- 6. Create permission groups for easier management
+CREATE TABLE permission_groups (
+    group_id INT AUTO_INCREMENT PRIMARY KEY,
+    group_name VARCHAR(50) UNIQUE NOT NULL,
+    display_name VARCHAR(100) NOT NULL,
+    description TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+INSERT INTO permission_groups (group_name, display_name, description) VALUES
+('basic_request_management', 'Basic Request Management', 'Core permissions for handling requests'),
+('advanced_request_management', 'Advanced Request Management', 'Extended permissions for request processing'),
+('user_administration', 'User Administration', 'Permissions for managing users and roles'),
+('system_administration', 'System Administration', 'High-level system management permissions'),
+('analytics_reporting', 'Analytics & Reporting', 'Permissions for viewing and generating reports'),
+('file_management', 'File Management', 'Permissions for handling file uploads and downloads');
+
+-- 7. Map permissions to groups
+CREATE TABLE permission_group_mappings (
+    group_id INT,
+    permission_id INT,
+    PRIMARY KEY (group_id, permission_id),
+    FOREIGN KEY (group_id) REFERENCES permission_groups(group_id) ON DELETE CASCADE,
+    FOREIGN KEY (permission_id) REFERENCES permissions(permission_id) ON DELETE CASCADE
+);
+
+-- Basic Request Management Group
+INSERT INTO permission_group_mappings (group_id, permission_id)
+SELECT pg.group_id, p.permission_id
+FROM permission_groups pg, permissions p
+WHERE pg.group_name = 'basic_request_management'
+AND p.permission_name IN (
+    'requests.view_department', 'requests.create', 'requests.update_status',
+    'responses.create'
+);
+
+-- Advanced Request Management Group  
+INSERT INTO permission_group_mappings (group_id, permission_id)
+SELECT pg.group_id, p.permission_id
+FROM permission_groups pg, permissions p
+WHERE pg.group_name = 'advanced_request_management'
+AND p.permission_name IN (
+    'requests.assign', 'requests.bulk_update', 'requests.escalate', 'requests.view_history',
+    'responses.update', 'responses.delete', 'responses.view_internal'
+);
+
+-- File Management Group
+INSERT INTO permission_group_mappings (group_id, permission_id)
+SELECT pg.group_id, p.permission_id
+FROM permission_groups pg, permissions p
+WHERE pg.group_name = 'file_management'
+AND p.permission_name IN (
+    'files.upload', 'files.download', 'files.delete', 'files.view_metadata'
+);
+
+-- 8. Verification and summary queries
+-- Show role hierarchy with permission counts
+SELECT 
+    r.role_name,
+    r.display_name,
+    r.is_system_role,
+    COUNT(rp.permission_id) as total_permissions,
+    COUNT(CASE WHEN p.is_system_permission = TRUE THEN 1 END) as system_permissions,
+    COUNT(CASE WHEN p.is_system_permission = FALSE THEN 1 END) as custom_permissions
+FROM roles r
+LEFT JOIN role_permissions rp ON r.role_id = rp.role_id
+LEFT JOIN permissions p ON rp.permission_id = p.permission_id
+WHERE r.is_active = TRUE
+GROUP BY r.role_id, r.role_name, r.display_name, r.is_system_role
+ORDER BY total_permissions DESC;
+
+-- Show permissions by resource
+SELECT 
+    p.resource,
+    COUNT(*) as permission_count,
+    GROUP_CONCAT(p.action ORDER BY p.action) as available_actions
+FROM permissions p
+GROUP BY p.resource
+ORDER BY p.resource;
+
+-- Show current user role assignments
+SELECT 
+    au.username,
+    au.department,
+    au.is_super_admin,
+    GROUP_CONCAT(r.role_name ORDER BY r.role_name) as assigned_roles
+FROM admin_users au
+LEFT JOIN user_roles ur ON au.admin_id = ur.user_id AND ur.is_active = TRUE
+LEFT JOIN roles r ON ur.role_id = r.role_id
+WHERE au.is_active = TRUE
+GROUP BY au.admin_id, au.username, au.department, au.is_super_admin
+ORDER BY au.username;

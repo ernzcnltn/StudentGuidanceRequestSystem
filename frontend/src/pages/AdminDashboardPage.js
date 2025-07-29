@@ -10,13 +10,35 @@ import AdminNotificationCenter from '../components/AdminNotificationCenter';
 import FIULogo from '../components/FIULogo';
 import ConfirmationModal from '../components/ConfirmationModal';
 import LanguageDropdown from '../components/LanguageDropdown';
+import RoleManagementPage from '../components/RoleManagementPage';
+import UserManagementPage from '../components/UserManagementPage';
+import PermissionManagementPage from '../components/PermissionManagementPage';
+import RBACDashboard from '../components/RBACDashboard';
 import 'bootstrap/dist/js/bootstrap.bundle.min.js';
 import { useToast } from '../contexts/ToastContext';
 
 const AdminDashboardPage = () => {
   const [selectedRequestForResponse, setSelectedRequestForResponse] = useState(null);
   const [showResponseModal, setShowResponseModal] = useState(false);
-  const { admin, logout, department } = useAdminAuth();
+  const { 
+    admin, 
+    logout, 
+    department, 
+    hasPermission, 
+    hasRole, 
+    canAccessDepartment,
+    canViewRequests,
+    canManageRequests,
+    canCreateResponses,
+    canManageUsers,
+    canViewAnalytics,
+    canManageSettings,
+    canManageRequestTypes,
+    isSuperAdmin,
+    isDepartmentAdmin,
+    getAccessibleDepartments
+  } = useAdminAuth();
+  
   const { isDark, toggleTheme } = useTheme();
   const { currentLanguage, changeLanguage, languages } = useLanguage();
   const { t, translateRequestType } = useTranslation();
@@ -41,6 +63,9 @@ const AdminDashboardPage = () => {
     is_document_required: false
   });
 
+  // RBAC Debug Info
+  const [showRBACDebug, setShowRBACDebug] = useState(false);
+
   // Admin Language Dropdown
   const AdminLanguageSelector = () => {
     return <LanguageDropdown variant="admin" />;
@@ -61,6 +86,11 @@ const AdminDashboardPage = () => {
   };
 
   const fetchDashboardData = useCallback(async () => {
+    if (!canViewAnalytics()) {
+      showError('You do not have permission to view analytics');
+      return;
+    }
+
     try {
       setLoading(true);
       const response = await apiService.getAdminDashboard();
@@ -70,12 +100,20 @@ const AdminDashboardPage = () => {
       }
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
+      if (error.response?.status === 403) {
+        showError('Access denied: Insufficient permissions for dashboard');
+      }
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [canViewAnalytics, showError]);
 
   const fetchRequests = useCallback(async () => {
+    if (!canViewRequests()) {
+      showError('You do not have permission to view requests');
+      return;
+    }
+
     try {
       setLoading(true);
       const response = await apiService.getAdminRequests(filters);
@@ -86,13 +124,21 @@ const AdminDashboardPage = () => {
       }
     } catch (error) {
       console.error('Error fetching requests:', error);
+      if (error.response?.status === 403) {
+        showError('Access denied: Insufficient permissions to view requests');
+      }
       setRequests([]);
     } finally {
       setLoading(false);
     }
-  }, [filters]);
+  }, [filters, canViewRequests, showError]);
 
   const fetchRequestTypes = useCallback(async () => {
+    if (!canManageSettings()) {
+      showError('You do not have permission to manage settings');
+      return;
+    }
+
     try {
       setLoading(true);
       const response = await apiService.getAdminRequestTypes();
@@ -101,11 +147,14 @@ const AdminDashboardPage = () => {
       }
     } catch (error) {
       console.error('Error fetching request types:', error);
+      if (error.response?.status === 403) {
+        showError('Access denied: Insufficient permissions to manage request types');
+      }
       setRequestTypes([]);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [canManageSettings, showError]);
 
   const sortRequestsByPriorityAndStatus = (requests) => {
     return requests.sort((a, b) => {
@@ -158,6 +207,11 @@ const AdminDashboardPage = () => {
   }, [activeTab, fetchDashboardData, fetchRequests, fetchRequestTypes]);
 
   const updateRequestStatus = async (requestId, newStatus) => {
+    if (!canManageRequests()) {
+      showError('You do not have permission to manage requests');
+      return;
+    }
+
     try {
       await apiService.updateAdminRequestStatus(requestId, { 
         status: newStatus
@@ -172,21 +226,39 @@ const AdminDashboardPage = () => {
       }
     } catch (error) {
       console.error('Error updating request status:', error);
-      showError('Failed to update request status');
+      if (error.response?.status === 403) {
+        showError('Access denied: Insufficient permissions to update request status');
+      } else {
+        showError('Failed to update request status');
+      }
     }
   };
 
   const toggleRequestType = async (typeId) => {
+    if (!canManageRequestTypes()) {
+      showError('You do not have permission to manage request types');
+      return;
+    }
+
     try {
       await apiService.toggleRequestType(typeId);
       fetchRequestTypes();
     } catch (error) {
       console.error('Error toggling request type:', error);
-      alert('Failed to toggle request type');
+      if (error.response?.status === 403) {
+        showError('Access denied: Insufficient permissions to toggle request type');
+      } else {
+        showError('Failed to toggle request type');
+      }
     }
   };
 
   const handleNotificationClick = (requestId, type) => {
+    if (!canViewRequests()) {
+      showError('You do not have permission to view requests');
+      return;
+    }
+
     setActiveTab('requests');
     setFilters({ status: '' });
     
@@ -207,6 +279,12 @@ const AdminDashboardPage = () => {
 
   const handleAddRequestType = async (e) => {
     e.preventDefault();
+    
+    if (!canManageRequestTypes()) {
+      showError('You do not have permission to add request types');
+      return;
+    }
+
     try {
       await apiService.addRequestType({
         ...newTypeData,
@@ -220,14 +298,22 @@ const AdminDashboardPage = () => {
       });
       setShowAddForm(false);
       fetchRequestTypes();
-      alert('Request type added successfully!');
+      showSuccess('Request type added successfully!');
     } catch (error) {
       console.error('Error adding request type:', error);
-      alert('Failed to add request type');
+      if (error.response?.status === 403) {
+        showError('Access denied: Insufficient permissions to add request type');
+      } else {
+        showError('Failed to add request type');
+      }
     }
   };
 
   const refreshRequests = () => {
+    if (!canViewRequests()) {
+      showError('You do not have permission to view requests');
+      return;
+    }
     setFilters({ status: '' });
     fetchRequests();
   };
@@ -272,6 +358,93 @@ const AdminDashboardPage = () => {
     return icons[dept] || '🏢';
   };
 
+  // Tab visibility control based on permissions
+  const getVisibleTabs = () => {
+    const tabs = [];
+    
+    if (canViewAnalytics()) {
+      tabs.push({ key: 'dashboard', label: '📊 Dashboard', icon: '📊' });
+    }
+    
+    if (canViewRequests()) {
+      tabs.push({ key: 'requests', label: '📋 Manage Requests', icon: '📋' });
+    }
+    
+    if (canManageSettings()) {
+      tabs.push({ key: 'settings', label: '⚙️ Settings', icon: '⚙️' });
+    }
+    
+    // RBAC Management Tabs (Super Admin only)
+    if (isSuperAdmin()) {
+      tabs.push({ key: 'rbac', label: '🛡️ RBAC', icon: '🛡️' });
+      tabs.push({ key: 'users', label: '👥 Users', icon: '👥' });
+      tabs.push({ key: 'roles', label: '🎭 Roles', icon: '🎭' });
+      tabs.push({ key: 'permissions', label: '🔐 Permissions', icon: '🔐' });
+    }
+    
+    // Department Admin can see user management for their department
+    if (isDepartmentAdmin() && !isSuperAdmin()) {
+      tabs.push({ key: 'dept-users', label: '👥 Dept Users', icon: '👥' });
+    }
+    
+    return tabs;
+  };
+
+  // RBAC Debug Component
+  const RBACDebugInfo = () => {
+    if (!showRBACDebug) return null;
+    
+    return (
+      <div className="card border-warning mb-4">
+        <div className="card-header bg-warning text-dark">
+          <h6 className="mb-0">🔍 RBAC Debug Information</h6>
+        </div>
+        <div className="card-body">
+          <div className="row">
+            <div className="col-md-6">
+              <h6>User Info:</h6>
+              <ul className="list-unstyled">
+                <li><strong>Username:</strong> {admin?.username}</li>
+                <li><strong>Department:</strong> {admin?.department}</li>
+                <li><strong>Super Admin:</strong> {admin?.is_super_admin ? 'Yes' : 'No'}</li>
+                <li><strong>Admin ID:</strong> {admin?.admin_id}</li>
+              </ul>
+            </div>
+            <div className="col-md-6">
+              <h6>Permissions Check:</h6>
+              <ul className="list-unstyled">
+                <li>View Requests: {canViewRequests() ? '✅' : '❌'}</li>
+                <li>Manage Requests: {canManageRequests() ? '✅' : '❌'}</li>
+                <li>Create Responses: {canCreateResponses() ? '✅' : '❌'}</li>
+                <li>Manage Users: {canManageUsers() ? '✅' : '❌'}</li>
+                <li>View Analytics: {canViewAnalytics() ? '✅' : '❌'}</li>
+                <li>Manage Settings: {canManageSettings() ? '✅' : '❌'}</li>
+                <li>Manage Request Types: {canManageRequestTypes() ? '✅' : '❌'}</li>
+              </ul>
+            </div>
+          </div>
+          <div className="row mt-3">
+            <div className="col-md-6">
+              <h6>Role Checks:</h6>
+              <ul className="list-unstyled">
+                <li>Super Admin: {isSuperAdmin() ? '✅' : '❌'}</li>
+                <li>Department Admin: {isDepartmentAdmin() ? '✅' : '❌'}</li>
+              </ul>
+            </div>
+            <div className="col-md-6">
+              <h6>Accessible Departments:</h6>
+              <ul className="list-unstyled">
+                {getAccessibleDepartments().map(dept => (
+                  <li key={dept}>• {dept}</li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   const renderDashboard = () => (
     <div>
       <div className="row mb-4">
@@ -291,22 +464,30 @@ const AdminDashboardPage = () => {
                     {department} {t('dashboard')}
                   </h5>
                   <p className={`mb-0 ${isDark ? 'text-light' : 'text-muted'}`}>
-                    {t('welcomeBack')}, {admin?.name}
+                    {t('welcomeBack')}, {admin?.full_name || admin?.username}
                   </p>
+                  {isSuperAdmin() && (
+                    <small className="badge bg-danger">Super Admin</small>
+                  )}
+                  {isDepartmentAdmin() && !isSuperAdmin() && (
+                    <small className="badge bg-primary">Department Admin</small>
+                  )}
                 </div>
                 <div className="text-end">
-                  <div className="h4 text-danger mb-0">
-                  
-                  </div>
-                  <small className={isDark ? 'text-light' : 'text-muted'}>
-                   
-                  </small>
+                  <button 
+                    className="btn btn-outline-info btn-sm"
+                    onClick={() => setShowRBACDebug(!showRBACDebug)}
+                  >
+                    🔍 RBAC Debug
+                  </button>
                 </div>
               </div>
             </div>
           </div>
         </div>
       </div>
+
+      <RBACDebugInfo />
 
       {loading ? (
         <div className="text-center py-5">
@@ -441,40 +622,60 @@ const AdminDashboardPage = () => {
               </div>
               <div className="card-body p-4">
                 <div className="d-grid gap-2">
-                  <button 
-                    className="btn btn-outline-danger"
-                    onClick={() => setActiveTab('requests')}
-                    style={{ borderRadius: '8px' }}
-                  >
-                    📋 {t('viewAll')} {t('requests')}
-                  </button>
-                  <button 
-                    className="btn btn-outline-warning"
-                    onClick={() => {
-                      setFilters({...filters, status: 'Pending'});
-                      setActiveTab('requests');
-                    }}
-                    style={{ borderRadius: '8px' }}
-                  >
-                    ⏳ {t('pending')} ({dashboardData.totals.pending || 0})
-                  </button>
-                  <button 
-                    className="btn btn-outline-info"
-                    onClick={() => {
-                      setFilters({...filters, status: 'Informed'});
-                      setActiveTab('requests');
-                    }}
-                    style={{ borderRadius: '8px' }}
-                  >
-                    💬 {t('informed')} ({dashboardData.totals.informed || 0})
-                  </button>
-                  <button 
-                    className="btn btn-outline-secondary"
-                    onClick={() => setActiveTab('settings')}
-                    style={{ borderRadius: '8px' }}
-                  >
-                    ⚙️ {t('settings')}
-                  </button>
+                  {canViewRequests() && (
+                    <button 
+                      className="btn btn-outline-danger"
+                      onClick={() => setActiveTab('requests')}
+                      style={{ borderRadius: '8px' }}
+                    >
+                      📋 {t('viewAll')} {t('requests')}
+                    </button>
+                  )}
+                  
+                  {canViewRequests() && (
+                    <>
+                      <button 
+                        className="btn btn-outline-warning"
+                        onClick={() => {
+                          setFilters({...filters, status: 'Pending'});
+                          setActiveTab('requests');
+                        }}
+                        style={{ borderRadius: '8px' }}
+                      >
+                        ⏳ {t('pending')} ({dashboardData.totals.pending || 0})
+                      </button>
+                      <button 
+                        className="btn btn-outline-info"
+                        onClick={() => {
+                          setFilters({...filters, status: 'Informed'});
+                          setActiveTab('requests');
+                        }}
+                        style={{ borderRadius: '8px' }}
+                      >
+                        💬 {t('informed')} ({dashboardData.totals.informed || 0})
+                      </button>
+                    </>
+                  )}
+                  
+                  {canManageSettings() && (
+                    <button 
+                      className="btn btn-outline-secondary"
+                      onClick={() => setActiveTab('settings')}
+                      style={{ borderRadius: '8px' }}
+                    >
+                      ⚙️ {t('settings')}
+                    </button>
+                  )}
+                  
+                  {isSuperAdmin() && (
+                    <button 
+                      className="btn btn-outline-primary"
+                      onClick={() => setActiveTab('rbac')}
+                      style={{ borderRadius: '8px' }}
+                    >
+                      🛡️ RBAC Management
+                    </button>
+                  )}
                 </div>
               </div>
             </div>
@@ -511,6 +712,9 @@ const AdminDashboardPage = () => {
       <div className="d-flex justify-content-between align-items-center mb-4">
         <h3 className={isDark ? 'text-light' : 'text-dark'}>
           📋 {t('manageRequests')} - {department}
+          {!canManageRequests() && (
+            <small className="badge bg-warning ms-2">Read Only</small>
+          )}
         </h3>
         
         <div className="d-flex gap-2">
@@ -646,21 +850,23 @@ const AdminDashboardPage = () => {
                     </div>
                     
                     <div className="d-flex gap-2 flex-wrap">
-                      <button
-                        className="btn btn-outline-info btn-sm"
-                        onClick={() => {
-                          setSelectedRequestForResponse({
-                            id: request.request_id,
-                            title: `#${request.request_id} - ${request.type_name}`,
-                            student: request.student_name
-                          });
-                          setShowResponseModal(true);
-                        }}
-                      >
-                        💬 {request.status === 'Pending' ? t('addResponse') : t('viewResponse')}
-                      </button>
+                      {canCreateResponses() && (
+                        <button
+                          className="btn btn-outline-info btn-sm"
+                          onClick={() => {
+                            setSelectedRequestForResponse({
+                              id: request.request_id,
+                              title: `#${request.request_id} - ${request.type_name}`,
+                              student: request.student_name
+                            });
+                            setShowResponseModal(true);
+                          }}
+                        >
+                          💬 {request.status === 'Pending' ? t('addResponse') : t('viewResponse')}
+                        </button>
+                      )}
 
-                      {request.status === 'Pending' && (
+                      {canManageRequests() && request.status === 'Pending' && (
                         <button
                           className="btn btn-success btn-sm"
                           onClick={() => updateRequestStatus(request.request_id, 'Completed')}
@@ -669,7 +875,7 @@ const AdminDashboardPage = () => {
                         </button>
                       )}
                       
-                      {request.status === 'Informed' && (
+                      {canManageRequests() && request.status === 'Informed' && (
                         <button
                           className="btn btn-success btn-sm"
                           onClick={() => updateRequestStatus(request.request_id, 'Completed')}
@@ -695,6 +901,12 @@ const AdminDashboardPage = () => {
                           📎 {t('viewFiles')} ({request.attachment_count})
                         </button>
                       )}
+
+                      {!canManageRequests() && (
+                        <small className="text-muted">
+                          <em>⚠️ You have read-only access to requests</em>
+                        </small>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -712,21 +924,29 @@ const AdminDashboardPage = () => {
         <div>
           <h3 className={isDark ? 'text-light' : 'text-dark'}>
             ⚙️ {t('settings')} - {department} {t('requestType')}
+            {!canManageRequestTypes() && (
+              <small className="badge bg-warning ms-2">Read Only</small>
+            )}
           </h3>
           <p className={isDark ? 'text-light' : 'text-muted'}>
-            {t('enableDisableRequestTypes')}
+            {canManageRequestTypes() 
+              ? t('enableDisableRequestTypes')
+              : 'You can view request types but cannot modify them'
+            }
           </p>
         </div>
         
-        <button 
-          className="btn btn-primary"
-          onClick={() => setShowAddForm(!showAddForm)}
-        >
-          ➕ {t('addNewType')}
-        </button>
+        {canManageRequestTypes() && (
+          <button 
+            className="btn btn-primary"
+            onClick={() => setShowAddForm(!showAddForm)}
+          >
+            ➕ {t('addNewType')}
+          </button>
+        )}
       </div>
 
-      {showAddForm && (
+      {showAddForm && canManageRequestTypes() && (
         <div 
           className="card mb-4"
           style={{
@@ -748,6 +968,26 @@ const AdminDashboardPage = () => {
           <div className="card-body">
             <form onSubmit={handleAddRequestType}>
               <div className="row">
+                <div className="col-md-6">
+                  <div className="mb-3">
+                    <label className={`form-label ${isDark ? 'text-light' : 'text-dark'}`}>
+                      {t('typeName')}
+                    </label>
+                    <input
+                      type="text"
+                      className="form-control"
+                      value={newTypeData.type_name}
+                      onChange={(e) => setNewTypeData({...newTypeData, type_name: e.target.value})}
+                      placeholder={t('enterTypeName')}
+                      required
+                      style={{
+                        backgroundColor: isDark ? '#000000' : '#ffffff',
+                        borderColor: isDark ? '#333333' : '#ced4da',
+                        color: isDark ? '#ffffff' : '#000000'
+                      }}
+                    />
+                  </div>
+                </div>
                 <div className="col-md-6">
                   <div className="mb-3">
                     <label className={`form-label ${isDark ? 'text-light' : 'text-dark'}`}>
@@ -847,17 +1087,23 @@ const AdminDashboardPage = () => {
                         )}
                       </div>
                       <div className="text-end">
-                        <div className="form-check form-switch">
-                          <input
-                            className="form-check-input"
-                            type="checkbox"
-                            checked={!type.is_disabled}
-                            onChange={() => toggleRequestType(type.type_id)}
-                          />
-                          <label className={`form-check-label ${isDark ? 'text-light' : 'text-dark'}`}>
+                        {canManageRequestTypes() ? (
+                          <div className="form-check form-switch">
+                            <input
+                              className="form-check-input"
+                              type="checkbox"
+                              checked={!type.is_disabled}
+                              onChange={() => toggleRequestType(type.type_id)}
+                            />
+                            <label className={`form-check-label ${isDark ? 'text-light' : 'text-dark'}`}>
+                              {type.is_disabled ? t('disabled') : t('active')}
+                            </label>
+                          </div>
+                        ) : (
+                          <span className={`badge ${type.is_disabled ? 'bg-danger' : 'bg-success'}`}>
                             {type.is_disabled ? t('disabled') : t('active')}
-                          </label>
-                        </div>
+                          </span>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -869,6 +1115,81 @@ const AdminDashboardPage = () => {
       )}
     </div>
   );
+
+  // RBAC Management Tab Content
+  const renderRBACManagement = () => {
+    if (!isSuperAdmin()) {
+      return (
+        <div className="alert alert-warning">
+          <h5>🔒 Access Denied</h5>
+          <p>RBAC Management is only available for Super Administrators.</p>
+        </div>
+      );
+    }
+
+    return <RBACDashboard />;
+  };
+
+  const renderUserManagement = () => {
+    if (!isSuperAdmin() && !isDepartmentAdmin()) {
+      return (
+        <div className="alert alert-warning">
+          <h5>🔒 Access Denied</h5>
+          <p>User Management requires admin privileges.</p>
+        </div>
+      );
+    }
+
+    return <UserManagementPage departmentFilter={isSuperAdmin() ? null : department} />;
+  };
+
+  const renderRoleManagement = () => {
+    if (!isSuperAdmin()) {
+      return (
+        <div className="alert alert-warning">
+          <h5>🔒 Access Denied</h5>
+          <p>Role Management is only available for Super Administrators.</p>
+        </div>
+      );
+    }
+
+    return <RoleManagementPage />;
+  };
+
+  const renderPermissionManagement = () => {
+    if (!isSuperAdmin()) {
+      return (
+        <div className="alert alert-warning">
+          <h5>🔒 Access Denied</h5>
+          <p>Permission Management is only available for Super Administrators.</p>
+        </div>
+      );
+    }
+
+    return <PermissionManagementPage />;
+  };
+
+  const renderTabContent = () => {
+    switch (activeTab) {
+      case 'dashboard':
+        return renderDashboard();
+      case 'requests':
+        return renderRequests();
+      case 'settings':
+        return renderSettings();
+      case 'rbac':
+        return renderRBACManagement();
+      case 'users':
+      case 'dept-users':
+        return renderUserManagement();
+      case 'roles':
+        return renderRoleManagement();
+      case 'permissions':
+        return renderPermissionManagement();
+      default:
+        return renderDashboard();
+    }
+  };
 
   return (
     <div 
@@ -903,9 +1224,11 @@ const AdminDashboardPage = () => {
                   <div className="text-white">
                     <h4 className="mb-0 fw-bold">
                       {department} {t('adminPanel')}
+                      {isSuperAdmin() && <small className="badge bg-warning text-dark ms-2">Super Admin</small>}
+                      {isDepartmentAdmin() && !isSuperAdmin() && <small className="badge bg-info ms-2">Dept Admin</small>}
                     </h4>
                     <small className="opacity-90">
-                      {t('manageDepartment')}
+                      {isSuperAdmin() ? 'System Administrator' : t('manageDepartment')}
                     </small>
                   </div>
                 </div>
@@ -913,8 +1236,10 @@ const AdminDashboardPage = () => {
                 {/* Sağ taraf - Kullanıcı Bilgileri ve Kontroller */}
                 <div className="d-flex align-items-center gap-3">
                   <div className="text-white d-none d-lg-block text-end">
-                    <div className="fw-semibold">{admin?.name}</div>
-                    <small className="opacity-75">{department} Admin</small>
+                    <div className="fw-semibold">{admin?.full_name || admin?.username}</div>
+                    <small className="opacity-75">
+                      {isSuperAdmin() ? 'Super Admin' : `${department} Admin`}
+                    </small>
                   </div>
                   
                   {/* Admin Notification Center */}
@@ -951,7 +1276,7 @@ const AdminDashboardPage = () => {
         </div>
       </div>
 
-      {/* Navigation Tabs - Dark Mode Desteği */}
+      {/* Navigation Tabs - Dark Mode Desteği + RBAC */}
       <div 
         className="shadow-sm" 
         style={{ 
@@ -963,66 +1288,30 @@ const AdminDashboardPage = () => {
           <ul className="nav nav-tabs border-0 pt-3" style={{ 
             borderBottom: `2px solid ${isDark ? '#333333' : '#e5e7eb'}` 
           }}>
-            <li className="nav-item">
-              <button
-                className={`nav-link border-0 px-4 py-3 fw-semibold ${
-                  activeTab === 'dashboard' 
-                    ? 'text-danger border-bottom border-danger border-3' 
-                    : isDark ? 'text-light' : 'text-muted'
-                }`}
-                onClick={() => setActiveTab('dashboard')}
-                style={{
-                  backgroundColor: activeTab === 'dashboard' 
-                    ? 'rgba(220, 38, 38, 0.1)' 
-                    : 'transparent',
-                  borderRadius: '8px 8px 0 0',
-                  transition: 'all 0.3s ease'
-                }}
-              >
-                📊 {t('dashboard')}
-              </button>
-            </li>
-            <li className="nav-item">
-              <button
-                className={`nav-link border-0 px-4 py-3 fw-semibold ${
-                  activeTab === 'requests' 
-                    ? 'text-danger border-bottom border-danger border-3' 
-                    : isDark ? 'text-light' : 'text-muted'
-                }`}
-                onClick={() => setActiveTab('requests')}
-                style={{
-                  backgroundColor: activeTab === 'requests' 
-                    ? 'rgba(220, 38, 38, 0.1)' 
-                    : 'transparent',
-                  borderRadius: '8px 8px 0 0',
-                  transition: 'all 0.3s ease'
-                }}
-              >
-                📋 {t('manageRequests')}
-                {requests.length > 0 && (
-                  <span className="badge bg-danger ms-2">{requests.length}</span>
-                )}
-              </button>
-            </li>
-            <li className="nav-item">
-              <button
-                className={`nav-link border-0 px-4 py-3 fw-semibold ${
-                  activeTab === 'settings' 
-                    ? 'text-danger border-bottom border-danger border-3' 
-                    : isDark ? 'text-light' : 'text-muted'
-                }`}
-                onClick={() => setActiveTab('settings')}
-                style={{
-                  backgroundColor: activeTab === 'settings' 
-                    ? 'rgba(220, 38, 38, 0.1)' 
-                    : 'transparent',
-                  borderRadius: '8px 8px 0 0',
-                  transition: 'all 0.3s ease'
-                }}
-              >
-                ⚙️ {t('settings')}
-              </button>
-            </li>
+            {getVisibleTabs().map((tab) => (
+              <li key={tab.key} className="nav-item">
+                <button
+                  className={`nav-link border-0 px-4 py-3 fw-semibold ${
+                    activeTab === tab.key 
+                      ? 'text-danger border-bottom border-danger border-3' 
+                      : isDark ? 'text-light' : 'text-muted'
+                  }`}
+                  onClick={() => setActiveTab(tab.key)}
+                  style={{
+                    backgroundColor: activeTab === tab.key 
+                      ? 'rgba(220, 38, 38, 0.1)' 
+                      : 'transparent',
+                    borderRadius: '8px 8px 0 0',
+                    transition: 'all 0.3s ease'
+                  }}
+                >
+                  {tab.icon} {tab.label}
+                  {tab.key === 'requests' && requests.length > 0 && (
+                    <span className="badge bg-danger ms-2">{requests.length}</span>
+                  )}
+                </button>
+              </li>
+            ))}
           </ul>
         </div>
       </div>
@@ -1030,9 +1319,7 @@ const AdminDashboardPage = () => {
       {/* Main Content Area */}
       <div className="container-fluid py-4">
         {/* Tab Content */}
-        {activeTab === 'dashboard' && renderDashboard()}
-        {activeTab === 'requests' && renderRequests()}
-        {activeTab === 'settings' && renderSettings()}
+        {renderTabContent()}
       </div>
 
       {/* Attachment Viewer Modal */}
@@ -1105,4 +1392,3 @@ const AdminDashboardPage = () => {
 };
 
 export default AdminDashboardPage;
-                  

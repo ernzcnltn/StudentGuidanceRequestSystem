@@ -500,22 +500,7 @@ const RequestsPage = () => {
         {t('needHelpDesc')}
       </p>
     </div>
-    <div className="col-md-6">
-      <h5>{t('requestStatusGuide')}</h5>
-      <ul className="list-unstyled">
-        <li><span className="badge bg-warning text-dark me-2">{t('pending')}</span> {t('yourRequestBeingReviewed')}</li>
-        <li><span className="badge bg-info me-2">{t('informed')}</span> {t('responseProvided')}</li>
-        <li><span className="badge bg-success me-2">{t('completed')}</span> {t('requestFullyResolved')}</li>
-      </ul>
-      
-      <h5 className="mt-3">{t('priorityGuide')}</h5>
-      <ul className="list-unstyled">
-        <li><span className="badge bg-secondary me-2">🔵 {t('low')}</span> {t('nonUrgentRequests')}</li>
-        <li><span className="badge bg-info me-2">🟡 {t('medium')}</span> {t('standardRequests')}</li>
-        <li><span className="badge bg-warning text-dark me-2">🟠 {t('high')}</span> {t('importantRequests')}</li>
-        <li><span className="badge bg-danger me-2">🔴 {t('urgent')}</span> {t('immediateAttention')}</li>
-      </ul>
-    </div>
+   
   </div>
 </div>
 
