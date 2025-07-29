@@ -67,11 +67,11 @@ export const AdminAuthProvider = ({ children }) => {
       setPermissions(userPermissions);
 
       // Permission map oluştur (hızlı erişim için)
-      const pMap = userPermissions.reduce((acc, perm) => {
-        const key = `${perm.resource}.${perm.action}`;
-        acc[key] = true;
-        return acc;
-      }, {});
+      const pMap = (Array.isArray(userPermissions) ? userPermissions : []).reduce((acc, perm) => {
+  const key = `${perm.resource}.${perm.action}`;
+  acc[key] = true;
+  return acc;
+}, {});
       setPermissionMap(pMap);
 
       console.log('RBAC Data loaded:', {
