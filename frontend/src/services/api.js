@@ -719,4 +719,413 @@ export const rateLimiter = {
   }
 };
 
+// ===== RBAC MANAGEMENT API ENDPOINTS =====
+
+// Role Management
+rbacGetAllRoles: () => adminApi.get('/admin-auth/rbac/roles'),
+
+rbacCreateRole: (roleData) => adminApi.post('/admin-auth/rbac/create-role', roleData),
+
+rbacGetRolePermissions: (roleId) => adminApi.get(`/admin-auth/rbac/role/${roleId}/permissions`),
+
+rbacUpdateRolePermissions: (roleId, permissionIds) => 
+  adminApi.put(`/admin-auth/rbac/role/${roleId}/permissions`, { permission_ids: permissionIds }),
+
+// Permission Management  
+rbacGetAllPermissions: () => adminApi.get('/admin-auth/rbac/permissions'),
+
+rbacCreatePermission: (permissionData) => adminApi.post('/admin-auth/rbac/create-permission', permissionData),
+
+rbacDeletePermission: (permissionId) => adminApi.delete(`/admin-auth/rbac/permission/${permissionId}`),
+
+// User Management
+rbacGetUsersWithRoles: () => adminApi.get('/admin-auth/rbac/users'),
+
+rbacGetUserPermissions: (userId) => adminApi.get(`/admin-auth/rbac/user/${userId}/permissions`),
+
+rbacGetUserRoles: (userId) => {
+  // Bu endpoint henüz backend'de yok, user permissions endpoint'i kullanıyoruz
+  return adminApi.get(`/admin-auth/rbac/user/${userId}/permissions`).then(response => {
+    if (response.data.success && response.data.data.rbac) {
+      return {
+        data: {
+          success: true,
+          data: response.data.data.rbac.roles || []
+        }
+      };
+    }
+    return { data: { success: false, data: [] } };
+  });
+},
+
+rbacAssignRole: (userId, roleId, expiresAt = null) => 
+  adminApi.post('/admin-auth/rbac/assign-role', { 
+    user_id: userId, 
+    role_id: roleId, 
+    expires_at: expiresAt 
+  }),
+
+rbacRemoveRole: (userId, roleId) => 
+  adminApi.post('/admin-auth/rbac/remove-role', { 
+    user_id: userId, 
+    role_id: roleId 
+  }),
+
+rbacBulkAssignRoles: (assignments) => 
+  adminApi.post('/admin-auth/rbac/bulk-assign-roles', { assignments }),
+
+rbacUpdateSuperAdminStatus: (userId, isSuperAdmin) => 
+  adminApi.put(`/admin-auth/rbac/user/${userId}/super-admin`, { is_super_admin: isSuperAdmin }),
+
+// Permission Checking
+rbacCheckPermission: (userId, resource, action) => 
+  adminApi.post('/admin-auth/rbac/check-permission', { 
+    user_id: userId, 
+    resource, 
+    action 
+  }),
+
+rbacCheckDepartmentAccess: (userId, department) => 
+  adminApi.get(`/admin-auth/rbac/department-access/${userId}?department=${department}`),
+
+// Audit & Statistics
+rbacGetAuditLog: (params = {}) => adminApi.get('/admin-auth/rbac/audit-log', { params }),
+
+rbacGetStatistics: () => adminApi.get('/admin-auth/rbac/statistics'),
+
+// RBAC Helper Functions (Client-side utilities)
+rbacHelpers: {
+  // Format permissions for display
+  formatPermissionName: (permission) => {
+    return permission.display_name || permission.permission_name || `${permission.resource}:${permission.action}`;
+  },
+
+  // Group permissions by resource
+  groupPermissionsByResource: (permissions) => {
+    return permissions.reduce((acc, permission) => {
+      if (!acc[permission.resource]) {
+        acc[permission.resource] = [];
+      }
+      acc[permission.resource].push(permission);
+      return acc;
+    }, {});
+  },
+
+  // Format role name for display
+  formatRoleName: (role) => {
+    return role.display_name || role.role_name;
+  },
+
+  // Check if role is system role
+  isSystemRole: (role) => {
+    return role.is_system_role || ['super_admin', 'department_admin', 'department_staff'].includes(role.role_name);
+  },
+
+  // Get role color for UI
+  getRoleColor: (roleName) => {
+    const colors = {
+      'super_admin': 'danger',
+      'department_admin': 'primary', 
+      'department_staff': 'success',
+      'read_only_admin': 'info',
+      'trainee_admin': 'warning'
+    };
+    return colors[roleName] || 'secondary';
+  },
+
+  // Get permission icon
+  getPermissionIcon: (resource) => {
+    const icons = {
+      'requests': '📋',
+      'responses': '💬',
+      'users': '👥',
+      'analytics': '📊',
+      'settings': '⚙️',
+      'notifications': '🔔',
+      'system': '🖥️',
+      'files': '📁'
+    };
+    return icons[resource] || '🔑';
+  },
+
+  // Validate permission data
+  validatePermissionData: (permission) => {
+    const required = ['permission_name', 'display_name', 'resource', 'action'];
+    return required.every(field => permission[field] && permission[field].trim());
+  },
+
+  // Validate role data
+  validateRoleData: (role) => {
+    const required = ['role_name', 'display_name'];
+    return required.every(field => role[field] && role[field].trim());
+  },
+
+  // Format last updated date
+  formatLastUpdated: (dateString) => {
+    if (!dateString) return 'Never';
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffMs = now - date;
+    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+    
+    if (diffDays === 0) return 'Today';
+    if (diffDays === 1) return 'Yesterday';
+    if (diffDays < 7) return `${diffDays} days ago`;
+    if (diffDays < 30) return `${Math.floor(diffDays / 7)} weeks ago`;
+    return date.toLocaleDateString();
+  },
+
+  // Create permission summary text
+  createPermissionSummary: (permissions) => {
+    const grouped = apiService.rbacHelpers.groupPermissionsByResource(permissions);
+    const resourceCount = Object.keys(grouped).length;
+    const totalPermissions = permissions.length;
+    
+    if (totalPermissions === 0) return 'No permissions';
+    if (resourceCount === 1) return `${totalPermissions} permissions in ${Object.keys(grouped)[0]}`;
+    return `${totalPermissions} permissions across ${resourceCount} resources`;
+  }
+},
+
+// RBAC Caching utilities
+rbacCache: {
+  // Cache keys
+  CACHE_KEYS: {
+    ROLES: 'rbac_roles',
+    PERMISSIONS: 'rbac_permissions', 
+    USER_ROLES: 'rbac_user_roles_',
+    USER_PERMISSIONS: 'rbac_user_permissions_'
+  },
+
+  // Cache TTL (5 minutes)
+  CACHE_TTL: 5 * 60 * 1000,
+
+  // Set cache with TTL
+  set: (key, data) => {
+    const item = {
+      data,
+      timestamp: Date.now(),
+      expires: Date.now() + apiService.rbacCache.CACHE_TTL
+    };
+    try {
+      sessionStorage.setItem(key, JSON.stringify(item));
+    } catch (error) {
+      console.warn('Failed to cache RBAC data:', error);
+    }
+  },
+
+  // Get from cache
+  get: (key) => {
+    try {
+      const item = sessionStorage.getItem(key);
+      if (!item) return null;
+
+      const parsed = JSON.parse(item);
+      if (Date.now() > parsed.expires) {
+        sessionStorage.removeItem(key);
+        return null;
+      }
+
+      return parsed.data;
+    } catch (error) {
+      console.warn('Failed to read RBAC cache:', error);
+      return null;
+    }
+  },
+
+  // Clear specific cache
+  clear: (key) => {
+    try {
+      sessionStorage.removeItem(key);
+    } catch (error) {
+      console.warn('Failed to clear RBAC cache:', error);
+    }
+  },
+
+  // Clear all RBAC cache
+  clearAll: () => {
+    try {
+      Object.values(apiService.rbacCache.CACHE_KEYS).forEach(key => {
+        // For user-specific keys, we need to clear all variations
+        if (key.endsWith('_')) {
+          // Clear all keys that start with this prefix
+          for (let i = 0; i < sessionStorage.length; i++) {
+            const sessionKey = sessionStorage.key(i);
+            if (sessionKey && sessionKey.startsWith(key)) {
+              sessionStorage.removeItem(sessionKey);
+            }
+          }
+        } else {
+          sessionStorage.removeItem(key);
+        }
+      });
+    } catch (error) {
+      console.warn('Failed to clear RBAC cache:', error);
+    }
+  }
+},
+
+// Enhanced RBAC API calls with caching
+rbacGetAllRolesCached: async () => {
+  const cached = apiService.rbacCache.get(apiService.rbacCache.CACHE_KEYS.ROLES);
+  if (cached) {
+    return { data: { success: true, data: cached, fromCache: true } };
+  }
+
+  const response = await apiService.rbacGetAllRoles();
+  if (response.data.success) {
+    apiService.rbacCache.set(apiService.rbacCache.CACHE_KEYS.ROLES, response.data.data);
+  }
+  return response;
+},
+
+rbacGetAllPermissionsCached: async () => {
+  const cached = apiService.rbacCache.get(apiService.rbacCache.CACHE_KEYS.PERMISSIONS);
+  if (cached) {
+    return { data: { success: true, data: cached, fromCache: true } };
+  }
+
+  const response = await apiService.rbacGetAllPermissions();
+  if (response.data.success) {
+    apiService.rbacCache.set(apiService.rbacCache.CACHE_KEYS.PERMISSIONS, response.data.data);
+  }
+  return response;
+},
+
+rbacGetUserPermissionsCached: async (userId) => {
+  const cacheKey = apiService.rbacCache.CACHE_KEYS.USER_PERMISSIONS + userId;
+  const cached = apiService.rbacCache.get(cacheKey);
+  if (cached) {
+    return { data: { success: true, data: cached, fromCache: true } };
+  }
+
+  const response = await apiService.rbacGetUserPermissions(userId);
+  if (response.data.success) {
+    apiService.rbacCache.set(cacheKey, response.data.data);
+  }
+  return response;
+},
+
+// Batch operations
+rbacBatchOperations: {
+  // Assign multiple roles to multiple users
+  bulkAssignRoles: async (assignments) => {
+    const results = [];
+    
+    for (const assignment of assignments) {
+      try {
+        const result = await apiService.rbacAssignRole(
+          assignment.userId, 
+          assignment.roleId, 
+          assignment.expiresAt
+        );
+        results.push({ ...assignment, success: true, result: result.data });
+      } catch (error) {
+        results.push({ 
+          ...assignment, 
+          success: false, 
+          error: error.response?.data?.message || error.message 
+        });
+      }
+    }
+    
+    // Clear cache after bulk operations
+    apiService.rbacCache.clearAll();
+    
+    return {
+      data: {
+        success: true,
+        data: results,
+        summary: {
+          total: assignments.length,
+          successful: results.filter(r => r.success).length,
+          failed: results.filter(r => !r.success).length
+        }
+      }
+    };
+  },
+
+  // Remove multiple roles from multiple users
+  bulkRemoveRoles: async (removals) => {
+    const results = [];
+    
+    for (const removal of removals) {
+      try {
+        const result = await apiService.rbacRemoveRole(removal.userId, removal.roleId);
+        results.push({ ...removal, success: true, result: result.data });
+      } catch (error) {
+        results.push({ 
+          ...removal, 
+          success: false, 
+          error: error.response?.data?.message || error.message 
+        });
+      }
+    }
+    
+    // Clear cache after bulk operations
+    apiService.rbacCache.clearAll();
+    
+    return {
+      data: {
+        success: true,
+        data: results,
+        summary: {
+          total: removals.length,
+          successful: results.filter(r => r.success).length,
+          failed: results.filter(r => !r.success).length
+        }
+      }
+    };
+  }
+},
+
+// RBAC Validation utilities
+rbacValidation: {
+  // Validate permission assignment
+  canAssignPermission: (currentUserPermissions, targetPermission) => {
+    // Super admin can assign any permission
+    const isSuperAdmin = currentUserPermissions.some(p => 
+      p.resource === 'system' && p.action === 'admin'
+    );
+    if (isSuperAdmin) return true;
+
+    // Users can only assign permissions they have
+    return currentUserPermissions.some(p => 
+      p.resource === targetPermission.resource && p.action === targetPermission.action
+    );
+  },
+
+  // Validate role assignment
+  canAssignRole: (currentUserRoles, targetRole) => {
+    // Super admin can assign any role
+    if (currentUserRoles.some(r => r.role_name === 'super_admin')) return true;
+
+    // Department admin can assign department roles
+    if (currentUserRoles.some(r => r.role_name === 'department_admin')) {
+      return !['super_admin', 'department_admin'].includes(targetRole.role_name);
+    }
+
+    return false;
+  },
+
+  // Check if user can manage other user
+  canManageUser: (currentUser, targetUser) => {
+    // Can't manage yourself for critical operations
+    if (currentUser.admin_id === targetUser.admin_id) return false;
+
+    // Super admin can manage anyone except other super admins
+    if (currentUser.is_super_admin) {
+      return !targetUser.is_super_admin || currentUser.admin_id !== targetUser.admin_id;
+    }
+
+    // Department admin can manage users in same department
+    if (currentUser.department === targetUser.department) {
+      return !targetUser.is_super_admin;
+    }
+
+    return false;
+  }
+}
+
+
 export default { studentApi, adminApi };

@@ -1,10 +1,16 @@
-// backend/routes/adminAuth.js - Updated with RBAC
+// backend/routes/adminAuth.js - RBAC Enhanced Version
 const express = require('express');
 const router = express.Router();
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { pool } = require('../config/database');
-const { authenticateAdmin, requirePermission, requireAnyPermission, commonPermissions } = require('../middleware/adminAuth');
+const { 
+  authenticateAdmin, 
+  requirePermission, 
+  requireAnyPermission, 
+  requireRole,
+  commonPermissions 
+} = require('../middleware/adminAuth');
 const rbacService = require('../services/rbacService');
 
 // POST /api/admin-auth/login - Admin giriş (değişiklik yok)
@@ -19,7 +25,7 @@ router.post('/login', async (req, res) => {
       });
     }
 
-    // Admin'i bul - admin_users tablosu kullan
+    // Admin'i bul
     const [admins] = await pool.execute(
       'SELECT * FROM admin_users WHERE username = ? AND is_active = TRUE',
       [username]
@@ -34,7 +40,7 @@ router.post('/login', async (req, res) => {
 
     const admin = admins[0];
 
-    // Şifre kontrolü - password_hash kullan
+    // Şifre kontrolü
     const isValidPassword = await bcrypt.compare(password, admin.password_hash);
     
     if (!isValidPassword) {
@@ -62,7 +68,6 @@ router.post('/login', async (req, res) => {
         rbacService.getUserPermissions(admin.admin_id)
       ]);
 
-      // Şifreyi response'dan çıkar ve RBAC bilgilerini ekle
       const { password_hash: _, ...adminData } = admin;
 
       res.json({
@@ -84,7 +89,6 @@ router.post('/login', async (req, res) => {
       });
     } catch (rbacError) {
       console.error('RBAC fetch error during login:', rbacError);
-      // Fallback: login without RBAC data
       const { password_hash: _, ...adminData } = admin;
       res.json({
         success: true,
@@ -110,7 +114,6 @@ router.get('/me', authenticateAdmin, async (req, res) => {
   try {
     const adminId = req.admin.admin_id;
     
-    // Admin bilgilerini al
     const [admins] = await pool.execute(
       'SELECT admin_id, username, email, full_name, role, department, is_active, is_super_admin FROM admin_users WHERE admin_id = ? AND is_active = TRUE',
       [adminId]
@@ -123,7 +126,6 @@ router.get('/me', authenticateAdmin, async (req, res) => {
       });
     }
     
-    // RBAC bilgilerini ekle
     const permissionSummary = await rbacService.getUserPermissionSummary(adminId);
     
     res.json({
@@ -142,7 +144,7 @@ router.get('/me', authenticateAdmin, async (req, res) => {
   }
 });
 
-// GET /api/admin-auth/verify - Admin token verification (değişiklik yok)
+// GET /api/admin-auth/verify - Token verification
 router.get('/verify', authenticateAdmin, async (req, res) => {
   try {
     res.json({
@@ -158,7 +160,7 @@ router.get('/verify', authenticateAdmin, async (req, res) => {
   }
 });
 
-// GET /api/admin-auth/dashboard - Dashboard (izin kontrolü eklendi)
+// GET /api/admin-auth/dashboard - Dashboard (RBAC korumalı)
 router.get('/dashboard', 
   authenticateAdmin, 
   commonPermissions.viewAnalytics(),
@@ -167,12 +169,9 @@ router.get('/dashboard',
       const department = req.admin.department;
       const isSuper = req.admin.is_super_admin;
       
-      console.log('Dashboard request for department:', department);
-
       let query, params;
       
       if (isSuper) {
-        // Super admin tüm departmanları görebilir
         query = `
           SELECT 
             COUNT(*) as total_requests,
@@ -184,7 +183,6 @@ router.get('/dashboard',
         `;
         params = [];
       } else {
-        // Normal admin sadece kendi departmanını görebilir
         query = `
           SELECT 
             COUNT(*) as total_requests,
@@ -200,7 +198,6 @@ router.get('/dashboard',
 
       const [totals] = await pool.execute(query, params);
 
-      // Request type statistics
       let typeStatsQuery, typeStatsParams;
       
       if (isSuper) {
@@ -231,8 +228,6 @@ router.get('/dashboard',
 
       const [typeStats] = await pool.execute(typeStatsQuery, typeStatsParams);
 
-      console.log('Dashboard data:', { totals: totals[0], typeStats });
-
       res.json({
         success: true,
         data: {
@@ -259,7 +254,7 @@ router.get('/dashboard',
   }
 );
 
-// GET /api/admin-auth/requests - Admin Requests (gelişmiş izin kontrolü)
+// GET /api/admin-auth/requests - Request listesi (RBAC korumalı)
 router.get('/requests', 
   authenticateAdmin, 
   commonPermissions.viewRequests(),
@@ -268,8 +263,6 @@ router.get('/requests',
       const department = req.admin.department;
       const isSuper = req.admin.is_super_admin;
       const { status } = req.query;
-
-      console.log('Fetching requests for department:', department);
 
       let query = `
         SELECT 
@@ -296,7 +289,6 @@ router.get('/requests',
       const params = [];
       const conditions = [];
 
-      // Super admin tüm departmanları görebilir, normal admin sadece kendi departmanını
       if (!isSuper) {
         conditions.push('rt.category = ?');
         params.push(department);
@@ -326,8 +318,6 @@ router.get('/requests',
 
       const [requests] = await pool.execute(query, params);
       
-      console.log('Found requests:', requests.length);
-
       res.json({
         success: true,
         data: requests,
@@ -350,7 +340,7 @@ router.get('/requests',
   }
 );
 
-// GET /api/admin-auth/request-types - Request Types (izin kontrolü eklendi)
+// GET /api/admin-auth/request-types - Request Types (RBAC korumalı)
 router.get('/request-types', 
   authenticateAdmin, 
   requireAnyPermission([
@@ -365,7 +355,6 @@ router.get('/request-types',
       let query, params;
 
       if (isSuper) {
-        // Super admin tüm request type'ları görebilir
         query = `
           SELECT 
             type_id,
@@ -379,7 +368,6 @@ router.get('/request-types',
         `;
         params = [];
       } else {
-        // Normal admin sadece kendi departmanını görebilir
         query = `
           SELECT 
             type_id,
@@ -416,7 +404,7 @@ router.get('/request-types',
   }
 );
 
-// PUT /api/admin-auth/requests/:requestId/status - Update status (izin kontrolü eklendi)
+// PUT /api/admin-auth/requests/:requestId/status - Status güncelleme (RBAC korumalı)
 router.put('/requests/:requestId/status', 
   authenticateAdmin, 
   commonPermissions.manageRequests(),
@@ -433,7 +421,7 @@ router.put('/requests/:requestId/status',
         });
       }
 
-      // Request'in bu admin'in departmanına ait olup olmadığını kontrol et
+      // Departman erişim kontrolü
       if (!req.admin.is_super_admin) {
         const [requestCheck] = await pool.execute(`
           SELECT gr.request_id, rt.category 
@@ -457,7 +445,6 @@ router.put('/requests/:requestId/status',
         }
       }
 
-      // Update request status
       const [result] = await pool.execute(`
         UPDATE guidance_requests 
         SET 
@@ -494,7 +481,7 @@ router.put('/requests/:requestId/status',
   }
 );
 
-// PUT /api/admin-auth/requests/:requestId/priority - Update priority (izin kontrolü eklendi)
+// PUT /api/admin-auth/requests/:requestId/priority - Priority güncelleme (RBAC korumalı)
 router.put('/requests/:requestId/priority', 
   authenticateAdmin, 
   requirePermission('requests', 'update_priority'),
@@ -512,7 +499,7 @@ router.put('/requests/:requestId/priority',
         });
       }
 
-      // Department access check for non-super admins
+      // Departman erişim kontrolü
       if (!req.admin.is_super_admin) {
         const [requestCheck] = await pool.execute(`
           SELECT gr.request_id, rt.category 
@@ -536,7 +523,6 @@ router.put('/requests/:requestId/priority',
         }
       }
 
-      // Update priority
       const [result] = await pool.execute(`
         UPDATE guidance_requests 
         SET 
@@ -572,7 +558,7 @@ router.put('/requests/:requestId/priority',
   }
 );
 
-// PUT /api/admin-auth/request-types/:typeId/toggle - Toggle request type (izin kontrolü eklendi)
+// PUT /api/admin-auth/request-types/:typeId/toggle - Request type toggle (RBAC korumalı)
 router.put('/request-types/:typeId/toggle', 
   authenticateAdmin, 
   requirePermission('settings', 'manage_request_types'),
@@ -580,7 +566,7 @@ router.put('/request-types/:typeId/toggle',
     try {
       const { typeId } = req.params;
 
-      // Department access check for non-super admins
+      // Departman erişim kontrolü
       if (!req.admin.is_super_admin) {
         const [typeCheck] = await pool.execute(`
           SELECT category FROM request_types WHERE type_id = ?
@@ -629,7 +615,7 @@ router.put('/request-types/:typeId/toggle',
   }
 );
 
-// POST /api/admin-auth/request-types - Add new request type (izin kontrolü eklendi)
+// POST /api/admin-auth/request-types - Request type ekleme (RBAC korumalı)
 router.post('/request-types', 
   authenticateAdmin, 
   requirePermission('settings', 'manage_request_types'),
@@ -646,10 +632,8 @@ router.post('/request-types',
         });
       }
 
-      // Super admin can specify category, normal admin uses their department
       const category = isSuper && req.body.category ? req.body.category : department;
 
-      // Add new request type
       const [result] = await pool.execute(`
         INSERT INTO request_types (category, type_name, description_en, is_document_required, is_disabled)
         VALUES (?, ?, ?, ?, FALSE)
@@ -675,7 +659,7 @@ router.post('/request-types',
   }
 );
 
-// GET /api/admin-auth/requests/:requestId/responses - Get responses (izin kontrolü eklendi)
+// GET /api/admin-auth/requests/:requestId/responses - Response listesi (RBAC korumalı)
 router.get('/requests/:requestId/responses', 
   authenticateAdmin, 
   commonPermissions.viewRequests(),
@@ -683,7 +667,7 @@ router.get('/requests/:requestId/responses',
     try {
       const { requestId } = req.params;
 
-      // Department access check for non-super admins
+      // Departman erişim kontrolü
       if (!req.admin.is_super_admin) {
         const [requestCheck] = await pool.execute(`
           SELECT gr.request_id, rt.category 
@@ -734,7 +718,7 @@ router.get('/requests/:requestId/responses',
   }
 );
 
-// POST /api/admin-auth/requests/:requestId/responses - Add response (izin kontrolü eklendi)
+// POST /api/admin-auth/requests/:requestId/responses - Response ekleme (RBAC korumalı)
 router.post('/requests/:requestId/responses', 
   authenticateAdmin, 
   requirePermission('responses', 'create'),
@@ -751,7 +735,7 @@ router.post('/requests/:requestId/responses',
         });
       }
 
-      // Department access check and get request details
+      // Departman erişim kontrolü ve request detayları
       let requestDetailsQuery = `
         SELECT 
           gr.request_id,
@@ -783,13 +767,13 @@ router.post('/requests/:requestId/responses',
       const request = requestDetails[0];
       const oldStatus = request.status;
 
-      // Add response
+      // Response ekle
       const [result] = await pool.execute(`
         INSERT INTO admin_responses (request_id, admin_id, response_content, created_at)
         VALUES (?, ?, ?, NOW())
       `, [requestId, adminId, response_content.trim()]);
 
-      // Update request status to 'Informed' if it was 'Pending'
+      // Status'u 'Informed' yap
       if (oldStatus === 'Pending') {
         await pool.execute(`
           UPDATE guidance_requests 
@@ -798,9 +782,6 @@ router.post('/requests/:requestId/responses',
             updated_at = NOW()
           WHERE request_id = ?
         `, [requestId]);
-
-        // TODO: Send email notification
-        // await emailService.notifyRequestStatusUpdate(...)
       }
 
       res.json({
@@ -825,7 +806,7 @@ router.post('/requests/:requestId/responses',
 
 // ===== RBAC MANAGEMENT ROUTES =====
 
-// GET /api/admin-auth/rbac/permissions - Get all permissions
+// GET /api/admin-auth/rbac/permissions - Tüm izinleri getir (RBAC korumalı)
 router.get('/rbac/permissions', 
   authenticateAdmin, 
   requirePermission('users', 'manage_roles'),
@@ -846,7 +827,7 @@ router.get('/rbac/permissions',
   }
 );
 
-// GET /api/admin-auth/rbac/roles - Get all roles
+// GET /api/admin-auth/rbac/roles - Tüm rolleri getir (RBAC korumalı)
 router.get('/rbac/roles', 
   authenticateAdmin, 
   requirePermission('users', 'manage_roles'),
@@ -867,7 +848,7 @@ router.get('/rbac/roles',
   }
 );
 
-// GET /api/admin-auth/rbac/users - Get users with roles
+// GET /api/admin-auth/rbac/users - Kullanıcıları rolleriyle getir (RBAC korumalı)
 router.get('/rbac/users', 
   authenticateAdmin, 
   requirePermission('users', 'view'),
@@ -889,7 +870,7 @@ router.get('/rbac/users',
   }
 );
 
-// POST /api/admin-auth/rbac/assign-role - Assign role to user
+// POST /api/admin-auth/rbac/assign-role - Rol atama (RBAC korumalı)
 router.post('/rbac/assign-role', 
   authenticateAdmin, 
   requirePermission('users', 'manage_roles'),
@@ -917,7 +898,7 @@ router.post('/rbac/assign-role',
   }
 );
 
-// POST /api/admin-auth/rbac/remove-role - Remove role from user
+// POST /api/admin-auth/rbac/remove-role - Rol kaldırma (RBAC korumalı)
 router.post('/rbac/remove-role', 
   authenticateAdmin, 
   requirePermission('users', 'manage_roles'),
@@ -940,6 +921,538 @@ router.post('/rbac/remove-role',
       res.status(500).json({
         success: false,
         message: error.message || 'Failed to remove role'
+      });
+    }
+  }
+);
+
+// POST /api/admin-auth/rbac/create-role - Yeni rol oluşturma (Super Admin Only)
+router.post('/rbac/create-role', 
+  authenticateAdmin, 
+  requireRole(['super_admin']),
+  async (req, res) => {
+    try {
+      const { role_name, display_name, description, is_system_role } = req.body;
+      const creatorId = req.admin.admin_id;
+
+      if (!role_name || !display_name) {
+        return res.status(400).json({
+          success: false,
+          message: 'Role name and display name are required'
+        });
+      }
+
+      const result = await rbacService.createRole({
+        role_name,
+        display_name,
+        description,
+        is_system_role: is_system_role || false
+      }, creatorId);
+
+      res.json(result);
+    } catch (error) {
+      console.error('Create role error:', error);
+      res.status(500).json({
+        success: false,
+        message: error.message || 'Failed to create role'
+      });
+    }
+  }
+);
+
+// GET /api/admin-auth/rbac/role/:roleId/permissions - Rol izinlerini getir
+router.get('/rbac/role/:roleId/permissions', 
+  authenticateAdmin, 
+  requirePermission('users', 'manage_roles'),
+  async (req, res) => {
+    try {
+      const { roleId } = req.params;
+      const permissions = await rbacService.getRolePermissions(roleId);
+      res.json({
+        success: true,
+        data: permissions
+      });
+    } catch (error) {
+      console.error('Get role permissions error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to fetch role permissions'
+      });
+    }
+  }
+);
+
+// PUT /api/admin-auth/rbac/role/:roleId/permissions - Rol izinlerini güncelle
+router.put('/rbac/role/:roleId/permissions', 
+  authenticateAdmin, 
+  requirePermission('users', 'manage_roles'),
+  async (req, res) => {
+    try {
+      const { roleId } = req.params;
+      const { permission_ids } = req.body;
+      const updaterId = req.admin.admin_id;
+
+      if (!Array.isArray(permission_ids)) {
+        return res.status(400).json({
+          success: false,
+          message: 'Permission IDs must be an array'
+        });
+      }
+
+      const result = await rbacService.updateRolePermissions(roleId, permission_ids, updaterId);
+      res.json(result);
+    } catch (error) {
+      console.error('Update role permissions error:', error);
+      res.status(500).json({
+        success: false,
+        message: error.message || 'Failed to update role permissions'
+      });
+    }
+  }
+);
+
+// GET /api/admin-auth/rbac/user/:userId/permissions - Kullanıcı izinlerini getir
+router.get('/rbac/user/:userId/permissions', 
+  authenticateAdmin, 
+  requirePermission('users', 'view'),
+  async (req, res) => {
+    try {
+      const { userId } = req.params;
+      const permissionSummary = await rbacService.getUserPermissionSummary(userId);
+      res.json({
+        success: true,
+        data: permissionSummary
+      });
+    } catch (error) {
+      console.error('Get user permissions error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to fetch user permissions'
+      });
+    }
+  }
+);
+
+// POST /api/admin-auth/rbac/check-permission - İzin kontrolü
+router.post('/rbac/check-permission', 
+  authenticateAdmin,
+  async (req, res) => {
+    try {
+      const { user_id, resource, action } = req.body;
+      const targetUserId = user_id || req.admin.admin_id;
+
+      if (!resource || !action) {
+        return res.status(400).json({
+          success: false,
+          message: 'Resource and action are required'
+        });
+      }
+
+      const hasPermission = await rbacService.hasPermission(targetUserId, resource, action);
+      
+      res.json({
+        success: true,
+        data: {
+          user_id: targetUserId,
+          resource,
+          action,
+          has_permission: hasPermission
+        }
+      });
+    } catch (error) {
+      console.error('Check permission error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to check permission'
+      });
+    }
+  }
+);
+
+// POST /api/admin-auth/rbac/bulk-assign-roles - Toplu rol atama (Super Admin Only)
+router.post('/rbac/bulk-assign-roles', 
+  authenticateAdmin, 
+  requireRole(['super_admin']),
+  async (req, res) => {
+    try {
+      const { assignments } = req.body; // [{ user_id, role_id, expires_at }]
+      const assignerId = req.admin.admin_id;
+
+      if (!Array.isArray(assignments) || assignments.length === 0) {
+        return res.status(400).json({
+          success: false,
+          message: 'Assignments array is required'
+        });
+      }
+
+      const results = [];
+      for (const assignment of assignments) {
+        try {
+          const result = await rbacService.assignRoleToUser(
+            assignment.user_id, 
+            assignment.role_id, 
+            assignerId, 
+            assignment.expires_at
+          );
+          results.push({ ...assignment, success: true, result });
+        } catch (error) {
+          results.push({ ...assignment, success: false, error: error.message });
+        }
+      }
+
+      const successCount = results.filter(r => r.success).length;
+      
+      res.json({
+        success: true,
+        message: `${successCount}/${assignments.length} role assignments completed`,
+        data: results
+      });
+    } catch (error) {
+      console.error('Bulk assign roles error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to bulk assign roles'
+      });
+    }
+  }
+);
+
+// GET /api/admin-auth/rbac/audit-log - RBAC audit log (Super Admin Only)
+router.get('/rbac/audit-log', 
+  authenticateAdmin, 
+  requireRole(['super_admin']),
+  async (req, res) => {
+    try {
+      const { limit = 100, offset = 0, user_id, action_type } = req.query;
+
+      let query = `
+        SELECT 
+          ur.user_id,
+          ur.role_id,
+          ur.assigned_by,
+          ur.assigned_at,
+          ur.expires_at,
+          ur.is_active,
+          u.username as target_username,
+          r.role_name,
+          assigner.username as assigned_by_username
+        FROM user_roles ur
+        LEFT JOIN admin_users u ON ur.user_id = u.admin_id
+        LEFT JOIN roles r ON ur.role_id = r.role_id
+        LEFT JOIN admin_users assigner ON ur.assigned_by = assigner.admin_id
+      `;
+
+      const params = [];
+      const conditions = [];
+
+      if (user_id) {
+        conditions.push('ur.user_id = ?');
+        params.push(user_id);
+      }
+
+      if (conditions.length > 0) {
+        query += ' WHERE ' + conditions.join(' AND ');
+      }
+
+      query += ` ORDER BY ur.assigned_at DESC LIMIT ? OFFSET ?`;
+      params.push(parseInt(limit), parseInt(offset));
+
+      const [auditLog] = await pool.execute(query, params);
+
+      res.json({
+        success: true,
+        data: auditLog,
+        meta: {
+          limit: parseInt(limit),
+          offset: parseInt(offset),
+          total: auditLog.length
+        }
+      });
+    } catch (error) {
+      console.error('Get audit log error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to fetch audit log'
+      });
+    }
+  }
+);
+
+// PUT /api/admin-auth/rbac/user/:userId/super-admin - Super admin durumunu değiştir (Super Admin Only)
+router.put('/rbac/user/:userId/super-admin', 
+  authenticateAdmin, 
+  requireRole(['super_admin']),
+  async (req, res) => {
+    try {
+      const { userId } = req.params;
+      const { is_super_admin } = req.body;
+      const updaterId = req.admin.admin_id;
+
+      // Kendi kendini super admin yapamasın
+      if (parseInt(userId) === updaterId && !is_super_admin) {
+        return res.status(400).json({
+          success: false,
+          message: 'Cannot remove super admin status from yourself'
+        });
+      }
+
+      const [result] = await pool.execute(`
+        UPDATE admin_users 
+        SET 
+          is_super_admin = ?,
+          last_role_update = NOW(),
+          role_updated_by = ?
+        WHERE admin_id = ? AND is_active = TRUE
+      `, [is_super_admin, updaterId, userId]);
+
+      if (result.affectedRows === 0) {
+        return res.status(404).json({
+          success: false,
+          message: 'User not found'
+        });
+      }
+
+      res.json({
+        success: true,
+        message: `Super admin status ${is_super_admin ? 'granted' : 'revoked'} successfully`
+      });
+    } catch (error) {
+      console.error('Update super admin status error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to update super admin status'
+      });
+    }
+  }
+);
+
+// GET /api/admin-auth/rbac/department-access/:userId - Departman erişimlerini kontrol et
+router.get('/rbac/department-access/:userId', 
+  authenticateAdmin, 
+  requirePermission('users', 'view'),
+  async (req, res) => {
+    try {
+      const { userId } = req.params;
+      const { department } = req.query;
+
+      if (!department) {
+        return res.status(400).json({
+          success: false,
+          message: 'Department parameter is required'
+        });
+      }
+
+      const canAccess = await rbacService.canAccessDepartment(userId, department);
+      
+      res.json({
+        success: true,
+        data: {
+          user_id: parseInt(userId),
+          department,
+          can_access: canAccess
+        }
+      });
+    } catch (error) {
+      console.error('Check department access error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to check department access'
+      });
+    }
+  }
+);
+
+// POST /api/admin-auth/rbac/create-permission - Yeni izin oluştur (Super Admin Only)
+router.post('/rbac/create-permission', 
+  authenticateAdmin, 
+  requireRole(['super_admin']),
+  async (req, res) => {
+    try {
+      const { 
+        permission_name, 
+        display_name, 
+        description, 
+        resource, 
+        action,
+        is_system_permission 
+      } = req.body;
+
+      if (!permission_name || !display_name || !resource || !action) {
+        return res.status(400).json({
+          success: false,
+          message: 'Permission name, display name, resource, and action are required'
+        });
+      }
+
+      const [result] = await pool.execute(`
+        INSERT INTO permissions (
+          permission_name, 
+          display_name, 
+          description, 
+          resource, 
+          action,
+          is_system_permission
+        ) VALUES (?, ?, ?, ?, ?, ?)
+      `, [
+        permission_name, 
+        display_name, 
+        description || null, 
+        resource, 
+        action,
+        is_system_permission || false
+      ]);
+
+      res.json({
+        success: true,
+        message: 'Permission created successfully',
+        data: {
+          permission_id: result.insertId,
+          permission_name,
+          display_name,
+          resource,
+          action
+        }
+      });
+    } catch (error) {
+      console.error('Create permission error:', error);
+      if (error.code === 'ER_DUP_ENTRY') {
+        res.status(400).json({
+          success: false,
+          message: 'Permission already exists'
+        });
+      } else {
+        res.status(500).json({
+          success: false,
+          message: 'Failed to create permission'
+        });
+      }
+    }
+  }
+);
+
+// DELETE /api/admin-auth/rbac/permission/:permissionId - İzin silme (Super Admin Only)
+router.delete('/rbac/permission/:permissionId', 
+  authenticateAdmin, 
+  requireRole(['super_admin']),
+  async (req, res) => {
+    try {
+      const { permissionId } = req.params;
+
+      // Sistem izinlerini silemez
+      const [permissionCheck] = await pool.execute(`
+        SELECT is_system_permission FROM permissions WHERE permission_id = ?
+      `, [permissionId]);
+
+      if (permissionCheck.length === 0) {
+        return res.status(404).json({
+          success: false,
+          message: 'Permission not found'
+        });
+      }
+
+      if (permissionCheck[0].is_system_permission) {
+        return res.status(400).json({
+          success: false,
+          message: 'Cannot delete system permissions'
+        });
+      }
+
+      const [result] = await pool.execute(`
+        DELETE FROM permissions WHERE permission_id = ?
+      `, [permissionId]);
+
+      if (result.affectedRows === 0) {
+        return res.status(404).json({
+          success: false,
+          message: 'Permission not found'
+        });
+      }
+
+      res.json({
+        success: true,
+        message: 'Permission deleted successfully'
+      });
+    } catch (error) {
+      console.error('Delete permission error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to delete permission'
+      });
+    }
+  }
+);
+
+// GET /api/admin-auth/rbac/statistics - RBAC istatistikleri (Super Admin Only)
+router.get('/rbac/statistics', 
+  authenticateAdmin, 
+  requireRole(['super_admin']),
+  async (req, res) => {
+    try {
+      // Rol istatistikleri
+      const [roleStats] = await pool.execute(`
+        SELECT 
+          r.role_name,
+          r.display_name,
+          COUNT(ur.user_id) as user_count,
+          COUNT(rp.permission_id) as permission_count
+        FROM roles r
+        LEFT JOIN user_roles ur ON r.role_id = ur.role_id AND ur.is_active = TRUE
+        LEFT JOIN role_permissions rp ON r.role_id = rp.role_id
+        WHERE r.is_active = TRUE
+        GROUP BY r.role_id, r.role_name, r.display_name
+        ORDER BY user_count DESC
+      `);
+
+      // Departman istatistikleri
+      const [deptStats] = await pool.execute(`
+        SELECT 
+          au.department,
+          COUNT(au.admin_id) as admin_count,
+          COUNT(ur.role_id) as total_role_assignments,
+          COUNT(DISTINCT ur.role_id) as unique_roles
+        FROM admin_users au
+        LEFT JOIN user_roles ur ON au.admin_id = ur.user_id AND ur.is_active = TRUE
+        WHERE au.is_active = TRUE
+        GROUP BY au.department
+        ORDER BY admin_count DESC
+      `);
+
+      // İzin kullanım istatistikleri
+      const [permissionStats] = await pool.execute(`
+        SELECT 
+          p.resource,
+          COUNT(p.permission_id) as permission_count,
+          COUNT(rp.role_id) as assigned_to_roles
+        FROM permissions p
+        LEFT JOIN role_permissions rp ON p.permission_id = rp.permission_id
+        GROUP BY p.resource
+        ORDER BY permission_count DESC
+      `);
+
+      // Genel istatistikler
+      const [generalStats] = await pool.execute(`
+        SELECT 
+          (SELECT COUNT(*) FROM admin_users WHERE is_active = TRUE) as total_users,
+          (SELECT COUNT(*) FROM roles WHERE is_active = TRUE) as total_roles,
+          (SELECT COUNT(*) FROM permissions) as total_permissions,
+          (SELECT COUNT(*) FROM user_roles WHERE is_active = TRUE) as total_role_assignments,
+          (SELECT COUNT(*) FROM admin_users WHERE is_super_admin = TRUE AND is_active = TRUE) as super_admin_count
+      `);
+
+      res.json({
+        success: true,
+        data: {
+          general: generalStats[0],
+          role_statistics: roleStats,
+          department_statistics: deptStats,
+          permission_statistics: permissionStats
+        }
+      });
+    } catch (error) {
+      console.error('Get RBAC statistics error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to fetch RBAC statistics'
       });
     }
   }

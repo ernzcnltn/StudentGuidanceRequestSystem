@@ -1,3 +1,4 @@
+// frontend/src/contexts/AdminAuthContext.js - RBAC Enhanced
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { apiService, checkTokenValidity } from '../services/api';
 
@@ -14,58 +15,121 @@ export const useAdminAuth = () => {
 export const AdminAuthProvider = ({ children }) => {
   const [admin, setAdmin] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [permissions, setPermissions] = useState([]);
+  const [roles, setRoles] = useState([]);
+  const [permissionMap, setPermissionMap] = useState({});
 
   const logout = useCallback(() => {
     setAdmin(null);
+    setPermissions([]);
+    setRoles([]);
+    setPermissionMap({});
     localStorage.removeItem('admin_token');
     apiService.removeAdminAuthToken();
+    window.location.href = '/login';
+  }, []);
+
+  // İzin kontrolü helper fonksiyonu
+  const hasPermission = useCallback((resource, action) => {
+    // Super admin her şeyi yapabilir
+    if (admin?.is_super_admin) return true;
     
-    // DÜZELTME: Admin logout sonrası admin login sayfasına yönlendir
-    window.location.href = '/admin/login';
+    // Permission map'ten kontrol et
+    const key = `${resource}.${action}`;
+    return permissionMap[key] === true;
+  }, [admin?.is_super_admin, permissionMap]);
+
+  // Rol kontrolü helper fonksiyonu
+  const hasRole = useCallback((roleName) => {
+    if (admin?.is_super_admin) return true;
+    return roles.some(role => role.role_name === roleName);
+  }, [admin?.is_super_admin, roles]);
+
+  // Departman erişim kontrolü
+  const canAccessDepartment = useCallback((department) => {
+    if (admin?.is_super_admin) return true;
+    return admin?.department === department;
+  }, [admin?.is_super_admin, admin?.department]);
+
+  // RBAC verilerini yükle
+  const loadRBACData = useCallback(async (adminId) => {
+    try {
+      // Paralel olarak rol ve izinleri al
+      const [rolesResponse, permissionsResponse] = await Promise.all([
+        apiService.rbacGetUserRoles?.(adminId) || Promise.resolve({ data: { data: [] } }),
+        apiService.rbacGetUserPermissions?.(adminId) || Promise.resolve({ data: { data: [] } })
+      ]);
+
+      const userRoles = rolesResponse.data?.data || [];
+      const userPermissions = permissionsResponse.data?.data || [];
+
+      setRoles(userRoles);
+      setPermissions(userPermissions);
+
+      // Permission map oluştur (hızlı erişim için)
+      const pMap = userPermissions.reduce((acc, perm) => {
+        const key = `${perm.resource}.${perm.action}`;
+        acc[key] = true;
+        return acc;
+      }, {});
+      setPermissionMap(pMap);
+
+      console.log('RBAC Data loaded:', {
+        roles: userRoles.length,
+        permissions: userPermissions.length,
+        permissionMap: Object.keys(pMap).length
+      });
+
+    } catch (error) {
+      console.error('Failed to load RBAC data:', error);
+      // RBAC verisi yüklenemezse varsayılan değerler
+      setRoles([]);
+      setPermissions([]);
+      setPermissionMap({});
+    }
   }, []);
 
   const checkAdminAuthStatus = useCallback(async () => {
     try {
-      // Önce token geçerliliğini kontrol et
       if (!checkTokenValidity(true)) {
         logout();
         return;
       }
 
-      // Token geçerliyse admin profilini al
       const response = await apiService.getAdminProfile();
       if (response.data.success) {
-        setAdmin(response.data.data);
+        const adminData = response.data.data;
+        setAdmin(adminData);
+
+        // RBAC verilerini yükle
+        if (adminData.admin_id) {
+          await loadRBACData(adminData.admin_id);
+        }
       } else {
         logout();
       }
     } catch (error) {
       console.error('Admin auth check failed:', error);
       
-      // 401 Unauthorized hatası ise token geçersiz
       if (error.response?.status === 401) {
         logout();
       } else {
-        // Başka bir hata ise sadece loading'i kapat
         setLoading(false);
       }
     } finally {
       setLoading(false);
     }
-  }, [logout]);
+  }, [logout, loadRBACData]);
 
   useEffect(() => {
     const savedToken = localStorage.getItem('admin_token');
     
     if (savedToken) {
-      // Token'ı API service'e set et
       apiService.setAdminAuthToken(savedToken);
       
-      // Token geçerliliğini kontrol et
       if (checkTokenValidity(true)) {
         checkAdminAuthStatus();
       } else {
-        // Token süresi dolmuş
         logout();
       }
     } else {
@@ -75,11 +139,11 @@ export const AdminAuthProvider = ({ children }) => {
 
   const login = async (username, password) => {
     try {
-      console.log('Admin login attempt:', { username }); // Debug log
+      console.log('Admin login attempt:', { username });
       
       const response = await apiService.adminLogin(username, password);
       
-      console.log('Admin login response:', response.data); // Debug log
+      console.log('Admin login response:', response.data);
       
       if (response.data.success) {
         const { token, admin: adminData } = response.data.data;
@@ -92,8 +156,25 @@ export const AdminAuthProvider = ({ children }) => {
         
         // Token'ı API service'e set et
         apiService.setAdminAuthToken(token);
+
+        // RBAC verilerini yükle (eğer login response'unda yoksa)
+        if (adminData.admin_id && (!adminData.roles || !adminData.permissions)) {
+          await loadRBACData(adminData.admin_id);
+        } else {
+          // Login response'unda RBAC verileri varsa direkt kullan
+          if (adminData.roles) setRoles(adminData.roles);
+          if (adminData.permissions) {
+            setPermissions(adminData.permissions);
+            const pMap = adminData.permissions.reduce((acc, perm) => {
+              const key = `${perm.resource}.${perm.action}`;
+              acc[key] = true;
+              return acc;
+            }, {});
+            setPermissionMap(pMap);
+          }
+        }
         
-        console.log('Admin login successful, admin data:', adminData); // Debug log
+        console.log('Admin login successful, admin data:', adminData);
         
         return { success: true };
       } else {
@@ -107,7 +188,14 @@ export const AdminAuthProvider = ({ children }) => {
     }
   };
 
-  // Token'ı yenile fonksiyonu (opsiyonel)
+  // RBAC verilerini yenile
+  const refreshRBACData = useCallback(async () => {
+    if (admin?.admin_id) {
+      await loadRBACData(admin.admin_id);
+    }
+  }, [admin?.admin_id, loadRBACData]);
+
+  // Token'ı yenile fonksiyonu
   const refreshAuth = useCallback(async () => {
     if (checkTokenValidity(true)) {
       try {
@@ -133,15 +221,79 @@ export const AdminAuthProvider = ({ children }) => {
     return () => window.removeEventListener('focus', handleFocus);
   }, [admin, logout]);
 
+  // RBAC helper fonksiyonları
+  const rbacHelpers = {
+    // Quick permission checks
+    canViewRequests: () => hasPermission('requests', 'view_department') || hasPermission('requests', 'view_all'),
+    canManageRequests: () => hasPermission('requests', 'update_status') || hasPermission('requests', 'assign'),
+    canCreateResponses: () => hasPermission('responses', 'create'),
+    canManageUsers: () => hasPermission('users', 'manage_roles'),
+    canViewAnalytics: () => hasPermission('analytics', 'view_department') || hasPermission('analytics', 'view_system'),
+    canManageSettings: () => hasPermission('settings', 'update'),
+    canManageRequestTypes: () => hasPermission('settings', 'manage_request_types'),
+    
+    // Role checks
+    isSuperAdmin: () => admin?.is_super_admin || hasRole('super_admin'),
+    isDepartmentAdmin: () => hasRole('department_admin'),
+    isDepartmentStaff: () => hasRole('department_staff'),
+    isReadOnly: () => hasRole('read_only_admin'),
+    isTrainee: () => hasRole('trainee_admin'),
+    
+    // Department checks
+    canAccessAllDepartments: () => admin?.is_super_admin,
+    getAccessibleDepartments: () => {
+      if (admin?.is_super_admin) {
+        return ['Accounting', 'Academic', 'Student Affairs', 'Dormitory', 'Campus Services'];
+      }
+      return admin?.department ? [admin.department] : [];
+    },
+    
+    // Advanced permission checks
+    canPerformAction: (resource, action) => hasPermission(resource, action),
+    hasAnyPermission: (permissionList) => {
+      return permissionList.some(({ resource, action }) => hasPermission(resource, action));
+    },
+    hasAllPermissions: (permissionList) => {
+      return permissionList.every(({ resource, action }) => hasPermission(resource, action));
+    }
+  };
+
   const value = {
     admin,
     loading,
     login,
     logout,
     refreshAuth,
+    refreshRBACData,
     isAuthenticated: !!admin,
     department: admin?.department || null,
-    adminId: admin?.admin_id || null
+    adminId: admin?.admin_id || null,
+    
+    // RBAC Data
+    permissions,
+    roles,
+    permissionMap,
+    
+    // RBAC Functions
+    hasPermission,
+    hasRole,
+    canAccessDepartment,
+    
+    // RBAC Helpers
+    ...rbacHelpers,
+    
+    // Raw RBAC data for debugging
+    rbacDebug: {
+      permissions,
+      roles,
+      permissionMap,
+      admin: admin ? {
+        id: admin.admin_id,
+        username: admin.username,
+        department: admin.department,
+        is_super_admin: admin.is_super_admin
+      } : null
+    }
   };
 
   return (
