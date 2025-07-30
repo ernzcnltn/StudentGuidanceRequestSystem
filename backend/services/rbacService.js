@@ -8,34 +8,35 @@ class RBACService {
    * @returns {Array} Array of permissions with resource and action
    */
   async getUserPermissions(userId) {
-    try {
-      const [permissions] = await pool.execute(`
-        SELECT DISTINCT 
-          p.permission_id,
-          p.permission_name,
-          p.display_name,
-          p.resource,
-          p.action,
-          p.description,
-          r.role_name,
-          r.display_name as role_display_name
-        FROM permissions p
-        INNER JOIN role_permissions rp ON p.permission_id = rp.permission_id
-        INNER JOIN roles r ON rp.role_id = r.role_id
-        INNER JOIN user_roles ur ON r.role_id = ur.role_id
-        WHERE ur.user_id = ? 
-          AND ur.is_active = TRUE
-          AND r.is_active = TRUE
-          AND (ur.expires_at IS NULL OR ur.expires_at > NOW())
-        ORDER BY p.resource, p.action
-      `, [userId]);
+  try {
+    const [permissions] = await pool.execute(`
+      SELECT DISTINCT 
+        p.permission_id,
+        p.permission_name,
+        p.display_name,
+        p.resource,
+        p.action,
+        p.description,
+        r.role_name,
+        r.display_name as role_display_name
+      FROM permissions p
+      INNER JOIN role_permissions rp ON p.permission_id = rp.permission_id
+      INNER JOIN roles r ON rp.role_id = r.role_id
+      INNER JOIN user_roles ur ON r.role_id = ur.role_id
+      WHERE ur.user_id = ? 
+        AND ur.is_active = TRUE
+        AND r.is_active = TRUE
+        AND (ur.expires_at IS NULL OR ur.expires_at > NOW())
+      ORDER BY p.resource, p.action
+    `, [userId]);
 
-      return permissions;
-    } catch (error) {
-      console.error('Error fetching user permissions:', error);
-      throw new Error('Failed to fetch user permissions');
-    }
+    // ENSURE it returns an array, not an object
+    return Array.isArray(permissions) ? permissions : [];
+  } catch (error) {
+    console.error('Error fetching user permissions:', error);
+    return []; // Always return an array
   }
+}
 
   /**
    * Check if user has specific permission

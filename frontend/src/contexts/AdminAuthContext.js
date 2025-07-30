@@ -52,42 +52,55 @@ export const AdminAuthProvider = ({ children }) => {
   }, [admin?.is_super_admin, admin?.department]);
 
   // RBAC verilerini yükle
-  const loadRBACData = useCallback(async (adminId) => {
-    try {
-      // Paralel olarak rol ve izinleri al
-      const [rolesResponse, permissionsResponse] = await Promise.all([
-        apiService.rbacGetUserRoles?.(adminId) || Promise.resolve({ data: { data: [] } }),
-        apiService.rbacGetUserPermissions?.(adminId) || Promise.resolve({ data: { data: [] } })
-      ]);
+ const loadRBACData = useCallback(async (adminId) => {
+  try {
+    console.log('Loading RBAC data for admin:', adminId);
+    
+    // Use Promise.allSettled instead of Promise.all to handle errors better
+    const [rolesResult, permissionsResult] = await Promise.allSettled([
+      apiService.rbacGetUserRoles?.(adminId),
+      apiService.rbacGetUserPermissions?.(adminId)
+    ]);
 
-      const userRoles = rolesResponse.data?.data || [];
-      const userPermissions = permissionsResponse.data?.data || [];
-
-      setRoles(userRoles);
-      setPermissions(userPermissions);
-
-      // Permission map oluştur (hızlı erişim için)
-      const pMap = (Array.isArray(userPermissions) ? userPermissions : []).reduce((acc, perm) => {
-  const key = `${perm.resource}.${perm.action}`;
-  acc[key] = true;
-  return acc;
-}, {});
-      setPermissionMap(pMap);
-
-      console.log('RBAC Data loaded:', {
-        roles: userRoles.length,
-        permissions: userPermissions.length,
-        permissionMap: Object.keys(pMap).length
-      });
-
-    } catch (error) {
-      console.error('Failed to load RBAC data:', error);
-      // RBAC verisi yüklenemezse varsayılan değerler
-      setRoles([]);
-      setPermissions([]);
-      setPermissionMap({});
+    // Handle roles
+    let userRoles = [];
+    if (rolesResult.status === 'fulfilled' && rolesResult.value?.data?.success) {
+      userRoles = Array.isArray(rolesResult.value.data.data) ? rolesResult.value.data.data : [];
     }
-  }, []);
+
+    // Handle permissions
+    let userPermissions = [];
+    if (permissionsResult.status === 'fulfilled' && permissionsResult.value?.data?.success) {
+      userPermissions = Array.isArray(permissionsResult.value.data.data) ? permissionsResult.value.data.data : [];
+    }
+
+    setRoles(userRoles);
+    setPermissions(userPermissions);
+
+    // Create permission map
+    const pMap = userPermissions.reduce((acc, perm) => {
+      if (perm && perm.resource && perm.action) {
+        const key = `${perm.resource}.${perm.action}`;
+        acc[key] = true;
+      }
+      return acc;
+    }, {});
+    setPermissionMap(pMap);
+
+    console.log('RBAC Data loaded successfully:', {
+      roles: userRoles.length,
+      permissions: userPermissions.length,
+      permissionMapKeys: Object.keys(pMap).length
+    });
+
+  } catch (error) {
+    console.error('Failed to load RBAC data:', error);
+    // Set empty defaults on error
+    setRoles([]);
+    setPermissions([]);
+    setPermissionMap({});
+  }
+}, []);
 
   const checkAdminAuthStatus = useCallback(async () => {
     try {

@@ -1375,7 +1375,7 @@ router.get('/rbac/permissions',
       console.error('Get permissions error:', error);
       res.status(500).json({
         success: false,
-        message: 'Failed to fetch permissions'
+        error: 'Failed to fetch permissions'
       });
     }
   }
@@ -1384,7 +1384,7 @@ router.get('/rbac/permissions',
 // GET /api/admin-auth/rbac/roles - Tüm rolleri getir (RBAC korumalı)
 router.get('/rbac/roles', 
   authenticateAdmin, 
-  requirePermission('users', 'manage_roles'),
+  requirePermission('users', 'view'),
   async (req, res) => {
     try {
       const roles = await rbacService.getAllRoles();
@@ -1396,7 +1396,7 @@ router.get('/rbac/roles',
       console.error('Get roles error:', error);
       res.status(500).json({
         success: false,
-        message: 'Failed to fetch roles'
+        error: 'Failed to fetch roles'
       });
     }
   }
@@ -1706,8 +1706,16 @@ router.get('/rbac/audit-log',
         query += ' WHERE ' + conditions.join(' AND ');
       }
 
-      query += ` ORDER BY ur.assigned_at DESC LIMIT ? OFFSET ?`;
-      params.push(parseInt(limit), parseInt(offset));
+      query += ` ORDER BY ur.assigned_at DESC`;
+
+      // FIX: parseInt parametreleri ve LIMIT/OFFSET'i string olarak ekle
+      const limitValue = parseInt(limit) || 100;
+      const offsetValue = parseInt(offset) || 0;
+      
+      query += ` LIMIT ${limitValue} OFFSET ${offsetValue}`;
+
+      console.log('Audit log query:', query);
+      console.log('Audit log params:', params);
 
       const [auditLog] = await pool.execute(query, params);
 
@@ -1715,8 +1723,8 @@ router.get('/rbac/audit-log',
         success: true,
         data: auditLog,
         meta: {
-          limit: parseInt(limit),
-          offset: parseInt(offset),
+          limit: limitValue,
+          offset: offsetValue,
           total: auditLog.length
         }
       });
@@ -1724,12 +1732,12 @@ router.get('/rbac/audit-log',
       console.error('Get audit log error:', error);
       res.status(500).json({
         success: false,
-        message: 'Failed to fetch audit log'
+        message: 'Failed to fetch audit log',
+        error: error.message
       });
     }
   }
 );
-
 // GET /api/admin-auth/rbac/dashboard - RBAC Dashboard verilerini getir (Super Admin Only)
 router.get('/rbac/dashboard', 
   authenticateAdmin, 
@@ -1967,6 +1975,173 @@ router.get('/rbac/user/:userId/roles',
         success: false,
         data: [], // Array döndür
         error: 'Failed to fetch user roles'
+      });
+    }
+  }
+);
+
+
+// DELETE /api/admin-auth/users/:userId - Delete admin user
+router.delete('/users/:userId', 
+  authenticateAdmin, 
+  requirePermission('users', 'delete'),
+  async (req, res) => {
+    try {
+      const { userId } = req.params;
+      const requesterId = req.admin.admin_id;
+
+      // Güvenlik kontrolleri
+      if (!userId || userId === '0') {
+        return res.status(400).json({
+          success: false,
+          error: 'Invalid user ID'
+        });
+      }
+
+      // Kendi kendini silmeyi engelle
+      if (parseInt(userId) === requesterId) {
+        return res.status(400).json({
+          success: false,
+          error: 'Cannot delete your own account'
+        });
+      }
+
+      // Silinecek kullanıcının bilgilerini al
+      const [targetUser] = await pool.execute(
+        'SELECT admin_id, username, full_name, email, department, is_super_admin, is_active FROM admin_users WHERE admin_id = ?',
+        [userId]
+      );
+
+      if (targetUser.length === 0) {
+        return res.status(404).json({
+          success: false,
+          error: 'User not found'
+        });
+      }
+
+      const userToDelete = targetUser[0];
+
+      // Super admin silinmesini engelle (son super admin kontrolü)
+      if (userToDelete.is_super_admin) {
+        const [superAdminCount] = await pool.execute(
+          'SELECT COUNT(*) as count FROM admin_users WHERE is_super_admin = TRUE AND is_active = TRUE'
+        );
+
+        if (superAdminCount[0].count <= 1) {
+          return res.status(400).json({
+            success: false,
+            error: 'Cannot delete the last super administrator'
+          });
+        }
+      }
+
+      // Departman kontrolü (Super admin değilse)
+      if (!req.admin.is_super_admin) {
+        if (userToDelete.department !== req.admin.department) {
+          return res.status(403).json({
+            success: false,
+            error: 'Cannot delete users from other departments'
+          });
+        }
+      }
+
+      // Transaction ile silme işlemi
+      const connection = await pool.getConnection();
+      
+      try {
+        await connection.beginTransaction();
+
+        // 1. User roles'ları sil
+        await connection.execute(
+          'DELETE FROM user_roles WHERE user_id = ?',
+          [userId]
+        );
+
+        // 2. Admin responses'lardaki foreign key'i null yap
+        await connection.execute(
+          'UPDATE admin_responses SET admin_id = NULL WHERE admin_id = ?',
+          [userId]
+        );
+
+        // 3. Admin users tablosundaki role_updated_by foreign key'ini null yap
+        await connection.execute(
+          'UPDATE admin_users SET role_updated_by = NULL WHERE role_updated_by = ?',
+          [userId]
+        );
+
+        // 4. Kullanıcıyı inactive yap (hard delete yerine soft delete)
+        const [deleteResult] = await connection.execute(
+          'UPDATE admin_users SET is_active = FALSE, updated_at = NOW() WHERE admin_id = ?',
+          [userId]
+        );
+
+        if (deleteResult.affectedRows === 0) {
+          throw new Error('Failed to delete user');
+        }
+
+        await connection.commit();
+
+        // Audit log için
+        console.log(`User deleted: ${userToDelete.username} (ID: ${userId}) by ${req.admin.username} (ID: ${requesterId})`);
+
+        res.json({
+          success: true,
+          message: 'User deleted successfully',
+          data: {
+            deleted_user: {
+              id: userId,
+              username: userToDelete.username,
+              full_name: userToDelete.full_name
+            },
+            deleted_by: {
+              id: requesterId,
+              username: req.admin.username
+            }
+          }
+        });
+
+      } catch (error) {
+        await connection.rollback();
+        throw error;
+      } finally {
+        connection.release();
+      }
+
+    } catch (error) {
+      console.error('Delete admin user error:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to delete admin user'
+      });
+    }
+  }
+);
+
+// 2. backend/routes/adminAuth.js - Inactive users'ları gösterme endpoint'i (opsiyonel)
+router.get('/users/inactive', 
+  authenticateAdmin, 
+  requirePermission('users', 'view'),
+  async (req, res) => {
+    try {
+      const [users] = await pool.execute(`
+        SELECT 
+          admin_id, username, full_name, email, department, 
+          role, is_super_admin, created_at, updated_at
+        FROM admin_users 
+        WHERE is_active = FALSE
+        ORDER BY updated_at DESC
+      `);
+
+      res.json({
+        success: true,
+        data: users
+      });
+
+    } catch (error) {
+      console.error('Get inactive users error:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to fetch inactive users'
       });
     }
   }

@@ -5,11 +5,16 @@ import { useTheme } from '../contexts/ThemeContext';
 import { useToast } from '../contexts/ToastContext';
 import { apiService } from '../services/api';
 
+import { useConfirmation } from '../hooks/useConfirmation';
+import ConfirmationModal from './ConfirmationModal';
+
+
 const UserManagementPage = ({ departmentFilter = null }) => {
   const { admin, isSuperAdmin, isDepartmentAdmin, hasPermission } = useAdminAuth();
   const { isDark } = useTheme();
   const { showSuccess, showError, showInfo } = useToast();
-  
+  const { confirmationState, showConfirmation } = useConfirmation();
+
   const [loading, setLoading] = useState(true);
   const [users, setUsers] = useState([]);
   const [roles, setRoles] = useState([]);
@@ -29,6 +34,46 @@ const UserManagementPage = ({ departmentFilter = null }) => {
     password: ''
   });
 
+const handleDeleteUser = async (userId, username, fullName) => {
+  // Güvenlik kontrolü
+  if (userId === admin.admin_id) {
+    showError('Cannot delete your own account');
+    return;
+  }
+
+  // Modern confirmation dialog
+  const confirmed = await showConfirmation({
+    title: '🗑️ Delete User Account',
+    message: `Are you sure you want to delete user "${fullName || username}"?\n\nThis action will:\n• Remove all role assignments\n• Deactivate the user account\n• This action cannot be easily undone`,
+    type: 'danger',
+    confirmText: 'Delete User',
+    cancelText: 'Cancel',
+    requireTextConfirmation: true,
+    confirmationText: 'DELETE'
+  });
+
+  if (!confirmed) return;
+
+  try {
+    const result = await apiService.deleteAdminUser(userId);
+    
+    if (result.data.success) {
+      showSuccess(`User "${username}" has been deleted successfully`);
+      loadData(); // Reload the user list
+    }
+  } catch (error) {
+    console.error('Error deleting user:', error);
+    if (error.response?.status === 403) {
+      showError('Access denied: You cannot delete this user');
+    } else if (error.response?.status === 400) {
+      showError(error.response.data.error || 'Cannot delete this user');
+    } else {
+      showError('Failed to delete user');
+    }
+  }
+};
+
+
   // Role assignment state
   const [selectedRoles, setSelectedRoles] = useState([]);
   const [roleExpiryDate, setRoleExpiryDate] = useState('');
@@ -40,36 +85,52 @@ const UserManagementPage = ({ departmentFilter = null }) => {
   }, [hasPermission]);
 
   const loadData = async () => {
-    try {
-      setLoading(true);
-      
-      const [usersRes, rolesRes] = await Promise.all([
-        apiService.rbacGetUsersWithRoles(),
-        apiService.rbacGetAllRoles()
-      ]);
+  try {
+    setLoading(true);
+    console.log('Loading user management data...');
+    
+    const [usersRes, rolesRes] = await Promise.allSettled([
+      apiService.rbacGetUsersWithRoles(),
+      apiService.rbacGetAllRoles()
+    ]);
 
-      if (usersRes.data.success) {
-        let userData = usersRes.data.data;
-        
-        // Apply department filter if not super admin
-        if (departmentFilter && !isSuperAdmin()) {
-          userData = userData.filter(user => user.department === departmentFilter);
-        }
-        
-        setUsers(userData);
+    // Handle users response
+    if (usersRes.status === 'fulfilled' && usersRes.value?.data?.success) {
+      let userData = usersRes.value.data.data || [];
+      
+      // Apply department filter if not super admin
+      if (departmentFilter && !isSuperAdmin()) {
+        userData = userData.filter(user => user.department === departmentFilter);
       }
       
-      if (rolesRes.data.success) {
-        setRoles(rolesRes.data.data);
-      }
-
-    } catch (error) {
-      console.error('Error loading user data:', error);
-      showError('Failed to load user data');
-    } finally {
-      setLoading(false);
+      setUsers(userData);
+      console.log('Users loaded:', userData.length);
+    } else {
+      console.error('Failed to load users:', usersRes.reason);
+      setUsers([]);
+      showError('Failed to load users');
     }
-  };
+    
+    
+    // Handle roles response
+    if (rolesRes.status === 'fulfilled' && rolesRes.value?.data?.success) {
+      setRoles(rolesRes.value.data.data || []);
+      console.log('Roles loaded:', rolesRes.value.data.data?.length || 0);
+    } else {
+      console.error('Failed to load roles:', rolesRes.reason);
+      setRoles([]);
+      showError('Failed to load roles');
+    }
+
+  } catch (error) {
+    console.error('Error loading user data:', error);
+    showError('Failed to load user data');
+    setUsers([]);
+    setRoles([]);
+  } finally {
+    setLoading(false);
+  }
+};
 
   const handleRoleAssignment = async () => {
     if (!selectedUser || selectedRoles.length === 0) {
@@ -206,6 +267,9 @@ const UserManagementPage = ({ departmentFilter = null }) => {
 
   return (
     <div>
+ {/* Confirmation Modal */}
+    <ConfirmationModal {...confirmationState} />
+
       {/* Header */}
       <div className="d-flex justify-content-between align-items-center mb-4">
         <div>
@@ -247,6 +311,8 @@ const UserManagementPage = ({ departmentFilter = null }) => {
           />
         </div>
         
+            
+
         {isSuperAdmin() && (
           <div className="col-md-4">
             <select
@@ -394,6 +460,26 @@ const UserManagementPage = ({ departmentFilter = null }) => {
                             </button>
                           </li>
                         )}
+
+                            {hasPermission('users', 'delete') && (
+  <>
+    <li><hr className="dropdown-divider" /></li>
+    <li>
+      <button 
+        className="dropdown-item text-danger"
+        onClick={() => handleDeleteUser(
+          user.admin_id, 
+          user.username, 
+          user.full_name
+        )}
+        disabled={user.admin_id === admin.admin_id}
+      >
+        🗑️ Delete User
+      </button>
+    </li>
+  </>
+)}
+
                       </ul>
                     </div>
                   </div>

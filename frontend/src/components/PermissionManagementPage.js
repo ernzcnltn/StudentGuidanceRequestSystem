@@ -4,12 +4,15 @@ import { useAdminAuth } from '../contexts/AdminAuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { useToast } from '../contexts/ToastContext';
 import { apiService } from '../services/api';
+import { useConfirmation } from '../hooks/useConfirmation';
+import ConfirmationModal from './ConfirmationModal';
+
 
 const PermissionManagementPage = () => {
   const { admin, isSuperAdmin } = useAdminAuth();
   const { isDark } = useTheme();
   const { showSuccess, showError, showInfo } = useToast();
-  
+  const { confirmationState, showConfirmation } = useConfirmation();
   const [loading, setLoading] = useState(true);
   const [permissions, setPermissions] = useState({});
   const [roles, setRoles] = useState([]);
@@ -102,26 +105,32 @@ const PermissionManagementPage = () => {
   };
 
   const handleDeletePermission = async (permissionId, permissionName) => {
-    if (!window.confirm(`Are you sure you want to delete the permission "${permissionName}"?`)) {
-      return;
-    }
+  const confirmed = await showConfirmation({
+    title: '🗑️ Delete Permission',
+    message: `Are you sure you want to delete the permission "${permissionName}"?`,
+    type: 'warning',
+    confirmText: 'Delete Permission',
+    cancelText: 'Cancel'
+  });
 
-    try {
-      const result = await apiService.rbacDeletePermission(permissionId);
-      
-      if (result.data.success) {
-        showSuccess('Permission deleted successfully');
-        loadData();
-      }
-    } catch (error) {
-      console.error('Error deleting permission:', error);
-      if (error.response?.status === 400) {
-        showError('Cannot delete system permissions');
-      } else {
-        showError('Failed to delete permission');
-      }
+  if (!confirmed) return;
+
+  try {
+    const result = await apiService.rbacDeletePermission(permissionId);
+    
+    if (result.data.success) {
+      showSuccess('Permission deleted successfully');
+      loadData();
     }
-  };
+  } catch (error) {
+    console.error('Error deleting permission:', error);
+    if (error.response?.status === 400) {
+      showError('Cannot delete system permissions');
+    } else {
+      showError('Failed to delete permission');
+    }
+  }
+};
 
   const handleViewDetails = async (permission) => {
     setSelectedPermission(permission);

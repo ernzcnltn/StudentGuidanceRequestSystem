@@ -8,7 +8,7 @@ import AttachmentViewer from '../components/AttachmentViewer';
 import AdminResponseModal from '../components/AdminResponseModal';
 import AdminNotificationCenter from '../components/AdminNotificationCenter';
 import FIULogo from '../components/FIULogo';
-import ConfirmationModal from '../components/ConfirmationModal';
+
 import LanguageDropdown from '../components/LanguageDropdown';
 import RoleManagementPage from '../components/RoleManagementPage';
 import UserManagementPage from '../components/UserManagementPage';
@@ -16,6 +16,8 @@ import PermissionManagementPage from '../components/PermissionManagementPage';
 import RBACDashboard from '../components/RBACDashboard';
 import 'bootstrap/dist/js/bootstrap.bundle.min.js';
 import { useToast } from '../contexts/ToastContext';
+import { useConfirmation } from '../hooks/useConfirmation';
+import ConfirmationModal from '../components/ConfirmationModal';
 
 const AdminDashboardPage = () => {
   const [selectedRequestForResponse, setSelectedRequestForResponse] = useState(null);
@@ -39,6 +41,8 @@ const AdminDashboardPage = () => {
     getAccessibleDepartments
   } = useAdminAuth();
   
+
+  const { confirmationState, showConfirmation } = useConfirmation();
   const { isDark, toggleTheme } = useTheme();
   const { currentLanguage, changeLanguage, languages } = useLanguage();
   const { t, translateRequestType } = useTranslation();
@@ -55,6 +59,9 @@ const AdminDashboardPage = () => {
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const { showSuccess, showError } = useToast();
 
+
+
+  
   // Add Request Type Form State
   const [showAddForm, setShowAddForm] = useState(false);
   const [newTypeData, setNewTypeData] = useState({
@@ -66,15 +73,32 @@ const AdminDashboardPage = () => {
   // RBAC Debug Info
   const [showRBACDebug, setShowRBACDebug] = useState(false);
 
+
+
+  const handleLogoutClick = async () => {
+    console.log('Logout button clicked!');
+    
+    const confirmed = await showConfirmation({
+      title: ' Logout Confirmation',
+      message: 'Are you sure you want to logout from the admin panel?',
+      type: 'danger',
+      confirmText: 'Logout',
+      cancelText: 'Cancel'
+    });
+
+    if (confirmed) {
+      console.log('Logout confirmed');
+      logout();
+    }
+  };
+
+  
   // Admin Language Dropdown
   const AdminLanguageSelector = () => {
     return <LanguageDropdown variant="admin" />;
   };
 
-  // Logout İşlemleri
-  const handleLogoutClick = () => {
-    setShowLogoutModal(true);
-  };
+
 
   const handleLogoutConfirm = () => {
     setShowLogoutModal(false);
@@ -1191,7 +1215,7 @@ const AdminDashboardPage = () => {
     }
   };
 
-  return (
+ return (
     <div 
       className="min-vh-100" 
       style={{ 
@@ -1247,6 +1271,8 @@ const AdminDashboardPage = () => {
                   
                   {/* Language Dropdown */}
                   <AdminLanguageSelector />
+                      
+                  
                   
                   {/* Logout Button */}
                   <button 
@@ -1275,6 +1301,8 @@ const AdminDashboardPage = () => {
           </div>
         </div>
       </div>
+
+      
 
       {/* Navigation Tabs - Dark Mode Desteği + RBAC */}
       <div 
@@ -1360,6 +1388,8 @@ const AdminDashboardPage = () => {
         onCancel={handleLogoutCancel}
       />
 
+      
+
       {/* Dark Mode Toggle - Modern */}
       <div 
         style={{
@@ -1387,6 +1417,10 @@ const AdminDashboardPage = () => {
           {isDark ? '☀️' : '🌙'}
         </button>
       </div>
+
+      {/* Confirmation Modal */}
+      <ConfirmationModal {...confirmationState} />
+  
     </div>
   );
 };

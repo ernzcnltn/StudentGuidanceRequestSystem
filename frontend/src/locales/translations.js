@@ -414,6 +414,7 @@ adminLogin: 'Akademik Personel Girişi',
 
   en: {
 
+   
 'Clear Form': 'Clear Form',
  dragAndDropFiles: 'Drag and drop files here',
   orClickToSelect: 'or click the button above to select files',

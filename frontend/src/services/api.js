@@ -115,6 +115,26 @@ const rbacCache = {
 
 // ===== RBAC API METHODS =====
 const rbacApiMethods = {
+
+
+
+ deleteAdminUser: (userId) => {
+    console.log('🗑️ Deleting admin user:', userId);
+    return adminApi.delete(`/admin-auth/users/${userId}`);
+  },
+  
+  // Get inactive users (opsiyonel)
+  getInactiveUsers: () => {
+    console.log('👻 Fetching inactive users...');
+    return adminApi.get('/admin-auth/users/inactive');
+  },
+  
+  // User restore (opsiyonel - gelecekte)
+  restoreAdminUser: (userId) => {
+    console.log('♻️ Restoring admin user:', userId);
+    return adminApi.post(`/admin-auth/users/${userId}/restore`);
+  },
+
   // ===== ROLES MANAGEMENT =====
   rbacGetAllRoles: () => adminApi.get('/admin-auth/rbac/roles'),
   rbacGetAllRolesCached: () => {
@@ -129,12 +149,19 @@ const rbacApiMethods = {
       return response;
     });
   },
-  rbacCreateRole: (roleData) => adminApi.post('/admin-auth/rbac/create-role', roleData),
+   rbacCreateRole: (roleData) => {
+    console.log('🎭 Creating role:', roleData);
+    return adminApi.post('/admin-auth/rbac/create-role', roleData);
+  },
+
   rbacUpdateRole: (roleId, roleData) => adminApi.put(`/admin-auth/rbac/role/${roleId}`, roleData),
   rbacDeleteRole: (roleId) => adminApi.delete(`/admin-auth/rbac/role/${roleId}`),
   
   // ===== PERMISSIONS MANAGEMENT =====
-  rbacGetAllPermissions: () => adminApi.get('/admin-auth/rbac/permissions'),
+  rbacGetAllPermissions: () => {
+    console.log('🔐 Fetching all permissions...');
+    return adminApi.get('/admin-auth/rbac/permissions');
+  },
   rbacGetAllPermissionsCached: () => {
     const cached = rbacCache.get('permissions', 'all');
     if (cached) {
@@ -147,7 +174,10 @@ const rbacApiMethods = {
       return response;
     });
   },
-  rbacCreatePermission: (permissionData) => adminApi.post('/admin-auth/rbac/create-permission', permissionData),
+ rbacCreatePermission: (permissionData) => {
+    console.log('🔐 Creating permission:', permissionData);
+    return adminApi.post('/admin-auth/rbac/create-permission', permissionData);
+  },
   rbacDeletePermission: (permissionId) => adminApi.delete(`/admin-auth/rbac/permission/${permissionId}`),
   
   // ===== ROLE PERMISSIONS =====
@@ -157,8 +187,14 @@ const rbacApiMethods = {
   
   // ===== USER ROLES =====
   rbacGetUsersWithRoles: () => adminApi.get('/admin-auth/rbac/users'),
-  rbacGetUserRoles: (userId) => adminApi.get(`/admin-auth/rbac/user/${userId}/roles`),
-  rbacGetUserPermissions: (userId) => adminApi.get(`/admin-auth/rbac/user/${userId}/permissions`),
+ rbacGetUserRoles: (userId) => {
+    console.log('🎭 Fetching user roles for:', userId);
+    return adminApi.get(`/admin-auth/rbac/user/${userId}/roles`);
+  },
+ rbacGetUserPermissions: (userId) => {
+    console.log('🔐 Fetching user permissions for:', userId);
+    return adminApi.get(`/admin-auth/rbac/user/${userId}/permissions`);
+  },
   rbacGetUserPermissionSummary: (userId) => adminApi.get(`/admin-auth/rbac/user/${userId}/permissions`),
   
   // ===== ROLE ASSIGNMENT =====
@@ -167,6 +203,11 @@ const rbacApiMethods = {
   rbacRemoveRole: (userId, roleId) => 
     adminApi.post('/admin-auth/rbac/remove-role', { user_id: userId, role_id: roleId }),
   
+  rbacGetAllRoles: () => {
+    console.log('🎭 Fetching all roles...');
+    return adminApi.get('/admin-auth/rbac/roles');
+  },
+
   // ===== PERMISSION CHECKS =====
   rbacCheckPermission: (userId, resource, action) => 
     adminApi.post('/admin-auth/rbac/check-permission', { user_id: userId, resource, action }),

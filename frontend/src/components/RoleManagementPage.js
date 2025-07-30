@@ -4,12 +4,15 @@ import { useAdminAuth } from '../contexts/AdminAuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { useToast } from '../contexts/ToastContext';
 import { apiService } from '../services/api';
+import { useConfirmation } from '../hooks/useConfirmation';
+import ConfirmationModal from './ConfirmationModal';
+
 
 const RoleManagementPage = () => {
   const { admin, isSuperAdmin } = useAdminAuth();
   const { isDark } = useTheme();
   const { showSuccess, showError, showInfo } = useToast();
-  
+  const { confirmationState, showConfirmation } = useConfirmation();
   const [loading, setLoading] = useState(true);
   const [roles, setRoles] = useState([]);
   const [permissions, setPermissions] = useState({});
@@ -135,20 +138,27 @@ const RoleManagementPage = () => {
   };
 
   const handleDeleteRole = async (roleId, roleName) => {
-    if (!window.confirm(`Are you sure you want to delete the role "${roleName}"? This action cannot be undone.`)) {
-      return;
-    }
+  const confirmed = await showConfirmation({
+    title: '🗑️ Delete Role',
+    message: `Are you sure you want to delete the role "${roleName}"?\n\nThis action cannot be undone.`,
+    type: 'danger',
+    confirmText: 'Delete Role',
+    cancelText: 'Cancel',
+    requireTextConfirmation: true,
+    confirmationText: 'DELETE'
+  });
 
-    try {
-      // This endpoint needs to be implemented in the backend
-      await apiService.deleteRole(roleId);
-      showSuccess('Role deleted successfully');
-      loadData();
-    } catch (error) {
-      console.error('Error deleting role:', error);
-      showError('Failed to delete role');
-    }
-  };
+  if (!confirmed) return;
+
+  try {
+    await apiService.deleteRole(roleId);
+    showSuccess('Role deleted successfully');
+    loadData();
+  } catch (error) {
+    console.error('Error deleting role:', error);
+    showError('Failed to delete role');
+  }
+};
 
   // Filter roles based on search
   const filteredRoles = roles.filter(role => 

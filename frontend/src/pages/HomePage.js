@@ -2,6 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { apiService } from '../services/api';
 import { useTranslation } from '../hooks/useTranslation';
+import { useConfirmation } from '../hooks/useConfirmation';
+import ConfirmationModal from '../components/ConfirmationModal';
+import { useAuth } from '../contexts/AuthContext'; // ← BU SATIRI EKLE
+
 
 const HomePage = () => {
   const { t, translateRequestType } = useTranslation();
@@ -9,6 +13,27 @@ const HomePage = () => {
   const [stats, setStats] = useState(null);
   const [requestTypes, setRequestTypes] = useState({});
   const [loading, setLoading] = useState(true);
+const { confirmationState, showConfirmation } = useConfirmation();
+
+const { logout } = useAuth(); // ← BU SATIRI EKLE
+
+
+const handleLogoutClick = async () => {
+  console.log('Student logout button clicked!');
+  
+  const confirmed = await showConfirmation({
+    title: '🚪 Logout Confirmation',
+    message: 'Are you sure you want to logout from the student portal?\n\nThis action will:\n• End your current session\n• Return you to the login page\n• You will need to login again',
+    type: 'danger',
+    confirmText: 'Logout Now',
+    cancelText: 'Cancel'
+  });
+
+  if (confirmed) {
+    console.log('Student logout confirmed');
+    logout(); // useAuth hook'undan gelen logout
+  }
+};
 
   useEffect(() => {
     const fetchData = async () => {
@@ -133,8 +158,8 @@ const HomePage = () => {
                     <div className="mt-3 pt-2 border-top">
                       <small className="text-muted d-flex align-items-center justify-content-between">
                         <span>
-                          <span className="me-2">👆</span>
-                          Hızlı talep oluştur
+                          <span className="me-2"></span>
+                         
                         </span>
                         <span className="text-primary">→</span>
                       </small>
@@ -201,6 +226,10 @@ const HomePage = () => {
           )}
         </div>
       </div>
+
+          {/* Confirmation Modal - En sona ekle */}
+      <ConfirmationModal {...confirmationState} />
+
     </div>
   );
 };
