@@ -133,34 +133,63 @@ const handleDeleteUser = async (userId, username, fullName) => {
 };
 
   const handleRoleAssignment = async () => {
-    if (!selectedUser || selectedRoles.length === 0) {
-      showError('Please select user and roles');
-      return;
-    }
+  if (!selectedUser || selectedRoles.length === 0) {
+    showError('Please select user and roles');
+    return;
+  }
 
-    try {
-      const assignments = selectedRoles.map(roleId => ({
-        userId: selectedUser.admin_id,
-        roleId: parseInt(roleId),
-        expiresAt: roleExpiryDate || null
-      }));
+  try {
+    console.log('🎭 Starting role assignment:', {
+      user: selectedUser.admin_id,
+      roles: selectedRoles,
+      expiryDate: roleExpiryDate
+    });
 
-      const result = await apiService.rbacBatchOperations.bulkAssignRoles(assignments);
-      
-      if (result.data.success) {
-        const { successful, failed } = result.data.data.summary;
-        showSuccess(`${successful} roles assigned successfully. ${failed} failed.`);
-        setShowRoleModal(false);
-        setSelectedUser(null);
-        setSelectedRoles([]);
-        setRoleExpiryDate('');
-        loadData();
+    // Tek tek rol ataması yap (bulk operations yerine)
+    const results = [];
+    for (const roleId of selectedRoles) {
+      try {
+        console.log(`🎭 Assigning role ${roleId} to user ${selectedUser.admin_id}`);
+        
+        const result = await apiService.rbacAssignRole(
+          selectedUser.admin_id, 
+          parseInt(roleId), // roleId'yi integer'a çevir
+          roleExpiryDate || null
+        );
+        
+        console.log('✅ Role assignment result:', result.data);
+        results.push({ roleId, success: true, result: result.data });
+      } catch (error) {
+        console.error(`❌ Failed to assign role ${roleId}:`, error);
+        results.push({ 
+          roleId, 
+          success: false, 
+          error: error.response?.data?.error || error.message 
+        });
       }
-    } catch (error) {
-      console.error('Error assigning roles:', error);
-      showError('Failed to assign roles');
     }
-  };
+
+    const successful = results.filter(r => r.success).length;
+    const failed = results.filter(r => !r.success).length;
+    
+    if (successful > 0) {
+      showSuccess(`✅ ${successful} roles assigned successfully${failed > 0 ? `, ${failed} failed` : ''}`);
+    } else {
+      showError(`❌ All role assignments failed`);
+    }
+    
+    // Modal'ı kapat ve data'yı yenile
+    setShowRoleModal(false);
+    setSelectedUser(null);
+    setSelectedRoles([]);
+    setRoleExpiryDate('');
+    loadData();
+    
+  } catch (error) {
+    console.error('❌ Role assignment error:', error);
+    showError('Failed to assign roles: ' + (error.response?.data?.error || error.message));
+  }
+};
 
   const handleRoleRemoval = async (userId, roleId) => {
     try {

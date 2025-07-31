@@ -1411,20 +1411,25 @@ router.post('/rbac/assign-role',
       const { user_id, role_id, expires_at } = req.body;
       const assignerId = req.admin.admin_id;
 
+      console.log('🎭 Role assignment request:', { user_id, role_id, expires_at, assignerId });
+
       if (!user_id || !role_id) {
         return res.status(400).json({
           success: false,
-          message: 'User ID and Role ID are required'
+          error: 'User ID and Role ID are required'
         });
       }
 
+      // rbacService.assignRoleToUser kullan
       const result = await rbacService.assignRoleToUser(user_id, role_id, assignerId, expires_at);
+      
+      console.log('✅ Role assignment successful:', result);
       res.json(result);
     } catch (error) {
-      console.error('Assign role error:', error);
+      console.error('❌ Role assignment error:', error);
       res.status(500).json({
         success: false,
-        message: error.message || 'Failed to assign role'
+        error: error.message || 'Failed to assign role'
       });
     }
   }
@@ -1439,20 +1444,24 @@ router.post('/rbac/remove-role',
       const { user_id, role_id } = req.body;
       const removerId = req.admin.admin_id;
 
+      console.log('🗑️ Role removal request:', { user_id, role_id, removerId });
+
       if (!user_id || !role_id) {
         return res.status(400).json({
           success: false,
-          message: 'User ID and Role ID are required'
+          error: 'User ID and Role ID are required'
         });
       }
 
       const result = await rbacService.removeRoleFromUser(user_id, role_id, removerId);
+      
+      console.log('✅ Role removal successful:', result);
       res.json(result);
     } catch (error) {
-      console.error('Remove role error:', error);
+      console.error('❌ Role removal error:', error);
       res.status(500).json({
         success: false,
-        message: error.message || 'Failed to remove role'
+        error: error.message || 'Failed to remove role'
       });
     }
   }

@@ -29,6 +29,13 @@ const RoleManagementPage = () => {
     is_system_role: false
   });
 
+
+  // DÜZELTİLMİŞ VERSİYON:
+const getSelectedPermissionsSummary = () => {
+  const selectedPerms = allPermissions.filter(p => selectedPermissions.includes(p.permission_id));
+  return apiService.rbacHelpers.createPermissionSummary(selectedPerms);
+};
+
   // Permission assignment state
   const [selectedPermissions, setSelectedPermissions] = useState([]);
   const [permissionFilter, setPermissionFilter] = useState('');
@@ -547,6 +554,9 @@ const RoleManagementPage = () => {
                   </div>
                 ))}
 
+
+
+
                 {/* Permission Summary */}
                 <div className="mt-4 p-3 rounded" style={{ 
                   backgroundColor: isDark ? '#111111' : '#f8f9fa',
@@ -557,10 +567,9 @@ const RoleManagementPage = () => {
                   </strong>
                   <br />
                   <small className={isDark ? 'text-light' : 'text-muted'}>
-                    {apiService.rbacHelpers.createPermissionSummary(
-                      allPermissions.filter(p => selectedPermissions.includes(p.permission_id))
-                    )}
-                  </small>
+  {getSelectedPermissionsSummary()}
+</small>
+
                 </div>
               </div>
               <div className="modal-footer">

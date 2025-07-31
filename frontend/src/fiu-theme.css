@@ -4,7 +4,7 @@
   --fiu-secondary: #1e40af;      /* FIU Mavi (İkincil) */
   --fiu-accent: #0ea5e9;         /* FIU Açık Mavi */
   --fiu-success: #10b981;        /* Yeşil */
-  --fiu-warning: #f59e0b;        /* Turuncu */
+  --fiu-warning: #f56a14;        /* Turuncu */
   --fiu-danger: #ef4444;         /* Kırmızı */
   --fiu-light: #f8fafc;          /* Açık Gri */
   --fiu-dark: #1e293b;           /* Koyu Gri */
@@ -169,7 +169,7 @@ footer {
 /* Notification highlight effect */
 .request-highlight {
   background-color: #fff3cd !important;
-  border: 2px solid #ffc107 !important;
+  border: 2px solid #b91c1c !important;
   border-radius: 8px !important;
   transition: all 0.3s ease;
   box-shadow: 0 4px 12px rgba(255, 193, 7, 0.3) !important;

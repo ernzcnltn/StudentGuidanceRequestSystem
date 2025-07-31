@@ -31,13 +31,26 @@ export const AdminAuthProvider = ({ children }) => {
 
   // İzin kontrolü helper fonksiyonu
   const hasPermission = useCallback((resource, action) => {
-    // Super admin her şeyi yapabilir
-    if (admin?.is_super_admin) return true;
-    
-    // Permission map'ten kontrol et
-    const key = `${resource}.${action}`;
-    return permissionMap[key] === true;
-  }, [admin?.is_super_admin, permissionMap]);
+  console.log('🔍 Checking permission:', { resource, action, is_super_admin: admin?.is_super_admin });
+  
+  // Super admin her şeyi yapabilir
+  if (admin?.is_super_admin) {
+    console.log('✅ Permission granted: Super admin');
+    return true;
+  }
+  
+  // Permission map'ten kontrol et
+  const key = `${resource}.${action}`;
+  const hasPermission = permissionMap[key] === true;
+  
+  console.log('🔍 Permission check result:', { 
+    key, 
+    hasPermission, 
+    availablePermissions: Object.keys(permissionMap) 
+  });
+  
+  return hasPermission;
+}, [admin?.is_super_admin, permissionMap]);
 
   // Rol kontrolü helper fonksiyonu
   const hasRole = useCallback((roleName) => {

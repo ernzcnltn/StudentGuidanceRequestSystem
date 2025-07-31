@@ -198,11 +198,29 @@ const rbacApiMethods = {
   rbacGetUserPermissionSummary: (userId) => adminApi.get(`/admin-auth/rbac/user/${userId}/permissions`),
   
   // ===== ROLE ASSIGNMENT =====
-  rbacAssignRole: (userId, roleId, expiresAt = null) => 
-    adminApi.post('/admin-auth/rbac/assign-role', { user_id: userId, role_id: roleId, expires_at: expiresAt }),
-  rbacRemoveRole: (userId, roleId) => 
-    adminApi.post('/admin-auth/rbac/remove-role', { user_id: userId, role_id: roleId }),
-  
+ rbacAssignRole: (userId, roleId, expiresAt = null) => {
+    console.log('🎭 Assigning role:', { userId, roleId, expiresAt });
+    return adminApi.post('/admin-auth/rbac/assign-role', { 
+      user_id: userId, 
+      role_id: roleId, 
+      expires_at: expiresAt 
+    });
+  },
+
+
+  rbacRemoveRole: (userId, roleId) => {
+    console.log('🗑️ Removing role:', { userId, roleId });
+    return adminApi.post('/admin-auth/rbac/remove-role', { 
+      user_id: userId, 
+      role_id: roleId 
+    });
+  },
+
+  deleteRole: (roleId) => {
+    console.log('🗑️ Deleting role:', roleId);
+    return adminApi.delete(`/admin-auth/rbac/role/${roleId}`);
+  },
+
   rbacGetAllRoles: () => {
     console.log('🎭 Fetching all roles...');
     return adminApi.get('/admin-auth/rbac/roles');
@@ -364,6 +382,128 @@ const rbacHelpers = {
     return icons[resource] || '🔹';
   },
   
+
+
+   // ⭐ EKSİK OLAN FONKSİYON - createPermissionSummary
+  createPermissionSummary: (permissions) => {
+    if (!permissions || permissions.length === 0) {
+      return 'No permissions selected';
+    }
+
+    // Permission'ları resource'a göre grupla
+    const grouped = permissions.reduce((acc, permission) => {
+      const resource = permission.resource;
+      if (!acc[resource]) {
+        acc[resource] = [];
+      }
+      acc[resource].push(permission.action);
+      return acc;
+    }, {});
+
+    // Her resource için özet oluştur
+    const summaryParts = Object.entries(grouped).map(([resource, actions]) => {
+      const uniqueActions = [...new Set(actions)].sort();
+      return `${resource}: ${uniqueActions.join(', ')}`;
+    });
+
+    return summaryParts.join(' | ');
+  },
+
+  // ⭐ BONUS: Diğer yararlı helper fonksiyonlar
+  getPermissionsByResource: (permissions) => {
+    return permissions.reduce((acc, permission) => {
+      if (!acc[permission.resource]) {
+        acc[permission.resource] = [];
+      }
+      acc[permission.resource].push(permission);
+      return acc;
+    }, {});
+  },
+
+  formatPermissionList: (permissions) => {
+    if (!permissions || permissions.length === 0) {
+      return 'No permissions';
+    }
+    
+    return permissions.map(p => `${p.resource}:${p.action}`).join(', ');
+  },
+
+  getPermissionCount: (permissions) => {
+    if (!permissions) return 0;
+    return permissions.length;
+  },
+
+  getResourceList: (permissions) => {
+    if (!permissions || permissions.length === 0) return [];
+    const resources = permissions.map(p => p.resource);
+    return [...new Set(resources)].sort();
+  },
+
+  getActionList: (permissions, resource = null) => {
+    if (!permissions || permissions.length === 0) return [];
+    
+    let filteredPermissions = permissions;
+    if (resource) {
+      filteredPermissions = permissions.filter(p => p.resource === resource);
+    }
+    
+    const actions = filteredPermissions.map(p => p.action);
+    return [...new Set(actions)].sort();
+  },
+
+  // Permission karşılaştırma
+  comparePermissions: (permissions1, permissions2) => {
+    const set1 = new Set(permissions1.map(p => `${p.resource}.${p.action}`));
+    const set2 = new Set(permissions2.map(p => `${p.resource}.${p.action}`));
+    
+    return {
+      added: permissions2.filter(p => !set1.has(`${p.resource}.${p.action}`)),
+      removed: permissions1.filter(p => !set2.has(`${p.resource}.${p.action}`)),
+      common: permissions1.filter(p => set2.has(`${p.resource}.${p.action}`))
+    };
+  },
+
+  // Permission validation
+  validatePermissionSelection: (selectedPermissions, allPermissions) => {
+    const errors = [];
+    
+    if (!selectedPermissions || selectedPermissions.length === 0) {
+      errors.push('No permissions selected');
+    }
+    
+    // Geçersiz permission ID kontrolü
+    const allPermissionIds = allPermissions.map(p => p.permission_id);
+    const invalidIds = selectedPermissions.filter(id => !allPermissionIds.includes(id));
+    
+    if (invalidIds.length > 0) {
+      errors.push(`Invalid permission IDs: ${invalidIds.join(', ')}`);
+    }
+    
+    return {
+      isValid: errors.length === 0,
+      errors
+    };
+  },
+
+  // Role permission özeti
+  createRolePermissionSummary: (role, permissions) => {
+    const resourceGroups = rbacHelpers.getPermissionsByResource(permissions);
+    const resourceCount = Object.keys(resourceGroups).length;
+    const totalPermissions = permissions.length;
+    
+    return {
+      role_name: role.role_name,
+      display_name: role.display_name,
+      total_permissions: totalPermissions,
+      resources_count: resourceCount,
+      resources: Object.keys(resourceGroups),
+      summary_text: `${totalPermissions} permissions across ${resourceCount} resources`,
+      detailed_summary: rbacHelpers.createPermissionSummary(permissions)
+    };
+  },
+
+
+
   // Cache management
   clearRBACCache: () => {
     rbacCache.clearAll();
@@ -432,8 +572,36 @@ const rbacHelpers = {
       return 'Conflict: Resource already exists';
     }
     return error.response?.data?.message || 'An error occurred';
+  },
+
+
+  // Debugging helpers
+  logPermissionStructure: (permissions) => {
+    console.group('🔍 Permission Structure Analysis');
+    console.log('Total permissions:', permissions.length);
+    console.log('Resources:', rbacHelpers.getResourceList(permissions));
+    console.log('Grouped by resource:', rbacHelpers.getPermissionsByResource(permissions));
+    console.log('Summary:', rbacHelpers.createPermissionSummary(permissions));
+    console.groupEnd();
+  },
+
+
+ // Utility for permission modal
+  formatPermissionForModal: (permission) => {
+    return {
+      id: permission.permission_id,
+      name: permission.permission_name,
+      display: permission.display_name,
+      resource: permission.resource,
+      action: permission.action,
+      description: permission.description || 'No description available',
+      is_system: permission.is_system_permission,
+      formatted_name: `${permission.resource}:${permission.action}`,
+      category: permission.resource.charAt(0).toUpperCase() + permission.resource.slice(1)
+    };
   }
 };
+
 
 // API functions
 export const apiService = {
