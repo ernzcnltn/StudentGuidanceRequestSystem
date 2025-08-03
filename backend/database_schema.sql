@@ -669,3 +669,27 @@ LEFT JOIN roles r ON ur.role_id = r.role_id
 WHERE au.is_active = TRUE
 GROUP BY au.admin_id, au.username, au.department, au.is_super_admin
 ORDER BY au.username;
+
+
+ALTER TABLE guidance_requests 
+MODIFY COLUMN status ENUM('Pending', 'Informed', 'Completed', 'Rejected') DEFAULT 'Pending';
+
+-- Add rejected_at timestamp column
+ALTER TABLE guidance_requests 
+ADD COLUMN rejected_at TIMESTAMP NULL AFTER resolved_at;
+
+-- Add rejection_reason column for admin to provide reason
+ALTER TABLE guidance_requests 
+ADD COLUMN rejection_reason TEXT NULL AFTER rejected_at;
+
+-- Add rejected_by column to track which admin rejected
+ALTER TABLE guidance_requests 
+ADD COLUMN rejected_by INT NULL AFTER rejection_reason,
+ADD FOREIGN KEY (rejected_by) REFERENCES admin_users(admin_id) ON DELETE SET NULL;
+
+-- Update indexes for better performance
+CREATE INDEX idx_requests_rejected_at ON guidance_requests(rejected_at);
+CREATE INDEX idx_requests_rejected_by ON guidance_requests(rejected_by);
+
+-- Verify the changes
+DESCRIBE guidance_requests;

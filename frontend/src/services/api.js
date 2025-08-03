@@ -688,6 +688,51 @@ export const apiService = {
   updateAdminResponse: (requestId, responseId, responseData) => adminApi.put(`/admin-auth/requests/${requestId}/responses/${responseId}`, responseData),
   deleteAdminResponse: (requestId, responseId) => adminApi.delete(`/admin-auth/requests/${requestId}/responses/${responseId}`),
 
+
+
+// Request rejection methods
+rejectRequest: (requestId, rejectionData) => {
+  console.log('🚫 Rejecting request:', { requestId, hasReason: !!rejectionData.rejection_reason });
+  return adminApi.put(`/admin-auth/requests/${requestId}/reject`, rejectionData);
+},
+
+unrejectRequest: (requestId, reopenData) => {
+  console.log('♻️ Reopening request:', { requestId, hasReason: !!reopenData.reopen_reason });
+  return adminApi.post(`/admin-auth/requests/${requestId}/unreject`, reopenData);
+},
+
+getRejectionDetails: (requestId) => {
+  console.log('📋 Getting rejection details for request:', requestId);
+  return adminApi.get(`/admin-auth/requests/${requestId}/rejection-details`);
+},
+
+getRejectionStatistics: () => {
+  console.log('📊 Getting rejection statistics...');
+  return adminApi.get('/admin-auth/statistics/rejections');
+},
+
+// Helper methods for frontend
+getRequestStatusIcon: (status) => {
+  const icons = {
+    'Pending': '⏳',
+    'Informed': '💬',
+    'Completed': '✅',
+    'Rejected': '🚫'
+  };
+  return icons[status] || '📋';
+},
+
+getRequestStatusBadge: (status) => {
+  const badges = {
+    'Pending': 'bg-warning text-dark',
+    'Informed': 'bg-info text-white',
+    'Completed': 'bg-success text-white',
+    'Rejected': 'bg-danger text-white'
+  };
+  return badges[status] || 'bg-secondary text-white';
+},
+
+
   // ===== NOTIFICATIONS (Fixed & Simplified) =====
   getStudentNotifications: () => studentApi.get('/notifications/student'),
   getAdminNotifications: () => adminApi.get('/notifications/admin'),
@@ -741,6 +786,8 @@ export const apiService = {
     console.log('📊 Getting admin unread count...');
     return adminApi.get('/notifications/admin/unread-count');
   },
+
+
 
   // Admin Response ile dosya yükleme
   uploadAdminResponseFiles: (responseId, formData) => {

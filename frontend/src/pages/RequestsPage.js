@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { apiService } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 import { useTranslation } from '../hooks/useTranslation'; // YENİ EKLENEN
@@ -7,7 +7,9 @@ import AttachmentViewer from '../components/AttachmentViewer';
 
 const RequestsPage = () => {
   const { user } = useAuth();
- const { t, translateRequestType } = useTranslation();
+  const { t, translateRequestType } = useTranslation();
+  const navigate = useNavigate();
+
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -17,6 +19,12 @@ const RequestsPage = () => {
   const [showAttachments, setShowAttachments] = useState(false);
   const [selectedRequestForResponses, setSelectedRequestForResponses] = useState(null);
   const [showResponsesModal, setShowResponsesModal] = useState(false);
+
+  // Yeni eklenenlar:
+  const [rejectionDetails, setRejectionDetails] = useState({});
+  const [loadingRejectionDetails, setLoadingRejectionDetails] = useState(false);
+  const [selectedRequestForRejectionDetails, setSelectedRequestForRejectionDetails] = useState(null);
+  const [showRejectionDetailsModal, setShowRejectionDetailsModal] = useState(false);
 
   const studentId = user?.student_id || 1;
 
@@ -37,6 +45,30 @@ const RequestsPage = () => {
     loadRequests();
   }, [studentId]);
 
+  const fetchRejectionDetails = async (requestId) => {
+    if (rejectionDetails[requestId]) {
+      return rejectionDetails[requestId];
+    }
+
+    try {
+      setLoadingRejectionDetails(true);
+      const response = await apiService.getRejectionDetails(requestId);
+
+      if (response.data.success) {
+        setRejectionDetails(prev => ({
+          ...prev,
+          [requestId]: response.data.data
+        }));
+        return response.data.data;
+      }
+    } catch (error) {
+      console.error('Error fetching rejection details:', error);
+    } finally {
+      setLoadingRejectionDetails(false);
+    }
+    return null;
+  };
+
   const fetchRequests = async () => {
     try {
       setLoading(true);
@@ -54,7 +86,8 @@ const RequestsPage = () => {
     const statusStyles = {
       'Pending': 'bg-warning text-dark',
       'Informed': 'bg-info text-white',
-      'Completed': 'bg-success text-white'
+      'Completed': 'bg-success text-white',
+      'Rejected': 'bg-danger text-white' // YENİ EKLENEN
     };
     return statusStyles[status] || 'bg-secondary text-white';
   };
@@ -63,7 +96,8 @@ const RequestsPage = () => {
     const statusIcons = {
       'Pending': '⏳',
       'Informed': '💬',
-      'Completed': '✅'
+      'Completed': '✅',
+      'Rejected': '🚫'  // YENİ EKLENEN
     };
     return statusIcons[status] || '📋';
   };
@@ -71,7 +105,7 @@ const RequestsPage = () => {
   const getPriorityBadge = (priority) => {
     const priorityStyles = {
       'Urgent': 'bg-danger text-white',
-      'High': 'bg-warning text-dark', 
+      'High': 'bg-warning text-dark',
       'Medium': 'bg-info text-white',
       'Low': 'bg-secondary text-white'
     };
@@ -82,7 +116,7 @@ const RequestsPage = () => {
     const icons = {
       'Urgent': '🔴',
       'High': '🟠',
-      'Medium': '🟡', 
+      'Medium': '🟡',
       'Low': '🔵'
     };
     return icons[priority] || '🟡';
@@ -106,19 +140,19 @@ const RequestsPage = () => {
   const formatDate = (dateString) => {
     const date = new Date(dateString);
     return {
-      date: date.toLocaleDateString('en-US', { 
-        year: 'numeric', 
-        month: 'short', 
-        day: 'numeric' 
+      date: date.toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric'
       }),
-      time: date.toLocaleTimeString('en-US', { 
-        hour: '2-digit', 
-        minute: '2-digit' 
+      time: date.toLocaleTimeString('en-US', {
+        hour: '2-digit',
+        minute: '2-digit'
       })
     };
   };
 
-  // StudentResponseViewer Component
+  // StudentResponseViewer Component (Senin kodun içinde olduğu gibi)
   const StudentResponseViewer = ({ requestId, requestTitle, onClose }) => {
     const [responses, setResponses] = useState([]);
     const [loading, setLoading] = useState(false);
@@ -150,45 +184,45 @@ const RequestsPage = () => {
     return (
       <>
         {/* Modal Backdrop */}
-        <div 
-          className="modal-backdrop fade show" 
+        <div
+          className="modal-backdrop fade show"
           style={{ zIndex: 1040 }}
           onClick={handleBackdropClick}
         ></div>
 
         {/* Modal */}
-        <div 
-          className="modal fade show d-block" 
+        <div
+          className="modal fade show d-block"
           tabIndex="-1"
           style={{ zIndex: 1050 }}
         >
           <div className="modal-dialog modal-lg modal-dialog-scrollable">
             <div className="modal-content">
-              
-                 <div className="modal-header">
-        <h5 className="modal-title">
-          💬 {t('responsesFor')}: {requestTitle}
-        </h5>
-        <button type="button" className="btn-close" onClick={onClose}></button>
-      </div>
-      
-      <div className="modal-body">
-        {loading ? (
-          <div className="text-center py-4">
-            <div className="spinner-border text-primary" role="status"></div>
-            <p className="mt-3">{t('loadingResponses')}</p>
-          </div>
-        ) : responses.length === 0 ? (
-          <div className="text-center py-5">
-            <div className="text-muted">
-              <div style={{ fontSize: '4rem' }}>💬</div>
-              <h5 className="mt-3">{t('noResponsesYet')}</h5>
-              <p>{t('adminHasntResponded')}</p>
-            </div>
-          </div>
-        ) : (
-          <div>
-            <h6 className="mb-3">{t('adminResponses')} ({responses.length})</h6>
+
+              <div className="modal-header">
+                <h5 className="modal-title">
+                  💬 {t('responsesFor')}: {requestTitle}
+                </h5>
+                <button type="button" className="btn-close" onClick={onClose}></button>
+              </div>
+
+              <div className="modal-body">
+                {loading ? (
+                  <div className="text-center py-4">
+                    <div className="spinner-border text-primary" role="status"></div>
+                    <p className="mt-3">{t('loadingResponses')}</p>
+                  </div>
+                ) : responses.length === 0 ? (
+                  <div className="text-center py-5">
+                    <div className="text-muted">
+                      <div style={{ fontSize: '4rem' }}>💬</div>
+                      <h5 className="mt-3">{t('noResponsesYet')}</h5>
+                      <p>{t('adminHasntResponded')}</p>
+                    </div>
+                  </div>
+                ) : (
+                  <div>
+                    <h6 className="mb-3">{t('adminResponses')} ({responses.length})</h6>
                     {responses.map((response, index) => (
                       <div key={response.response_id} className="card mb-3">
                         <div className="card-body">
@@ -196,11 +230,11 @@ const RequestsPage = () => {
                             <div className="d-flex align-items-center">
                               <span className="badge bg-primary me-2">#{index + 1}</span>
                               <strong className="text-primary">
-                                 {response.created_by_admin}
+                                {response.created_by_admin}
                               </strong>
                             </div>
                             <small className="text-muted">
-                              📅 {new Date(response.created_at).toLocaleDateString()} 
+                              📅 {new Date(response.created_at).toLocaleDateString()}
                               🕐 {new Date(response.created_at).toLocaleTimeString()}
                             </small>
                           </div>
@@ -213,15 +247,16 @@ const RequestsPage = () => {
                   </div>
                 )}
               </div>
-              
+
               <div className="modal-footer">
-        <div className="text-muted small me-auto">
-          {responses.length} {t('responsesFound')}
-        </div>
-        <button type="button" className="btn btn-secondary" onClick={onClose}>
-          {t('close')}
+                <div className="text-muted small me-auto">
+                  {responses.length} {t('responsesFound')}
+                </div>
+                <button type="button" className="btn btn-secondary" onClick={onClose}>
+                  {t('close')}
                 </button>
               </div>
+
             </div>
           </div>
         </div>
@@ -257,15 +292,15 @@ const RequestsPage = () => {
     <div>
       {/* Header */}
       <div className="d-flex justify-content-between align-items-center mb-4">
-  <div>
-    <h2 className="mb-1">{t('myRequests')}</h2>
-    <p className="text-muted mb-0">{t('trackAndManage')}</p>
-  </div>
-  <Link to="/create-request" className="btn btn-primary">
-    <i className="bi bi-plus-circle me-2"></i>
-    {t('createRequest')}
-  </Link>
-</div>
+        <div>
+          <h2 className="mb-1">{t('myRequests')}</h2>
+          <p className="text-muted mb-0">{t('trackAndManage')}</p>
+        </div>
+        <Link to="/create-request" className="btn btn-primary">
+          <i className="bi bi-plus-circle me-2"></i>
+          {t('createRequest')}
+        </Link>
+      </div>
 
       {/* Stats */}
       <div className="row mb-4">
@@ -301,18 +336,26 @@ const RequestsPage = () => {
             </div>
           </div>
         </div>
+        <div className="col-md-3">
+          <div className="card text-center">
+            <div className="card-body">
+              <h3 className="text-danger mb-1">{requests.filter(r => r.status === 'Rejected').length}</h3>
+              <small className="text-muted">{t('rejected', 'Rejected')}</small>
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Filters */}
       <div className="mb-4">
         <div className="btn-group" role="group">
-         <button
-  type="button"
-  className={`btn ${filter === 'all' ? 'btn-primary' : 'btn-outline-primary'}`}
-  onClick={() => setFilter('all')}
->
-  {t('viewAll')} ({requests.length})
-</button>
+          <button
+            type="button"
+            className={`btn ${filter === 'all' ? 'btn-primary' : 'btn-outline-primary'}`}
+            onClick={() => setFilter('all')}
+          >
+            {t('viewAll')} ({requests.length})
+          </button>
           <button
             type="button"
             className={`btn ${filter === 'Pending' ? 'btn-warning' : 'btn-outline-warning'}`}
@@ -334,30 +377,34 @@ const RequestsPage = () => {
           >
             {t('completed')} ({requests.filter(r => r.status === 'Completed').length})
           </button>
+          <button
+            type="button"
+            className={`btn ${filter === 'Rejected' ? 'btn-danger' : 'btn-outline-danger'}`}
+            onClick={() => setFilter('Rejected')}
+          >
+            🚫 {t('rejected', 'Rejected')} ({requests.filter(r => r.status === 'Rejected').length})
+          </button>
         </div>
       </div>
 
       {/* Requests List */}
-  {filteredRequests.length === 0 ? (
-  <div className="text-center py-5">
-    <div className="mb-4">
-      <i className="bi bi-inbox display-1 text-muted"></i>
-    </div>
-    <h4 className="text-muted">
-      {filter === 'all' ? t('noRequests') : `${t('noRequestsFound')} (${t(filter.toLowerCase())})`}
-    </h4>
-    <p className="text-muted mb-4">
-      
-    </p>
-    
-  </div>
-) : (
+      {filteredRequests.length === 0 ? (
+        <div className="text-center py-5">
+          <div className="mb-4">
+            <i className="bi bi-inbox display-1 text-muted"></i>
+          </div>
+          <h4 className="text-muted">
+            {filter === 'all' ? t('noRequests') : `${t('noRequestsFound')} (${t(filter.toLowerCase())})`}
+          </h4>
+          <p className="text-muted mb-4"></p>
+        </div>
+      ) : (
         <div className="row">
           {filteredRequests.map((request) => {
             const isExpanded = expandedRequests.has(request.request_id);
             const submittedDate = formatDate(request.submitted_at);
             const updatedDate = formatDate(request.updated_at);
-            
+
             return (
               <div key={request.request_id} className="col-12 mb-3">
                 <div className="card shadow-sm">
@@ -365,9 +412,8 @@ const RequestsPage = () => {
                     <div>
                       <h6 className="mb-1">
                         <span className="me-2">{getStatusIcon(request.status)}</span>
-                          {translateRequestType(request.type_name)} {/* BURADA ÇEVİRİ */}
+                        {translateRequestType(request.type_name)} {/* BURADA ÇEVİRİ */}
                       </h6>
-                      
                     </div>
                     <div className="d-flex align-items-center gap-2">
                       {request.priority && (
@@ -382,107 +428,143 @@ const RequestsPage = () => {
                         className="btn btn-sm btn-outline-secondary"
                         onClick={() => toggleExpanded(request.request_id)}
                       >
-                        {isExpanded ? 'Less' : 'More'}
+                        {isExpanded ? t('less', 'Less') : t('more', 'More')}
                       </button>
                     </div>
                   </div>
-                  
+
                   <div className="card-body">
                     {/* Content */}
                     <div className="mb-3">
                       <p className="card-text">
-                        {isExpanded ? request.content : 
-                          (request.content.length > 100 ? 
-                            request.content.substring(0, 100) + '...' : 
-                            request.content
-                          )
-                        }
+                        {isExpanded
+                          ? request.content
+                          : request.content.length > 100
+                          ? request.content.substring(0, 100) + '...'
+                          : request.content}
                       </p>
                     </div>
 
                     {/* Basic Info */}
                     <div className="row text-sm">
                       <div className="col-md-4">
-                        <strong className="text-muted">{t('submitted')}:</strong><br/>
-                        <span>{submittedDate.date}</span><br/>
+                        <strong className="text-muted">{t('submitted')}:</strong>
+                        <br />
+                        <span>{submittedDate.date}</span>
+                        <br />
                         <small className="text-muted">{submittedDate.time}</small>
                       </div>
                       <div className="col-md-4">
-                        <strong className="text-muted">{t('updated')}:</strong><br/>
-                        <span>{updatedDate.date}</span><br/>
+                        <strong className="text-muted">{t('updated')}:</strong>
+                        <br />
+                        <span>{updatedDate.date}</span>
+                        <br />
                         <small className="text-muted">{updatedDate.time}</small>
                       </div>
                       <div className="col-md-4">
-                        <strong className="text-muted">{t('attachments')}:</strong><br/>
+                        <strong className="text-muted">{t('attachments')}:</strong>
+                        <br />
                         <span className={request.attachment_count > 0 ? 'text-success' : 'text-muted'}>
                           {request.attachment_count} file(s)
-                          {request.attachment_count > 0 && (
-                            <i className="ms-1 bi bi-paperclip"></i>
-                          )}
+                          {request.attachment_count > 0 && <i className="ms-1 bi bi-paperclip"></i>}
                         </span>
                       </div>
                     </div>
 
                     {/* Expanded Information */}
                     {isExpanded && (
-  <div className="mt-4 pt-3 border-top">
-    <div className="row">
-      <div className="col-md-6">
-        <h6>{t('timeline')}</h6>
-        <div className="timeline">
-          <div className="timeline-item">
-            <span className="badge bg-primary">{t('created')}</span>
-            <span className="ms-2">{submittedDate.date} at {submittedDate.time}</span>
-          </div>
-          {request.updated_at !== request.submitted_at && (
-            <div className="timeline-item mt-2">
-              <span className="badge bg-info">{t('updated')}</span>
-              <span className="ms-2">{updatedDate.date} at {updatedDate.time}</span>
-            </div>
-          )}
-          {request.resolved_at && (
-            <div className="timeline-item mt-2">
-              <span className="badge bg-success">{t('resolved')}</span>
-              <span className="ms-2">{formatDate(request.resolved_at).date} at {formatDate(request.resolved_at).time}</span>
-            </div>
-          )}
-        </div>
-      </div>
-      
-      <div className="col-md-6">
-        <h6>{t('actions')}</h6>
-        <div className="d-flex gap-2 flex-wrap">
-          {request.attachment_count > 0 && (
-            <button 
-              className="btn btn-sm btn-outline-primary"
-              onClick={() => {
-                setSelectedRequestId(request.request_id);
-                setShowAttachments(true);
-              }}
-            >
-              📎 {t('viewFiles')} ({request.attachment_count})
-            </button>
-          )}
-          
-          {(request.status === 'Informed' || request.status === 'Completed') && (
-            <button 
-              className="btn btn-sm btn-outline-info"
-              onClick={() => {
-                setSelectedRequestForResponses({
-                  id: request.request_id,
-                  title: `#${request.request_id} - ${request.type_name}`
-                });
-                setShowResponsesModal(true);
-              }}
-            >
-              💬 {t('viewResponse')}
-            </button>
-          )}
-        </div>
-      </div>
-    </div>
-  </div>
-)}
+                      <div className="mt-4 pt-3 border-top">
+                        <div className="row">
+                          <div className="col-md-6">
+                            <h6>{t('timeline')}</h6>
+                            <div className="timeline">
+                              <div className="timeline-item">
+                                <span className="badge bg-primary">{t('created')}</span>
+                                <span className="ms-2">
+                                  {submittedDate.date} at {submittedDate.time}
+                                </span>
+                              </div>
+                              {request.updated_at !== request.submitted_at && (
+                                <div className="timeline-item mt-2">
+                                  <span className="badge bg-info">{t('updated')}</span>
+                                  <span className="ms-2">
+                                    {updatedDate.date} at {updatedDate.time}
+                                  </span>
+                                </div>
+                              )}
+                              {request.status === 'Rejected' && request.rejected_at && (
+                                <div className="timeline-item mt-2 d-flex align-items-center gap-2">
+                                  <span className="badge bg-danger">{t('rejected', 'Rejected')}</span>
+                                  <span className="ms-2">
+                                    {formatDate(request.rejected_at).date} at {formatDate(request.rejected_at).time}
+                                  </span>
+
+                                  {/* Reddetme sebebi butonu */}
+                                  <button
+                                    className="btn btn-sm btn-outline-danger"
+                                    onClick={async () => {
+                                      const details = await fetchRejectionDetails(request.request_id);
+                                      if (details) {
+                                        setSelectedRequestForRejectionDetails({
+                                          requestId: request.request_id,
+                                          reason: details.reason,
+                                          additionalInfo: details.additional_info || ''
+                                        });
+                                        setShowRejectionDetailsModal(true);
+                                      }
+                                    }}
+                                  >
+                                    {t('viewRejectionReason', 'View Rejection Reason')}
+                                  </button>
+                                </div>
+                              )}
+                              {request.resolved_at && (
+                                <div className="timeline-item mt-2">
+                                  <span className="badge bg-success">{t('resolved')}</span>
+                                  <span className="ms-2">
+                                    {formatDate(request.resolved_at).date} at {formatDate(request.resolved_at).time}
+                                  </span>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+
+                          <div className="col-md-6">
+                            <h6>{t('actions')}</h6>
+                            <div className="d-flex gap-2 flex-wrap">
+                              {/* File Attachments */}
+                              {request.attachment_count > 0 && (
+                                <button
+                                  className="btn btn-sm btn-outline-primary"
+                                  onClick={() => {
+                                    setSelectedRequestId(request.request_id);
+                                    setShowAttachments(true);
+                                  }}
+                                >
+                                  📎 {t('viewFiles')} ({request.attachment_count})
+                                </button>
+                              )}
+
+                              {/* View Responses */}
+                              {(request.status === 'Informed' || request.status === 'Completed') && (
+                                <button
+                                  className="btn btn-sm btn-outline-info"
+                                  onClick={() => {
+                                    setSelectedRequestForResponses({
+                                      id: request.request_id,
+                                      title: `#${request.request_id} - ${request.type_name}`
+                                    });
+                                    setShowResponsesModal(true);
+                                  }}
+                                >
+                                  💬 {t('viewResponse')}
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -493,20 +575,17 @@ const RequestsPage = () => {
 
       {/* Help Section */}
       <div className="mt-5 pt-4 border-top">
-  <div className="row">
-    <div className="col-md-6">
-      <h5>{t('needHelp')}</h5>
-      <p className="text-muted">
-        {t('needHelpDesc')}
-      </p>
-    </div>
-   
-  </div>
-</div>
+        <div className="row">
+          <div className="col-md-6">
+            <h5>{t('needHelp')}</h5>
+            <p className="text-muted">{t('needHelpDesc')}</p>
+          </div>
+        </div>
+      </div>
 
       {/* Attachment Viewer Modal */}
       {showAttachments && selectedRequestId && (
-        <AttachmentViewer 
+        <AttachmentViewer
           requestId={selectedRequestId}
           onClose={() => {
             setShowAttachments(false);
@@ -517,7 +596,7 @@ const RequestsPage = () => {
 
       {/* Student Response Viewer Modal */}
       {showResponsesModal && selectedRequestForResponses && (
-        <StudentResponseViewer 
+        <StudentResponseViewer
           requestId={selectedRequestForResponses.id}
           requestTitle={selectedRequestForResponses.title}
           onClose={() => {
@@ -525,6 +604,68 @@ const RequestsPage = () => {
             setSelectedRequestForResponses(null);
           }}
         />
+      )}
+
+      {/* Rejection Details Modal */}
+      {showRejectionDetailsModal && selectedRequestForRejectionDetails && (
+        <>
+          {/* Modal Backdrop */}
+          <div
+            className="modal-backdrop fade show"
+            style={{ zIndex: 1040 }}
+            onClick={() => setShowRejectionDetailsModal(false)}
+          ></div>
+
+          {/* Modal */}
+          <div
+            className="modal fade show d-block"
+            tabIndex="-1"
+            style={{ zIndex: 1050 }}
+          >
+            <div className="modal-dialog modal-md modal-dialog-scrollable">
+              <div className="modal-content">
+                <div className="modal-header">
+                  <h5 className="modal-title text-danger">
+                    🚫 {t('rejectionDetails')}
+                  </h5>
+                  <button
+                    type="button"
+                    className="btn-close"
+                    onClick={() => setShowRejectionDetailsModal(false)}
+                  ></button>
+                </div>
+                <div className="modal-body">
+                  {loadingRejectionDetails ? (
+                    <div className="text-center py-4">
+                      <div className="spinner-border text-danger" role="status"></div>
+                      <p className="mt-3">{t('loading')}</p>
+                    </div>
+                  ) : (
+                    <>
+                      <p>
+                        <strong>{t('reason')}:</strong> {selectedRequestForRejectionDetails.reason}
+                      </p>
+                      {selectedRequestForRejectionDetails.additionalInfo && (
+                        <p>
+                          <strong>{t('additionalInfo')}:</strong> {selectedRequestForRejectionDetails.additionalInfo}
+                        </p>
+                      )}
+                    </>
+                  )}
+                </div>
+                <div className="modal-footer">
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    onClick={() => setShowRejectionDetailsModal(false)}
+                  >
+                    {t('close')}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </>
       )}
     </div>
   );

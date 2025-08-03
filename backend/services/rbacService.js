@@ -1,4 +1,4 @@
-// backend/services/rbacService.js
+// backend/services/rbacService.js - Updated with missing methods
 const { pool } = require('../config/database');
 
 class RBACService {
@@ -8,35 +8,35 @@ class RBACService {
    * @returns {Array} Array of permissions with resource and action
    */
   async getUserPermissions(userId) {
-  try {
-    const [permissions] = await pool.execute(`
-      SELECT DISTINCT 
-        p.permission_id,
-        p.permission_name,
-        p.display_name,
-        p.resource,
-        p.action,
-        p.description,
-        r.role_name,
-        r.display_name as role_display_name
-      FROM permissions p
-      INNER JOIN role_permissions rp ON p.permission_id = rp.permission_id
-      INNER JOIN roles r ON rp.role_id = r.role_id
-      INNER JOIN user_roles ur ON r.role_id = ur.role_id
-      WHERE ur.user_id = ? 
-        AND ur.is_active = TRUE
-        AND r.is_active = TRUE
-        AND (ur.expires_at IS NULL OR ur.expires_at > NOW())
-      ORDER BY p.resource, p.action
-    `, [userId]);
+    try {
+      const [permissions] = await pool.execute(`
+        SELECT DISTINCT 
+          p.permission_id,
+          p.permission_name,
+          p.display_name,
+          p.resource,
+          p.action,
+          p.description,
+          r.role_name,
+          r.display_name as role_display_name
+        FROM permissions p
+        INNER JOIN role_permissions rp ON p.permission_id = rp.permission_id
+        INNER JOIN roles r ON rp.role_id = r.role_id
+        INNER JOIN user_roles ur ON r.role_id = ur.role_id
+        WHERE ur.user_id = ? 
+          AND ur.is_active = TRUE
+          AND r.is_active = TRUE
+          AND (ur.expires_at IS NULL OR ur.expires_at > NOW())
+        ORDER BY p.resource, p.action
+      `, [userId]);
 
-    // ENSURE it returns an array, not an object
-    return Array.isArray(permissions) ? permissions : [];
-  } catch (error) {
-    console.error('Error fetching user permissions:', error);
-    return []; // Always return an array
+      // ENSURE it returns an array, not an object
+      return Array.isArray(permissions) ? permissions : [];
+    } catch (error) {
+      console.error('Error fetching user permissions:', error);
+      return []; // Always return an array
+    }
   }
-}
 
   /**
    * Check if user has specific permission
@@ -116,78 +116,79 @@ class RBACService {
    * @param {number} assignerId - ID of user making the assignment
    * @returns {Object} Result of assignment
    */
- async assignRoleToUser(userId, roleId, assignerId, expiresAt = null) {
-  const connection = await pool.getConnection();
-  
-  try {
-    await connection.beginTransaction();
+  async assignRoleToUser(userId, roleId, assignerId, expiresAt = null) {
+    const connection = await pool.getConnection();
+    
+    try {
+      await connection.beginTransaction();
 
-    console.log('🎭 Starting role assignment transaction:', { userId, roleId, assignerId, expiresAt });
+      console.log('🎭 Starting role assignment transaction:', { userId, roleId, assignerId, expiresAt });
 
-    // Check if assigner has permission to assign roles
-    const canAssign = await this.hasPermission(assignerId, 'users', 'manage_roles');
-    if (!canAssign) {
-      throw new Error('Insufficient permissions to assign roles');
-    }
+      // Check if assigner has permission to assign roles
+      const canAssign = await this.hasPermission(assignerId, 'users', 'manage_roles');
+      if (!canAssign) {
+        throw new Error('Insufficient permissions to assign roles');
+      }
 
-    // Check if role assignment already exists and is active
-    const [existing] = await connection.execute(`
-      SELECT user_id, is_active FROM user_roles 
-      WHERE user_id = ? AND role_id = ?
-    `, [userId, roleId]);
+      // Check if role assignment already exists and is active
+      const [existing] = await connection.execute(`
+        SELECT user_id, is_active FROM user_roles 
+        WHERE user_id = ? AND role_id = ?
+      `, [userId, roleId]);
 
-    if (existing.length > 0) {
-      if (existing[0].is_active) {
-        throw new Error('User already has this role (active)');
+      if (existing.length > 0) {
+        if (existing[0].is_active) {
+          throw new Error('User already has this role (active)');
+        } else {
+          // Reactivate existing role
+          await connection.execute(`
+            UPDATE user_roles 
+            SET is_active = TRUE, assigned_by = ?, expires_at = ?, assigned_at = NOW()
+            WHERE user_id = ? AND role_id = ?
+          `, [assignerId, expiresAt, userId, roleId]);
+          
+          console.log('✅ Reactivated existing role assignment');
+        }
       } else {
-        // Reactivate existing role
+        // Insert new role assignment
         await connection.execute(`
-          UPDATE user_roles 
-          SET is_active = TRUE, assigned_by = ?, expires_at = ?, assigned_at = NOW()
-          WHERE user_id = ? AND role_id = ?
-        `, [assignerId, expiresAt, userId, roleId]);
+          INSERT INTO user_roles (user_id, role_id, assigned_by, expires_at, is_active)
+          VALUES (?, ?, ?, ?, TRUE)
+        `, [userId, roleId, assignerId, expiresAt]);
         
-        console.log('✅ Reactivated existing role assignment');
+        console.log('✅ Created new role assignment');
       }
-    } else {
-      // Insert new role assignment
+
+      // Update user's role timestamp
       await connection.execute(`
-        INSERT INTO user_roles (user_id, role_id, assigned_by, expires_at, is_active)
-        VALUES (?, ?, ?, ?, TRUE)
-      `, [userId, roleId, assignerId, expiresAt]);
-      
-      console.log('✅ Created new role assignment');
+        UPDATE admin_users 
+        SET last_role_update = NOW(), role_updated_by = ?
+        WHERE admin_id = ?
+      `, [assignerId, userId]);
+
+      await connection.commit();
+
+      console.log('✅ Role assignment transaction completed successfully');
+
+      return {
+        success: true,
+        message: 'Role assigned successfully',
+        data: {
+          user_id: userId,
+          role_id: roleId,
+          assigned_by: assignerId,
+          expires_at: expiresAt
+        }
+      };
+    } catch (error) {
+      await connection.rollback();
+      console.error('❌ Role assignment transaction failed:', error);
+      throw error;
+    } finally {
+      connection.release();
     }
-
-    // Update user's role timestamp
-    await connection.execute(`
-      UPDATE admin_users 
-      SET last_role_update = NOW(), role_updated_by = ?
-      WHERE admin_id = ?
-    `, [assignerId, userId]);
-
-    await connection.commit();
-
-    console.log('✅ Role assignment transaction completed successfully');
-
-    return {
-      success: true,
-      message: 'Role assigned successfully',
-      data: {
-        user_id: userId,
-        role_id: roleId,
-        assigned_by: assignerId,
-        expires_at: expiresAt
-      }
-    };
-  } catch (error) {
-    await connection.rollback();
-    console.error('❌ Role assignment transaction failed:', error);
-    throw error;
-  } finally {
-    connection.release();
   }
-}
+
   /**
    * Remove role from user
    * @param {number} userId - Target user ID
@@ -415,6 +416,206 @@ class RBACService {
       };
     } catch (error) {
       console.error('Error creating role:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * ⭐ NEW: Delete role
+   * @param {number} roleId - Role ID to delete
+   * @param {number} deleterId - ID of user deleting the role
+   * @returns {Object} Result of deletion
+   */
+  async deleteRole(roleId, deleterId) {
+    const connection = await pool.getConnection();
+    
+    try {
+      await connection.beginTransaction();
+
+      // Check if deleter has permission
+      const canDelete = await this.hasPermission(deleterId, 'users', 'manage_roles');
+      if (!canDelete) {
+        throw new Error('Insufficient permissions to delete roles');
+      }
+
+      // Check if role exists and is not a system role
+      const [roleCheck] = await connection.execute(`
+        SELECT role_id, role_name, is_system_role FROM roles WHERE role_id = ?
+      `, [roleId]);
+
+      if (roleCheck.length === 0) {
+        throw new Error('Role not found');
+      }
+
+      if (roleCheck[0].is_system_role) {
+        throw new Error('Cannot delete system roles');
+      }
+
+      // Check if role is assigned to any users
+      const [userCheck] = await connection.execute(`
+        SELECT COUNT(*) as user_count FROM user_roles 
+        WHERE role_id = ? AND is_active = TRUE
+      `, [roleId]);
+
+      if (userCheck[0].user_count > 0) {
+        throw new Error('Cannot delete role that is assigned to users');
+      }
+
+      // Delete role permissions first (due to foreign key)
+      await connection.execute(`
+        DELETE FROM role_permissions WHERE role_id = ?
+      `, [roleId]);
+
+      // Delete inactive user role assignments
+      await connection.execute(`
+        DELETE FROM user_roles WHERE role_id = ?
+      `, [roleId]);
+
+      // Delete the role
+      const [deleteResult] = await connection.execute(`
+        DELETE FROM roles WHERE role_id = ?
+      `, [roleId]);
+
+      if (deleteResult.affectedRows === 0) {
+        throw new Error('Failed to delete role');
+      }
+
+      await connection.commit();
+
+      return {
+        success: true,
+        message: 'Role deleted successfully',
+        deletedRole: roleCheck[0].role_name
+      };
+    } catch (error) {
+      await connection.rollback();
+      console.error('Error deleting role:', error);
+      throw error;
+    } finally {
+      connection.release();
+    }
+  }
+
+  /**
+   * ⭐ NEW: Delete permission
+   * @param {number} permissionId - Permission ID to delete
+   * @param {number} deleterId - ID of user deleting the permission
+   * @returns {Object} Result of deletion
+   */
+  async deletePermission(permissionId, deleterId) {
+    const connection = await pool.getConnection();
+    
+    try {
+      await connection.beginTransaction();
+
+      // Check if deleter has permission (only super admins can delete permissions)
+      const [superAdminCheck] = await connection.execute(`
+        SELECT is_super_admin FROM admin_users WHERE admin_id = ? AND is_active = TRUE
+      `, [deleterId]);
+
+      if (superAdminCheck.length === 0 || !superAdminCheck[0].is_super_admin) {
+        throw new Error('Only super administrators can delete permissions');
+      }
+
+      // Check if permission exists and is not a system permission
+      const [permissionCheck] = await connection.execute(`
+        SELECT permission_id, permission_name, is_system_permission FROM permissions WHERE permission_id = ?
+      `, [permissionId]);
+
+      if (permissionCheck.length === 0) {
+        throw new Error('Permission not found');
+      }
+
+      if (permissionCheck[0].is_system_permission) {
+        throw new Error('Cannot delete system permissions');
+      }
+
+      // Delete role permissions first (due to foreign key)
+      await connection.execute(`
+        DELETE FROM role_permissions WHERE permission_id = ?
+      `, [permissionId]);
+
+      // Delete the permission
+      const [deleteResult] = await connection.execute(`
+        DELETE FROM permissions WHERE permission_id = ?
+      `, [permissionId]);
+
+      if (deleteResult.affectedRows === 0) {
+        throw new Error('Failed to delete permission');
+      }
+
+      await connection.commit();
+
+      return {
+        success: true,
+        message: 'Permission deleted successfully',
+        deletedPermission: permissionCheck[0].permission_name
+      };
+    } catch (error) {
+      await connection.rollback();
+      console.error('Error deleting permission:', error);
+      throw error;
+    } finally {
+      connection.release();
+    }
+  }
+
+  /**
+   * ⭐ NEW: Create permission
+   * @param {Object} permissionData - Permission data
+   * @param {number} creatorId - ID of user creating the permission
+   * @returns {Object} Result with new permission ID
+   */
+  async createPermission(permissionData, creatorId) {
+    try {
+      // Check if creator has permission (only super admins can create permissions)
+      const [superAdminCheck] = await pool.execute(`
+        SELECT is_super_admin FROM admin_users WHERE admin_id = ? AND is_active = TRUE
+      `, [creatorId]);
+
+      if (superAdminCheck.length === 0 || !superAdminCheck[0].is_super_admin) {
+        throw new Error('Only super administrators can create permissions');
+      }
+
+      // Generate permission_name if not provided
+      const permissionName = permissionData.permission_name || 
+        `${permissionData.resource}.${permissionData.action}`;
+
+      const [result] = await pool.execute(`
+        INSERT INTO permissions (
+          permission_name, 
+          display_name, 
+          description, 
+          resource, 
+          action,
+          is_system_permission
+        ) VALUES (?, ?, ?, ?, ?, ?)
+      `, [
+        permissionName,
+        permissionData.display_name,
+        permissionData.description || null,
+        permissionData.resource,
+        permissionData.action,
+        permissionData.is_system_permission || false
+      ]);
+
+      return {
+        success: true,
+        permissionId: result.insertId,
+        message: 'Permission created successfully',
+        data: {
+          permission_id: result.insertId,
+          permission_name: permissionName,
+          display_name: permissionData.display_name,
+          resource: permissionData.resource,
+          action: permissionData.action
+        }
+      };
+    } catch (error) {
+      console.error('Error creating permission:', error);
+      if (error.code === 'ER_DUP_ENTRY') {
+        throw new Error('Permission with this name already exists');
+      }
       throw error;
     }
   }

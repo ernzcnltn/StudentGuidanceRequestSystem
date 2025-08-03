@@ -351,51 +351,45 @@ router.delete('/rbac/role/:roleId',
   async (req, res) => {
     try {
       const { roleId } = req.params;
+      const deleterId = req.admin.admin_id;
 
-      // Check if role is system role
-      const [roleCheck] = await pool.execute(
-        'SELECT is_system_role, role_name FROM roles WHERE role_id = ?',
-        [roleId]
-      );
+      console.log('🗑️ Role deletion request:', { roleId, deleterId });
 
-      if (roleCheck.length === 0) {
-        return res.status(404).json({
+      const result = await rbacService.deleteRole(roleId, deleterId);
+      
+      if (result.success) {
+        showSuccess(`Role "${result.deletedRole}" deleted successfully`);
+        res.json(result);
+      } else {
+        res.status(400).json({
           success: false,
-          error: 'Role not found'
+          error: result.message || 'Failed to delete role'
         });
       }
-
-      if (roleCheck[0].is_system_role) {
-        return res.status(400).json({
+    } catch (error) {
+      console.error('❌ Delete role error:', error);
+      
+      if (error.message.includes('system roles')) {
+        res.status(400).json({
           success: false,
           error: 'Cannot delete system roles'
         });
-      }
-
-      // Delete role (cascade will handle role_permissions and user_roles)
-      const [result] = await pool.execute(
-        'DELETE FROM roles WHERE role_id = ?',
-        [roleId]
-      );
-
-      if (result.affectedRows === 0) {
-        return res.status(404).json({
+      } else if (error.message.includes('assigned to users')) {
+        res.status(400).json({
           success: false,
-          error: 'Role not found'
+          error: 'Cannot delete role that is assigned to users. Remove role from all users first.'
+        });
+      } else if (error.message.includes('Insufficient permissions')) {
+        res.status(403).json({
+          success: false,
+          error: 'Insufficient permissions to delete roles'
+        });
+      } else {
+        res.status(500).json({
+          success: false,
+          error: error.message || 'Failed to delete role'
         });
       }
-
-      res.json({
-        success: true,
-        message: 'Role deleted successfully'
-      });
-
-    } catch (error) {
-      console.error('Delete role error:', error);
-      res.status(500).json({
-        success: false,
-        error: 'Failed to delete role'
-      });
     }
   }
 );
@@ -414,54 +408,48 @@ router.post('/rbac/create-permission',
         action,
         is_system_permission 
       } = req.body;
+      const creatorId = req.admin.admin_id;
 
-      if (!permission_name || !display_name || !resource || !action) {
+      console.log('🔐 Permission creation request:', {
+        permission_name, display_name, resource, action, creatorId
+      });
+
+      if (!display_name || !resource || !action) {
         return res.status(400).json({
           success: false,
-          error: 'Permission name, display name, resource, and action are required'
+          error: 'Display name, resource, and action are required'
         });
       }
 
-      const [result] = await pool.execute(`
-        INSERT INTO permissions (
-          permission_name, 
-          display_name, 
-          description, 
-          resource, 
-          action,
-          is_system_permission
-        ) VALUES (?, ?, ?, ?, ?, ?)
-      `, [
-        permission_name, 
-        display_name, 
-        description || null, 
-        resource, 
+      const permissionData = {
+        permission_name,
+        display_name,
+        description,
+        resource,
         action,
-        is_system_permission || false
-      ]);
+        is_system_permission: is_system_permission || false
+      };
 
-      res.json({
-        success: true,
-        message: 'Permission created successfully',
-        data: {
-          permission_id: result.insertId,
-          permission_name,
-          display_name,
-          resource,
-          action
-        }
-      });
+      const result = await rbacService.createPermission(permissionData, creatorId);
+      
+      res.json(result);
     } catch (error) {
-      console.error('Create permission error:', error);
-      if (error.code === 'ER_DUP_ENTRY') {
-        res.status(400).json({
+      console.error('❌ Create permission error:', error);
+      
+      if (error.message.includes('already exists')) {
+        res.status(409).json({
           success: false,
-          error: 'Permission already exists'
+          error: 'Permission with this name already exists'
+        });
+      } else if (error.message.includes('super administrators')) {
+        res.status(403).json({
+          success: false,
+          error: 'Only super administrators can create permissions'
         });
       } else {
         res.status(500).json({
           success: false,
-          error: 'Failed to create permission'
+          error: error.message || 'Failed to create permission'
         });
       }
     }
@@ -475,52 +463,43 @@ router.delete('/rbac/permission/:permissionId',
   async (req, res) => {
     try {
       const { permissionId } = req.params;
+      const deleterId = req.admin.admin_id;
 
-      // Check if permission is system permission
-      const [permissionCheck] = await pool.execute(
-        'SELECT is_system_permission FROM permissions WHERE permission_id = ?',
-        [permissionId]
-      );
+      console.log('🗑️ Permission deletion request:', { permissionId, deleterId });
 
-      if (permissionCheck.length === 0) {
-        return res.status(404).json({
+      const result = await rbacService.deletePermission(permissionId, deleterId);
+      
+      if (result.success) {
+        res.json(result);
+      } else {
+        res.status(400).json({
           success: false,
-          error: 'Permission not found'
+          error: result.message || 'Failed to delete permission'
         });
       }
-
-      if (permissionCheck[0].is_system_permission) {
-        return res.status(400).json({
+    } catch (error) {
+      console.error('❌ Delete permission error:', error);
+      
+      if (error.message.includes('system permissions')) {
+        res.status(400).json({
           success: false,
           error: 'Cannot delete system permissions'
         });
-      }
-
-      const [result] = await pool.execute(
-        'DELETE FROM permissions WHERE permission_id = ?',
-        [permissionId]
-      );
-
-      if (result.affectedRows === 0) {
-        return res.status(404).json({
+      } else if (error.message.includes('super administrators')) {
+        res.status(403).json({
           success: false,
-          error: 'Permission not found'
+          error: 'Only super administrators can delete permissions'
+        });
+      } else {
+        res.status(500).json({
+          success: false,
+          error: error.message || 'Failed to delete permission'
         });
       }
-
-      res.json({
-        success: true,
-        message: 'Permission deleted successfully'
-      });
-    } catch (error) {
-      console.error('Delete permission error:', error);
-      res.status(500).json({
-        success: false,
-        error: 'Failed to delete permission'
-      });
     }
   }
 );
+
 
 // POST /api/admin-auth/rbac/bulk-assign-roles - Bulk role assignment
 router.post('/rbac/bulk-assign-roles', 
@@ -715,93 +694,173 @@ router.get('/verify', authenticateAdmin, async (req, res) => {
 });
 
 // GET /api/admin-auth/dashboard - Dashboard (RBAC korumalı)
-router.get('/dashboard', 
+router.get('/rbac/dashboard', 
   authenticateAdmin, 
-  commonPermissions.viewAnalytics(),
+  requireRole(['super_admin']),
   async (req, res) => {
     try {
-      const department = req.admin.department;
-      const isSuper = req.admin.is_super_admin;
+      // Get complete RBAC dashboard data
+      const dashboardData = {};
+
+      // 1. General Statistics
+      const [generalStats] = await pool.execute(`
+        SELECT 
+          (SELECT COUNT(*) FROM admin_users WHERE is_active = TRUE) as total_users,
+          (SELECT COUNT(*) FROM roles WHERE is_active = TRUE) as total_roles,
+          (SELECT COUNT(*) FROM permissions) as total_permissions,
+          (SELECT COUNT(*) FROM user_roles WHERE is_active = TRUE) as total_role_assignments,
+          (SELECT COUNT(*) FROM admin_users WHERE is_super_admin = TRUE AND is_active = TRUE) as super_admin_count,
+          (SELECT COUNT(DISTINCT au.department) FROM admin_users au WHERE au.is_active = TRUE) as total_departments
+      `);
+      dashboardData.general = generalStats[0];
+
+      // 2. Role Distribution
+      const [roleStats] = await pool.execute(`
+        SELECT 
+          r.role_id,
+          r.role_name,
+          r.display_name,
+          r.description,
+          r.is_system_role,
+          COUNT(DISTINCT ur.user_id) as user_count,
+          COUNT(DISTINCT rp.permission_id) as permission_count
+        FROM roles r
+        LEFT JOIN user_roles ur ON r.role_id = ur.role_id AND ur.is_active = TRUE
+        LEFT JOIN role_permissions rp ON r.role_id = rp.role_id
+        WHERE r.is_active = TRUE
+        GROUP BY r.role_id, r.role_name, r.display_name, r.description, r.is_system_role
+        ORDER BY user_count DESC, r.role_name
+      `);
+      dashboardData.role_statistics = roleStats;
+
+      // 3. Department Statistics
+      const [deptStats] = await pool.execute(`
+        SELECT 
+          au.department,
+          COUNT(DISTINCT au.admin_id) as admin_count,
+          COUNT(DISTINCT ur.role_id) as unique_roles,
+          COUNT(ur.role_id) as total_role_assignments,
+          COUNT(CASE WHEN au.is_super_admin = TRUE THEN 1 END) as super_admin_count
+        FROM admin_users au
+        LEFT JOIN user_roles ur ON au.admin_id = ur.user_id AND ur.is_active = TRUE
+        WHERE au.is_active = TRUE
+        GROUP BY au.department
+        ORDER BY admin_count DESC
+      `);
+      dashboardData.department_statistics = deptStats;
+
+      // 4. Permission Resource Statistics
+      const [permissionStats] = await pool.execute(`
+        SELECT 
+          p.resource,
+          COUNT(p.permission_id) as permission_count,
+          COUNT(DISTINCT rp.role_id) as roles_using_resource,
+          COUNT(CASE WHEN p.is_system_permission = TRUE THEN 1 END) as system_permissions,
+          COUNT(CASE WHEN p.is_system_permission = FALSE THEN 1 END) as custom_permissions
+        FROM permissions p
+        LEFT JOIN role_permissions rp ON p.permission_id = rp.permission_id
+        GROUP BY p.resource
+        ORDER BY permission_count DESC
+      `);
+      dashboardData.permission_statistics = permissionStats;
+
+      // 5. Recent RBAC Activity (Audit Log)
+      const [recentActivity] = await pool.execute(`
+        SELECT 
+          ur.assigned_at as activity_date,
+          ur.is_active,
+          u.username as target_user,
+          u.department as target_department,
+          r.role_name,
+          r.display_name as role_display_name,
+          assigner.username as assigned_by_username,
+          CASE 
+            WHEN ur.is_active = TRUE THEN 'role_assigned'
+            ELSE 'role_removed'
+          END as activity_type
+        FROM user_roles ur
+        LEFT JOIN admin_users u ON ur.user_id = u.admin_id
+        LEFT JOIN roles r ON ur.role_id = r.role_id
+        LEFT JOIN admin_users assigner ON ur.assigned_by = assigner.admin_id
+        ORDER BY ur.assigned_at DESC
+        LIMIT 20
+      `);
+      dashboardData.recent_activity = recentActivity;
+
+      // 6. System Health Checks
+      const [systemHealth] = await pool.execute(`
+        SELECT 
+          (SELECT COUNT(*) FROM admin_users WHERE is_active = FALSE) as inactive_users,
+          (SELECT COUNT(*) FROM user_roles WHERE expires_at IS NOT NULL AND expires_at < NOW()) as expired_roles,
+          (SELECT COUNT(*) FROM user_roles ur 
+           LEFT JOIN roles r ON ur.role_id = r.role_id 
+           WHERE ur.is_active = TRUE AND r.is_active = FALSE) as orphaned_role_assignments,
+          (SELECT COUNT(*) FROM roles WHERE is_active = TRUE AND role_id NOT IN (
+            SELECT DISTINCT role_id FROM user_roles WHERE is_active = TRUE
+          )) as unused_roles
+      `);
+      dashboardData.system_health = systemHealth[0];
+
+      // 7. Quick Actions Data
+      const [quickActions] = await pool.execute(`
+        SELECT 
+          (SELECT COUNT(*) FROM admin_users WHERE is_active = TRUE AND admin_id NOT IN (
+            SELECT DISTINCT user_id FROM user_roles WHERE is_active = TRUE
+          )) as users_without_roles,
+          (SELECT COUNT(*) FROM user_roles WHERE expires_at IS NOT NULL AND expires_at BETWEEN NOW() AND DATE_ADD(NOW(), INTERVAL 7 DAY)) as roles_expiring_soon
+      `);
+      dashboardData.quick_actions = quickActions[0];
+
+      // 8. Warnings
+      const warnings = [];
       
-      let query, params;
-      
-      if (isSuper) {
-        query = `
-          SELECT 
-            COUNT(*) as total_requests,
-            SUM(CASE WHEN gr.status = 'Pending' THEN 1 ELSE 0 END) as pending,
-            SUM(CASE WHEN gr.status = 'Informed' THEN 1 ELSE 0 END) as informed,
-            SUM(CASE WHEN gr.status = 'Completed' THEN 1 ELSE 0 END) as completed
-          FROM guidance_requests gr
-          JOIN request_types rt ON gr.type_id = rt.type_id
-        `;
-        params = [];
-      } else {
-        query = `
-          SELECT 
-            COUNT(*) as total_requests,
-            SUM(CASE WHEN gr.status = 'Pending' THEN 1 ELSE 0 END) as pending,
-            SUM(CASE WHEN gr.status = 'Informed' THEN 1 ELSE 0 END) as informed,
-            SUM(CASE WHEN gr.status = 'Completed' THEN 1 ELSE 0 END) as completed
-          FROM guidance_requests gr
-          JOIN request_types rt ON gr.type_id = rt.type_id
-          WHERE rt.category = ?
-        `;
-        params = [department];
+      if (dashboardData.general.super_admin_count === 0) {
+        warnings.push({
+          type: 'critical',
+          message: 'No super administrators found in the system',
+          action: 'Assign super admin role to at least one user'
+        });
+      } else if (dashboardData.general.super_admin_count === 1) {
+        warnings.push({
+          type: 'warning',
+          message: 'Only one super administrator in the system',
+          action: 'Consider adding a backup super administrator'
+        });
       }
 
-      const [totals] = await pool.execute(query, params);
-
-      let typeStatsQuery, typeStatsParams;
-      
-      if (isSuper) {
-        typeStatsQuery = `
-          SELECT 
-            rt.type_name,
-            rt.category,
-            COUNT(gr.request_id) as count
-          FROM request_types rt
-          LEFT JOIN guidance_requests gr ON rt.type_id = gr.type_id
-          GROUP BY rt.type_id, rt.type_name, rt.category
-          ORDER BY count DESC
-        `;
-        typeStatsParams = [];
-      } else {
-        typeStatsQuery = `
-          SELECT 
-            rt.type_name,
-            COUNT(gr.request_id) as count
-          FROM request_types rt
-          LEFT JOIN guidance_requests gr ON rt.type_id = gr.type_id
-          WHERE rt.category = ?
-          GROUP BY rt.type_id, rt.type_name
-          ORDER BY count DESC
-        `;
-        typeStatsParams = [department];
+      if (dashboardData.system_health.unused_roles > 0) {
+        warnings.push({
+          type: 'info',
+          message: `${dashboardData.system_health.unused_roles} roles are not assigned to any users`,
+          action: 'Review and clean up unused roles'
+        });
       }
 
-      const [typeStats] = await pool.execute(typeStatsQuery, typeStatsParams);
+      if (dashboardData.system_health.expired_roles > 0) {
+        warnings.push({
+          type: 'warning',
+          message: `${dashboardData.system_health.expired_roles} role assignments have expired`,
+          action: 'Review and update expired role assignments'
+        });
+      }
+
+      dashboardData.warnings = warnings;
 
       res.json({
         success: true,
-        data: {
-          totals: totals[0] || {
-            total_requests: 0,
-            pending: 0,
-            informed: 0,
-            completed: 0
-          },
-          type_stats: typeStats || [],
-          department: isSuper ? 'ALL' : department,
-          is_super_admin: isSuper
+        data: dashboardData,
+        meta: {
+          generated_at: new Date().toISOString(),
+          data_points: Object.keys(dashboardData).length,
+          cache_duration: '5 minutes'
         }
       });
 
     } catch (error) {
-      console.error('Dashboard data error:', error);
+      console.error('RBAC Dashboard error:', error);
       res.status(500).json({
         success: false,
-        message: 'Failed to fetch dashboard data',
+        message: 'Failed to load RBAC dashboard data',
         error: error.message
       });
     }
@@ -1360,26 +1419,30 @@ router.post('/requests/:requestId/responses',
 
 // ===== EXISTING RBAC ROUTES (MISSING FROM PREVIOUS) =====
 
-// GET /api/admin-auth/rbac/permissions - Tüm izinleri getir (RBAC korumalı)
-router.get('/rbac/permissions', 
+
+// GET /api/admin-auth/rbac/permission-groups - Get permission groups
+router.get('/rbac/permission-groups', 
   authenticateAdmin, 
   requirePermission('users', 'manage_roles'),
   async (req, res) => {
     try {
-      const permissions = await rbacService.getAllPermissions();
+      const groups = await rbacService.getPermissionGroups();
+      
       res.json({
         success: true,
-        data: permissions
+        data: groups
       });
     } catch (error) {
-      console.error('Get permissions error:', error);
+      console.error('Get permission groups error:', error);
       res.status(500).json({
         success: false,
-        error: 'Failed to fetch permissions'
+        error: 'Failed to fetch permission groups'
       });
     }
   }
 );
+
+
 
 // GET /api/admin-auth/rbac/roles - Tüm rolleri getir (RBAC korumalı)
 router.get('/rbac/roles', 
@@ -1402,16 +1465,15 @@ router.get('/rbac/roles',
   }
 );
 
-// POST /api/admin-auth/rbac/assign-role - Rol atama (RBAC korumalı)
-router.post('/rbac/assign-role', 
+
+// POST /api/admin-auth/rbac/validate-role-assignment - Validate role assignment
+router.post('/rbac/validate-role-assignment', 
   authenticateAdmin, 
   requirePermission('users', 'manage_roles'),
   async (req, res) => {
     try {
-      const { user_id, role_id, expires_at } = req.body;
-      const assignerId = req.admin.admin_id;
-
-      console.log('🎭 Role assignment request:', { user_id, role_id, expires_at, assignerId });
+      const { user_id, role_id } = req.body;
+      const validatorId = req.admin.admin_id;
 
       if (!user_id || !role_id) {
         return res.status(400).json({
@@ -1420,20 +1482,77 @@ router.post('/rbac/assign-role',
         });
       }
 
-      // rbacService.assignRoleToUser kullan
-      const result = await rbacService.assignRoleToUser(user_id, role_id, assignerId, expires_at);
-      
-      console.log('✅ Role assignment successful:', result);
-      res.json(result);
+      // Check if role exists
+      const [roleCheck] = await pool.execute(`
+        SELECT role_id, role_name, display_name, is_system_role FROM roles 
+        WHERE role_id = ? AND is_active = TRUE
+      `, [role_id]);
+
+      if (roleCheck.length === 0) {
+        return res.status(404).json({
+          success: false,
+          error: 'Role not found'
+        });
+      }
+
+      // Check if user exists
+      const [userCheck] = await pool.execute(`
+        SELECT admin_id, username, full_name, department FROM admin_users 
+        WHERE admin_id = ? AND is_active = TRUE
+      `, [user_id]);
+
+      if (userCheck.length === 0) {
+        return res.status(404).json({
+          success: false,
+          error: 'User not found'
+        });
+      }
+
+      // Check if assignment already exists
+      const [existingCheck] = await pool.execute(`
+        SELECT user_id, is_active FROM user_roles 
+        WHERE user_id = ? AND role_id = ?
+      `, [user_id, role_id]);
+
+      const validation = {
+        can_assign: true,
+        warnings: [],
+        errors: []
+      };
+
+      if (existingCheck.length > 0 && existingCheck[0].is_active) {
+        validation.can_assign = false;
+        validation.errors.push('User already has this role assigned');
+      }
+
+      // Check if validator has permission to assign this role
+      const canAssign = await rbacService.hasPermission(validatorId, 'users', 'manage_roles');
+      if (!canAssign) {
+        validation.can_assign = false;
+        validation.errors.push('Insufficient permissions to assign roles');
+      }
+
+      res.json({
+        success: true,
+        data: {
+          validation,
+          role: roleCheck[0],
+          user: userCheck[0],
+          existing_assignment: existingCheck.length > 0 ? existingCheck[0] : null
+        }
+      });
+
     } catch (error) {
-      console.error('❌ Role assignment error:', error);
+      console.error('Validate role assignment error:', error);
       res.status(500).json({
         success: false,
-        error: error.message || 'Failed to assign role'
+        error: 'Failed to validate role assignment'
       });
     }
   }
 );
+
+
 
 // POST /api/admin-auth/rbac/remove-role - Rol kaldırma (RBAC korumalı)
 router.post('/rbac/remove-role', 
@@ -1518,37 +1637,35 @@ router.put('/rbac/role/:roleId/permissions',
   }
 );
 
-// POST /api/admin-auth/rbac/check-permission - İzin kontrolü
-router.post('/rbac/check-permission', 
+// POST /api/admin-auth/rbac/check-multiple-permissions - Check multiple permissions
+router.post('/rbac/check-multiple-permissions', 
   authenticateAdmin,
   async (req, res) => {
     try {
-      const { user_id, resource, action } = req.body;
+      const { user_id, permissions } = req.body;
       const targetUserId = user_id || req.admin.admin_id;
 
-      if (!resource || !action) {
+      if (!permissions || !Array.isArray(permissions)) {
         return res.status(400).json({
           success: false,
-          message: 'Resource and action are required'
+          error: 'Permissions array is required'
         });
       }
 
-      const hasPermission = await rbacService.hasPermission(targetUserId, resource, action);
+      const results = await rbacService.checkMultiplePermissions(targetUserId, permissions);
       
       res.json({
         success: true,
         data: {
           user_id: targetUserId,
-          resource,
-          action,
-          has_permission: hasPermission
+          permissions: results
         }
       });
     } catch (error) {
-      console.error('Check permission error:', error);
+      console.error('Check multiple permissions error:', error);
       res.status(500).json({
         success: false,
-        message: 'Failed to check permission'
+        error: 'Failed to check permissions'
       });
     }
   }
@@ -1747,6 +1864,582 @@ router.get('/rbac/audit-log',
     }
   }
 );
+
+
+// GET /api/admin-auth/rbac/system-health - Get RBAC system health
+router.get('/rbac/system-health', 
+  authenticateAdmin, 
+  requireRole(['super_admin']),
+  async (req, res) => {
+    try {
+      const healthChecks = {};
+
+      // 1. Orphaned role assignments check
+      const [orphanedRoles] = await pool.execute(`
+        SELECT COUNT(*) as count FROM user_roles ur 
+        LEFT JOIN roles r ON ur.role_id = r.role_id 
+        WHERE ur.is_active = TRUE AND (r.is_active = FALSE OR r.role_id IS NULL)
+      `);
+      healthChecks.orphaned_role_assignments = orphanedRoles[0].count;
+
+      // 2. Users without roles check
+      const [usersWithoutRoles] = await pool.execute(`
+        SELECT COUNT(*) as count FROM admin_users au
+        WHERE au.is_active = TRUE AND au.admin_id NOT IN (
+          SELECT DISTINCT user_id FROM user_roles WHERE is_active = TRUE
+        )
+      `);
+      healthChecks.users_without_roles = usersWithoutRoles[0].count;
+
+      // 3. Expired role assignments check
+      const [expiredRoles] = await pool.execute(`
+        SELECT COUNT(*) as count FROM user_roles 
+        WHERE expires_at IS NOT NULL AND expires_at < NOW()
+      `);
+      healthChecks.expired_role_assignments = expiredRoles[0].count;
+
+      // 4. Unused roles check
+      const [unusedRoles] = await pool.execute(`
+        SELECT COUNT(*) as count FROM roles r
+        WHERE r.is_active = TRUE AND r.role_id NOT IN (
+          SELECT DISTINCT role_id FROM user_roles WHERE is_active = TRUE
+        )
+      `);
+      healthChecks.unused_roles = unusedRoles[0].count;
+
+      // 5. Duplicate role assignments check
+      const [duplicateAssignments] = await pool.execute(`
+        SELECT user_id, role_id, COUNT(*) as count 
+        FROM user_roles 
+        WHERE is_active = TRUE 
+        GROUP BY user_id, role_id 
+        HAVING count > 1
+      `);
+      healthChecks.duplicate_assignments = duplicateAssignments.length;
+
+      // 6. System role integrity check
+      const [systemRoleCheck] = await pool.execute(`
+        SELECT COUNT(*) as count FROM roles 
+        WHERE is_system_role = TRUE AND is_active = FALSE
+      `);
+      healthChecks.inactive_system_roles = systemRoleCheck[0].count;
+
+      // Calculate overall health score
+      let healthScore = 100;
+      if (healthChecks.orphaned_role_assignments > 0) healthScore -= 20;
+      if (healthChecks.users_without_roles > 0) healthScore -= 10;
+      if (healthChecks.expired_role_assignments > 0) healthScore -= 15;
+      if (healthChecks.duplicate_assignments > 0) healthScore -= 25;
+      if (healthChecks.inactive_system_roles > 0) healthScore -= 30;
+
+      healthScore = Math.max(0, healthScore);
+
+      res.json({
+        success: true,
+        data: {
+          health_score: healthScore,
+          status: healthScore >= 90 ? 'excellent' : 
+                 healthScore >= 70 ? 'good' : 
+                 healthScore >= 50 ? 'fair' : 'poor',
+          checks: healthChecks,
+          recommendations: generateHealthRecommendations(healthChecks)
+        }
+      });
+
+    } catch (error) {
+      console.error('RBAC system health error:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to check system health'
+      });
+    }
+  }
+);
+
+// GET /api/admin-auth/rbac/system-health - Get RBAC system health
+router.get('/rbac/system-health', 
+  authenticateAdmin, 
+  requireRole(['super_admin']),
+  async (req, res) => {
+    try {
+      const healthChecks = {};
+
+      // 1. Orphaned role assignments check
+      const [orphanedRoles] = await pool.execute(`
+        SELECT COUNT(*) as count FROM user_roles ur 
+        LEFT JOIN roles r ON ur.role_id = r.role_id 
+        WHERE ur.is_active = TRUE AND (r.is_active = FALSE OR r.role_id IS NULL)
+      `);
+      healthChecks.orphaned_role_assignments = orphanedRoles[0].count;
+
+      // 2. Users without roles check
+      const [usersWithoutRoles] = await pool.execute(`
+        SELECT COUNT(*) as count FROM admin_users au
+        WHERE au.is_active = TRUE AND au.admin_id NOT IN (
+          SELECT DISTINCT user_id FROM user_roles WHERE is_active = TRUE
+        )
+      `);
+      healthChecks.users_without_roles = usersWithoutRoles[0].count;
+
+      // 3. Expired role assignments check
+      const [expiredRoles] = await pool.execute(`
+        SELECT COUNT(*) as count FROM user_roles 
+        WHERE expires_at IS NOT NULL AND expires_at < NOW()
+      `);
+      healthChecks.expired_role_assignments = expiredRoles[0].count;
+
+      // 4. Unused roles check
+      const [unusedRoles] = await pool.execute(`
+        SELECT COUNT(*) as count FROM roles r
+        WHERE r.is_active = TRUE AND r.role_id NOT IN (
+          SELECT DISTINCT role_id FROM user_roles WHERE is_active = TRUE
+        )
+      `);
+      healthChecks.unused_roles = unusedRoles[0].count;
+
+      // 5. Duplicate role assignments check
+      const [duplicateAssignments] = await pool.execute(`
+        SELECT user_id, role_id, COUNT(*) as count 
+        FROM user_roles 
+        WHERE is_active = TRUE 
+        GROUP BY user_id, role_id 
+        HAVING count > 1
+      `);
+      healthChecks.duplicate_assignments = duplicateAssignments.length;
+
+      // 6. System role integrity check
+      const [systemRoleCheck] = await pool.execute(`
+        SELECT COUNT(*) as count FROM roles 
+        WHERE is_system_role = TRUE AND is_active = FALSE
+      `);
+      healthChecks.inactive_system_roles = systemRoleCheck[0].count;
+
+      // Calculate overall health score
+      let healthScore = 100;
+      if (healthChecks.orphaned_role_assignments > 0) healthScore -= 20;
+      if (healthChecks.users_without_roles > 0) healthScore -= 10;
+      if (healthChecks.expired_role_assignments > 0) healthScore -= 15;
+      if (healthChecks.duplicate_assignments > 0) healthScore -= 25;
+      if (healthChecks.inactive_system_roles > 0) healthScore -= 30;
+
+      healthScore = Math.max(0, healthScore);
+
+      res.json({
+        success: true,
+        data: {
+          health_score: healthScore,
+          status: healthScore >= 90 ? 'excellent' : 
+                 healthScore >= 70 ? 'good' : 
+                 healthScore >= 50 ? 'fair' : 'poor',
+          checks: healthChecks,
+          recommendations: generateHealthRecommendations(healthChecks)
+        }
+      });
+
+    } catch (error) {
+      console.error('RBAC system health error:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to check system health'
+      });
+    }
+  }
+);
+
+// Helper function for health recommendations
+function generateHealthRecommendations(checks) {
+  const recommendations = [];
+  
+  if (checks.orphaned_role_assignments > 0) {
+    recommendations.push({
+      priority: 'high',
+      issue: 'Orphaned role assignments detected',
+      action: 'Clean up role assignments that reference inactive or deleted roles'
+    });
+  }
+  
+  if (checks.users_without_roles > 0) {
+    recommendations.push({
+      priority: 'medium',
+      issue: `${checks.users_without_roles} users without roles`,
+      action: 'Assign appropriate roles to users or deactivate unused accounts'
+    });
+  }
+  
+  if (checks.expired_role_assignments > 0) {
+    recommendations.push({
+      priority: 'medium',
+      issue: 'Expired role assignments found',
+      action: 'Review and update or remove expired role assignments'
+    });
+  }
+  
+  if (checks.duplicate_assignments > 0) {
+    recommendations.push({
+      priority: 'high',
+      issue: 'Duplicate role assignments detected',
+      action: 'Remove duplicate role assignments to prevent conflicts'
+    });
+  }
+  
+  if (checks.inactive_system_roles > 0) {
+    recommendations.push({
+      priority: 'critical',
+      issue: 'System roles are inactive',
+      action: 'Reactivate essential system roles immediately'
+    });
+  }
+  
+  return recommendations;
+}
+
+
+// PUT /api/admin-auth/requests/:requestId/reject - Reject request
+router.put('/requests/:requestId/reject', 
+  authenticateAdmin, 
+  commonPermissions.manageRequests(),
+  async (req, res) => {
+    try {
+      const { requestId } = req.params;
+      const { rejection_reason } = req.body;
+      const adminId = req.admin.admin_id;
+
+      console.log('🚫 Request rejection attempt:', { 
+        requestId, 
+        adminId, 
+        hasReason: !!rejection_reason 
+      });
+
+      if (!rejection_reason || rejection_reason.trim().length === 0) {
+        return res.status(400).json({
+          success: false,
+          error: 'Rejection reason is required'
+        });
+      }
+
+      // Get current request details and verify department access
+      let requestCheckQuery = `
+        SELECT 
+          gr.request_id,
+          gr.status as current_status,
+          s.name as student_name,
+          s.email as student_email,
+          rt.type_name,
+          rt.category
+        FROM guidance_requests gr
+        JOIN students s ON gr.student_id = s.student_id
+        JOIN request_types rt ON gr.type_id = rt.type_id
+        WHERE gr.request_id = ?
+      `;
+
+      const params = [requestId];
+
+      // Department access control for non-super admins
+      if (!req.admin.is_super_admin) {
+        requestCheckQuery += ' AND rt.category = ?';
+        params.push(req.admin.department);
+      }
+
+      const [requestCheck] = await pool.execute(requestCheckQuery, params);
+
+      if (requestCheck.length === 0) {
+        return res.status(404).json({
+          success: false,
+          error: req.admin.is_super_admin 
+            ? 'Request not found' 
+            : 'Request not found in your department'
+        });
+      }
+
+      const request = requestCheck[0];
+
+      // Check if request can be rejected
+      if (request.current_status === 'Rejected') {
+        return res.status(400).json({
+          success: false,
+          error: 'Request is already rejected'
+        });
+      }
+
+      if (request.current_status === 'Completed') {
+        return res.status(400).json({
+          success: false,
+          error: 'Cannot reject a completed request'
+        });
+      }
+
+      // Update request status to rejected
+      const [result] = await pool.execute(`
+        UPDATE guidance_requests 
+        SET 
+          status = 'Rejected',
+          rejection_reason = ?,
+          rejected_by = ?,
+          rejected_at = NOW(),
+          updated_at = NOW()
+        WHERE request_id = ?
+      `, [rejection_reason.trim(), adminId, requestId]);
+
+      if (result.affectedRows === 0) {
+        return res.status(500).json({
+          success: false,
+          error: 'Failed to reject request'
+        });
+      }
+
+      // Add an admin response for the rejection
+      await pool.execute(`
+        INSERT INTO admin_responses (request_id, admin_id, response_content, is_internal, created_at)
+        VALUES (?, ?, ?, FALSE, NOW())
+      `, [
+        requestId, 
+        adminId, 
+        `Request has been rejected.\n\nReason: ${rejection_reason.trim()}`
+      ]);
+
+      // Send email notification to student (if email service is available)
+      try {
+        const emailService = require('../services/emailService');
+        await emailService.notifyRequestRejection(
+          request.student_email,
+          request.student_name,
+          requestId,
+          request.type_name,
+          rejection_reason.trim()
+        );
+        console.log('✉️ Rejection email sent to student');
+      } catch (emailError) {
+        console.error('📧 Failed to send rejection email:', emailError);
+        // Don't fail the rejection if email fails
+      }
+
+      // Log the rejection action
+      console.log(`🚫 Request #${requestId} rejected by ${req.admin.username} (${req.admin.department})`);
+
+      res.json({
+        success: true,
+        message: 'Request rejected successfully',
+        data: {
+          request_id: requestId,
+          previous_status: request.current_status,
+          new_status: 'Rejected',
+          rejection_reason: rejection_reason.trim(),
+          rejected_by: adminId,
+          rejected_at: new Date().toISOString()
+        }
+      });
+
+    } catch (error) {
+      console.error('Error rejecting request:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to reject request'
+      });
+    }
+  }
+);
+
+// GET /api/admin-auth/requests/:requestId/rejection-details - Get rejection details
+router.get('/requests/:requestId/rejection-details', 
+  authenticateAdmin, 
+  commonPermissions.viewRequests(),
+  async (req, res) => {
+    try {
+      const { requestId } = req.params;
+
+      const [rejectionDetails] = await pool.execute(`
+        SELECT 
+          gr.rejection_reason,
+          gr.rejected_at,
+          au.full_name as rejected_by_name,
+          au.username as rejected_by_username,
+          au.department as rejected_by_department
+        FROM guidance_requests gr
+        LEFT JOIN admin_users au ON gr.rejected_by = au.admin_id
+        WHERE gr.request_id = ? AND gr.status = 'Rejected'
+      `, [requestId]);
+
+      if (rejectionDetails.length === 0) {
+        return res.status(404).json({
+          success: false,
+          error: 'Request not found or not rejected'
+        });
+      }
+
+      res.json({
+        success: true,
+        data: rejectionDetails[0]
+      });
+
+    } catch (error) {
+      console.error('Error fetching rejection details:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to fetch rejection details'
+      });
+    }
+  }
+);
+
+// POST /api/admin-auth/requests/:requestId/unreject - Unreject/Reopen request (Super Admin only)
+router.post('/requests/:requestId/unreject', 
+  authenticateAdmin, 
+  requireRole(['super_admin']),
+  async (req, res) => {
+    try {
+      const { requestId } = req.params;
+      const { reopen_reason } = req.body;
+      const adminId = req.admin.admin_id;
+
+      if (!reopen_reason || reopen_reason.trim().length === 0) {
+        return res.status(400).json({
+          success: false,
+          error: 'Reopen reason is required'
+        });
+      }
+
+      // Check if request is rejected
+      const [requestCheck] = await pool.execute(`
+        SELECT 
+          gr.request_id,
+          gr.status,
+          s.name as student_name,
+          s.email as student_email,
+          rt.type_name
+        FROM guidance_requests gr
+        JOIN students s ON gr.student_id = s.student_id
+        JOIN request_types rt ON gr.type_id = rt.type_id
+        WHERE gr.request_id = ? AND gr.status = 'Rejected'
+      `, [requestId]);
+
+      if (requestCheck.length === 0) {
+        return res.status(404).json({
+          success: false,
+          error: 'Rejected request not found'
+        });
+      }
+
+      // Reopen the request
+      const [result] = await pool.execute(`
+        UPDATE guidance_requests 
+        SET 
+          status = 'Pending',
+          rejection_reason = NULL,
+          rejected_by = NULL,
+          rejected_at = NULL,
+          updated_at = NOW()
+        WHERE request_id = ?
+      `, [requestId]);
+
+      if (result.affectedRows === 0) {
+        return res.status(500).json({
+          success: false,
+          error: 'Failed to reopen request'
+        });
+      }
+
+      // Add admin response for reopening
+      await pool.execute(`
+        INSERT INTO admin_responses (request_id, admin_id, response_content, is_internal, created_at)
+        VALUES (?, ?, ?, FALSE, NOW())
+      `, [
+        requestId, 
+        adminId, 
+        `Request has been reopened by Super Administrator.\n\nReason: ${reopen_reason.trim()}`
+      ]);
+
+      console.log(`♻️ Request #${requestId} reopened by ${req.admin.username}`);
+
+      res.json({
+        success: true,
+        message: 'Request reopened successfully',
+        data: {
+          request_id: requestId,
+          new_status: 'Pending',
+          reopened_by: adminId,
+          reopen_reason: reopen_reason.trim()
+        }
+      });
+
+    } catch (error) {
+      console.error('Error reopening request:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to reopen request'
+      });
+    }
+  }
+);
+
+// GET /api/admin-auth/statistics/rejections - Get rejection statistics (for analytics)
+router.get('/statistics/rejections', 
+  authenticateAdmin, 
+  commonPermissions.viewAnalytics(),
+  async (req, res) => {
+    try {
+      const department = req.admin.is_super_admin ? null : req.admin.department;
+      
+      let statsQuery = `
+        SELECT 
+          COUNT(*) as total_rejections,
+          COUNT(CASE WHEN rejected_at >= DATE_SUB(NOW(), INTERVAL 30 DAY) THEN 1 END) as rejections_last_30_days,
+          COUNT(CASE WHEN rejected_at >= DATE_SUB(NOW(), INTERVAL 7 DAY) THEN 1 END) as rejections_last_7_days,
+          AVG(DATEDIFF(rejected_at, submitted_at)) as avg_days_to_rejection
+        FROM guidance_requests gr
+        JOIN request_types rt ON gr.type_id = rt.type_id
+        WHERE gr.status = 'Rejected'
+      `;
+
+      const params = [];
+      if (department) {
+        statsQuery += ' AND rt.category = ?';
+        params.push(department);
+      }
+
+      const [stats] = await pool.execute(statsQuery, params);
+
+      // Get rejection reasons breakdown
+      let reasonsQuery = `
+        SELECT 
+          LEFT(rejection_reason, 50) as reason_preview,
+          COUNT(*) as count
+        FROM guidance_requests gr
+        JOIN request_types rt ON gr.type_id = rt.type_id
+        WHERE gr.status = 'Rejected' AND gr.rejection_reason IS NOT NULL
+      `;
+
+      if (department) {
+        reasonsQuery += ' AND rt.category = ?';
+      }
+
+      reasonsQuery += `
+        GROUP BY LEFT(rejection_reason, 50)
+        ORDER BY count DESC
+        LIMIT 10
+      `;
+
+      const [reasons] = await pool.execute(reasonsQuery, department ? [department] : []);
+
+      res.json({
+        success: true,
+        data: {
+          statistics: stats[0],
+          common_reasons: reasons,
+          department: department || 'ALL'
+        }
+      });
+
+    } catch (error) {
+      console.error('Error fetching rejection statistics:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to fetch rejection statistics'
+      });
+    }
+  }
+);
+
+
 // GET /api/admin-auth/rbac/dashboard - RBAC Dashboard verilerini getir (Super Admin Only)
 router.get('/rbac/dashboard', 
   authenticateAdmin, 
