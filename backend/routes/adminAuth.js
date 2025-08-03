@@ -109,7 +109,131 @@ router.post('/login', async (req, res) => {
   }
 });
 
-// ... (existing routes remain the same - dashboard, requests, etc.)
+ // GET /api/admin-auth/dashboard - Dashboard data (EKSİK ya da HATALI!)
+router.get('/dashboard', 
+  authenticateAdmin, 
+  commonPermissions.viewAnalytics(),
+  async (req, res) => {
+    try {
+      console.log('📊 Fetching dashboard data for:', req.admin.department);
+      
+      const department = req.admin.is_super_admin ? null : req.admin.department;
+      
+      // Get request counts by status
+      let statusQuery = `
+        SELECT 
+          gr.status,
+          COUNT(*) as count
+        FROM guidance_requests gr
+        JOIN request_types rt ON gr.type_id = rt.type_id
+      `;
+      
+      const params = [];
+      if (department) {
+        statusQuery += ' WHERE rt.category = ?';
+        params.push(department);
+      }
+      
+      statusQuery += ' GROUP BY gr.status';
+      
+      const [statusCounts] = await pool.execute(statusQuery, params);
+      
+      // Get request type statistics
+      let typeQuery = `
+        SELECT 
+          rt.type_name,
+          COUNT(gr.request_id) as count
+        FROM request_types rt
+        LEFT JOIN guidance_requests gr ON rt.type_id = gr.type_id
+      `;
+      
+      const typeParams = [];
+      if (department) {
+        typeQuery += ' WHERE rt.category = ?';
+        typeParams.push(department);
+      }
+      
+      typeQuery += ' GROUP BY rt.type_id, rt.type_name ORDER BY count DESC';
+      
+      const [typeStats] = await pool.execute(typeQuery, typeParams);
+      
+      // Format response
+      const totals = {
+        pending: 0,
+        informed: 0,
+        completed: 0,
+        rejected: 0
+      };
+      
+      statusCounts.forEach(row => {
+        const status = row.status.toLowerCase();
+        if (totals.hasOwnProperty(status)) {
+          totals[status] = row.count;
+        }
+      });
+      
+      console.log('✅ Dashboard data compiled:', totals);
+      
+      res.json({
+        success: true,
+        data: {
+          totals,
+          type_stats: typeStats,
+          department: department || 'ALL'
+        }
+      });
+      
+    } catch (error) {
+      console.error('Dashboard data error:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to fetch dashboard data'
+      });
+    }
+  }
+);
+
+// GET /api/admin-auth/rbac/roles - Get all roles 
+router.get('/rbac/roles', 
+  authenticateAdmin, 
+  requirePermission('users', 'view'),
+  async (req, res) => {
+    try {
+      console.log('🎭 Fetching all roles...');
+      
+      const [roles] = await pool.execute(`
+        SELECT 
+          r.role_id,
+          r.role_name,
+          r.display_name,
+          r.description,
+          r.is_system_role,
+          r.is_active,
+          COUNT(rp.permission_id) as permission_count,
+          COUNT(ur.user_id) as user_count
+        FROM roles r
+        LEFT JOIN role_permissions rp ON r.role_id = rp.role_id
+        LEFT JOIN user_roles ur ON r.role_id = ur.role_id AND ur.is_active = TRUE
+        WHERE r.is_active = TRUE
+        GROUP BY r.role_id
+        ORDER BY r.is_system_role DESC, r.role_name
+      `);
+
+      console.log(`✅ Found ${roles.length} active roles`);
+
+      res.json({
+        success: true,
+        data: roles
+      });
+    } catch (error) {
+      console.error('Get roles error:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to fetch roles'
+      });
+    }
+  }
+);
 
 // ===== NEW USER MANAGEMENT ENDPOINTS =====
 
@@ -2094,7 +2218,10 @@ function generateHealthRecommendations(checks) {
 }
 
 
-// PUT /api/admin-auth/requests/:requestId/reject - Reject request
+// ===== 1. BACKEND FIX - adminAuth.js =====
+// backend/routes/adminAuth.js - Request reject endpoint'ini düzelt
+
+// PUT /api/admin-auth/requests/:requestId/reject - Reject request (FIXED)
 router.put('/requests/:requestId/reject', 
   authenticateAdmin, 
   commonPermissions.manageRequests(),
@@ -2168,7 +2295,7 @@ router.put('/requests/:requestId/reject',
         });
       }
 
-      // Update request status to rejected
+      // Update request status to rejected (WITHOUT EMAIL SENDING)
       const [result] = await pool.execute(`
         UPDATE guidance_requests 
         SET 
@@ -2187,7 +2314,7 @@ router.put('/requests/:requestId/reject',
         });
       }
 
-      // Add an admin response for the rejection
+      // Add an admin response for the rejection (simplified)
       await pool.execute(`
         INSERT INTO admin_responses (request_id, admin_id, response_content, is_internal, created_at)
         VALUES (?, ?, ?, FALSE, NOW())
@@ -2197,30 +2324,17 @@ router.put('/requests/:requestId/reject',
         `Request has been rejected.\n\nReason: ${rejection_reason.trim()}`
       ]);
 
-      // Send email notification to student (if email service is available)
-      try {
-        const emailService = require('../services/emailService');
-        await emailService.notifyRequestRejection(
-          request.student_email,
-          request.student_name,
-          requestId,
-          request.type_name,
-          rejection_reason.trim()
-        );
-        console.log('✉️ Rejection email sent to student');
-      } catch (emailError) {
-        console.error('📧 Failed to send rejection email:', emailError);
-        // Don't fail the rejection if email fails
-      }
+      // NO EMAIL SENDING - Removed email service call
 
       // Log the rejection action
       console.log(`🚫 Request #${requestId} rejected by ${req.admin.username} (${req.admin.department})`);
 
+      // FIXED: Ensure proper JSON response
       res.json({
         success: true,
         message: 'Request rejected successfully',
         data: {
-          request_id: requestId,
+          request_id: parseInt(requestId),
           previous_status: request.current_status,
           new_status: 'Rejected',
           rejection_reason: rejection_reason.trim(),
@@ -2230,15 +2344,17 @@ router.put('/requests/:requestId/reject',
       });
 
     } catch (error) {
-      console.error('Error rejecting request:', error);
+      console.error('❌ Error rejecting request:', error);
+      
+      // FIXED: Ensure error responses are also proper JSON
       res.status(500).json({
         success: false,
-        error: 'Failed to reject request'
+        error: 'Failed to reject request',
+        details: error.message
       });
     }
   }
 );
-
 // GET /api/admin-auth/requests/:requestId/rejection-details - Get rejection details
 router.get('/requests/:requestId/rejection-details', 
   authenticateAdmin, 
@@ -2652,6 +2768,52 @@ router.get('/rbac/user/:userId/permissions',
         success: false,
         data: [], // Array döndür
         error: 'Failed to fetch user permissions'
+      });
+    }
+  }
+);
+
+// GET /api/admin-auth/rbac/permissions - Get all permissions (EKSİK!)
+router.get('/rbac/permissions', 
+  authenticateAdmin, 
+  requirePermission('users', 'view'),
+  async (req, res) => {
+    try {
+      console.log('🔐 Fetching all permissions...');
+      
+      const [permissions] = await pool.execute(`
+        SELECT 
+          permission_id,
+          permission_name,
+          display_name,
+          description,
+          resource,
+          action,
+          is_system_permission
+        FROM permissions
+        ORDER BY resource, action
+      `);
+
+      // Group by resource for frontend
+      const grouped = permissions.reduce((acc, permission) => {
+        if (!acc[permission.resource]) {
+          acc[permission.resource] = [];
+        }
+        acc[permission.resource].push(permission);
+        return acc;
+      }, {});
+
+      console.log(`✅ Found ${permissions.length} permissions in ${Object.keys(grouped).length} resources`);
+
+      res.json({
+        success: true,
+        data: grouped
+      });
+    } catch (error) {
+      console.error('Get permissions error:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to fetch permissions'
       });
     }
   }

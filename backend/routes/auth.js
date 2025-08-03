@@ -4,7 +4,7 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { pool } = require('../config/database');
 const { authenticateToken } = require('../middleware/auth');
-const emailService = require('../services/emailService');
+
 
 // POST /api/auth/login - Öğrenci giriş
 router.post('/login', async (req, res) => {
@@ -109,13 +109,7 @@ router.post('/register', async (req, res) => {
       [student_number, name, email, hashedPassword, program]
     );
 
-    // Send welcome email
-    try {
-      await emailService.sendWelcomeEmail(email, name, student_number);
-    } catch (emailError) {
-      console.error('Failed to send welcome email:', emailError);
-      // Don't fail registration if email fails
-    }
+    
 
     res.status(201).json({
       success: true,

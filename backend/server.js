@@ -2,11 +2,11 @@ const express = require('express');
 const cors = require('cors');
 const path = require('path');
 const cookieParser = require('cookie-parser');
+
 require('dotenv').config();
 
 // Import services
 const { testConnection } = require('./config/database');
-const emailService = require('./services/emailService');
 
 // Import middleware
 const { requestLogger, errorLogger, responseLogger } = require('./middleware/logger');
@@ -63,33 +63,9 @@ app.use('/api/auth/register', authLimiter);
 app.use('/api/admin-auth/login', authLimiter);
 app.use('/api/', generalLimiter);
 
-// Test database and email connections
-const initializeServices = async () => {
-  try {
-    console.log('🔧 Initializing services...');
-    
-    // Test database connection
-    await testConnection();
-    
-    // Test email service (optional, won't fail if email not configured)
-    if (process.env.EMAIL_USER && process.env.EMAIL_PASS) {
-      const emailTest = await emailService.testConnection();
-      if (emailTest.success) {
-        console.log('✅ Email service connected successfully');
-      } else {
-        console.warn('⚠️ Email service not configured properly, notifications disabled');
-      }
-    } else {
-      console.log('ℹ️ Email service not configured, notifications disabled');
-    }
-    
-    console.log('✅ All services initialized successfully');
-  } catch (error) {
-    console.error('❌ Service initialization failed:', error);
-  }
-};
 
-initializeServices();
+
+
 
 // Routes
 app.use('/api/auth', require('./routes/auth'));
@@ -100,7 +76,7 @@ app.use('/api/students', require('./routes/students'));
 app.use('/api/docs', require('./routes/docs'));
 
 // ✅ NEW ROUTES - Yeni eklenen route'lar
-app.use('/api/email', require('./routes/email'));
+
 app.use('/api/notifications', require('./routes/notifications'));
 app.use('/api/analytics', require('./routes/analytics'));
 app.use('/api/search', require('./routes/search'));
@@ -136,15 +112,7 @@ app.get('/api/test', async (req, res) => {
     console.error('Database test failed:', error);
   }
 
-  try {
-    // Test email (if configured)
-    if (process.env.EMAIL_USER) {
-      const emailTest = await emailService.testConnection();
-      services.email = emailTest.success;
-    }
-  } catch (error) {
-    console.error('Email test failed:', error);
-  }
+  
 
   res.json({ 
     message: 'FIU Guidance System API is working!',
@@ -279,7 +247,7 @@ const server = app.listen(PORT, () => {
   console.log(`🧪 Test Endpoint: http://localhost:${PORT}/api/test`);
   console.log('==========================================');
   console.log('✨ Available Features:');
-  console.log('   📧 Email Notifications');
+  
   console.log('   🔔 Real-time Notifications');
   console.log('   📊 Advanced Analytics');
   console.log('   🔍 Advanced Search');
@@ -288,11 +256,8 @@ const server = app.listen(PORT, () => {
   console.log('   📁 File Uploads');
   console.log('   🔐 Role-based Access');
   console.log('==========================================');
+  console.log('📧 Email notifications:', process.env.EMAIL_USER ? 'enabled' : 'disabled');
   
-  if (process.env.NODE_ENV === 'development') {
-    console.log('🔧 Development mode - detailed logging enabled');
-    console.log('📧 Email notifications:', process.env.EMAIL_USER ? 'enabled' : 'disabled');
-  }
   
   console.log('✅ Server ready to accept connections\n');
 });

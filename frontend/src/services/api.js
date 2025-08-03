@@ -690,10 +690,33 @@ export const apiService = {
 
 
 
-// Request rejection methods
+// Request rejection methods (FIXED)
 rejectRequest: (requestId, rejectionData) => {
   console.log('🚫 Rejecting request:', { requestId, hasReason: !!rejectionData.rejection_reason });
-  return adminApi.put(`/admin-auth/requests/${requestId}/reject`, rejectionData);
+  
+  return adminApi.put(`/admin-auth/requests/${requestId}/reject`, rejectionData)
+    .then(response => {
+      console.log('✅ Reject response:', response.data);
+      return response;
+    })
+    .catch(error => {
+      console.error('❌ Reject error:', error);
+      
+      // Handle different error types
+      if (error.response) {
+        // Server responded with error status
+        console.error('Server error:', error.response.data);
+        throw error;
+      } else if (error.request) {
+        // Request was made but no response received
+        console.error('Network error - no response received');
+        throw new Error('Network error: Could not reach server');
+      } else {
+        // Something else happened
+        console.error('Request setup error:', error.message);
+        throw error;
+      }
+    });
 },
 
 unrejectRequest: (requestId, reopenData) => {
@@ -1039,14 +1062,6 @@ getRequestStatusBadge: (status) => {
   getStudentProfile: () => studentApi.get('/auth/me'),
   updateStudentProfile: (profileData) => studentApi.put('/auth/profile', profileData),
   changeStudentPassword: (passwordData) => studentApi.put('/auth/change-password', passwordData),
-
-  // ===== EMAIL SERVICES =====
-  testEmailService: () => adminApi.post('/email/test'),
-  sendCustomEmail: (emailData) => adminApi.post('/email/send-custom', emailData),
-  sendWelcomeEmail: (emailData) => adminApi.post('/email/send-welcome', emailData),
-  sendStatusNotification: (notificationData) => adminApi.post('/email/notify-status', notificationData),
-  getEmailSettings: () => adminApi.get('/email/settings'),
-  updateEmailSettings: (settings) => adminApi.put('/email/settings', settings),
 
   // ===== ADVANCED FEATURES =====
   bulkUpdateRequests: (updateData) => adminApi.post('/admin-auth/requests/bulk-update', updateData),

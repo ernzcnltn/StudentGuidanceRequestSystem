@@ -3,7 +3,7 @@ const router = express.Router();
 const { pool } = require('../config/database');
 const { validateCreateRequest, validateStatusUpdate, validateIdParam } = require('../middleware/validation');
 const { upload, handleUploadError } = require('../middleware/upload');
-const emailService = require('../services/emailService');
+
 const path = require('path');
 const fs = require('fs');
 
@@ -104,91 +104,9 @@ router.get('/student/:studentId', async (req, res) => {
   }
 });
 
-// POST /api/requests - Create request with email notification
-router.post('/', validateCreateRequest, async (req, res) => {
-  try {
-    const { student_id, type_id, content, priority = 'Medium' } = req.body;
-    
-    console.log('Creating request with data:', { student_id, type_id, content, priority });
-    
-    // Create request
-    const [result] = await pool.execute(
-      'INSERT INTO guidance_requests (student_id, type_id, content, priority) VALUES (?, ?, ?, ?)',
-      [student_id, type_id, content, priority]
-    );
-    
-    const requestId = result.insertId;
-    
-    // Get request details for email notification
-    const [requestDetails] = await pool.execute(`
-      SELECT 
-        gr.request_id,
-        gr.content,
-        gr.priority,
-        s.name as student_name,
-        s.email as student_email,
-        rt.type_name,
-        rt.category,
-        au.email as admin_email,
-        au.full_name as admin_name
-      FROM guidance_requests gr
-      JOIN students s ON gr.student_id = s.student_id
-      JOIN request_types rt ON gr.type_id = rt.type_id
-      LEFT JOIN admin_users au ON rt.category = au.department AND au.is_active = TRUE
-      WHERE gr.request_id = ?
-    `, [requestId]);
-    
-    if (requestDetails.length > 0) {
-      const request = requestDetails[0];
-      
-      // Send notification emails to relevant admins
-      const [admins] = await pool.execute(
-        'SELECT email, full_name FROM admin_users WHERE department = ? AND is_active = TRUE',
-        [request.category]
-      );
-      
-      for (const admin of admins) {
-        if (admin.email) {
-          try {
-            await emailService.notifyNewRequest(
-              admin.email,
-              admin.full_name,
-              request.category,
-              requestId,
-              request.student_name,
-              request.type_name,
-              request.priority,
-              request.content
-            );
-          } catch (emailError) {
-            console.error('Failed to send admin notification:', emailError);
-          }
-        }
-      }
-    }
-    
-    res.status(201).json({
-      success: true,
-      message: 'Request created successfully',
-      data: {
-        request_id: requestId,
-        student_id,
-        type_id,
-        content,
-        priority,
-        status: 'Pending',
-        submitted_at: new Date().toISOString()
-      }
-    });
-  } catch (error) {
-    console.error('Error creating request:', error);
-    res.status(500).json({ 
-      success: false,
-      error: 'Failed to create request' 
-    });
-  }
-});
 
+    
+   
 // PUT /api/requests/:id/status - Update status with email notification
 router.put('/:id/status', validateIdParam, validateStatusUpdate, async (req, res) => {
   try {
@@ -233,22 +151,7 @@ router.put('/:id/status', validateIdParam, validateStatusUpdate, async (req, res
       );
     }
     
-    // Send email notification to student
-    if (request.student_email && oldStatus !== status) {
-      try {
-        await emailService.notifyRequestStatusUpdate(
-          request.student_email,
-          request.student_name,
-          requestId,
-          request.type_name,
-          oldStatus,
-          status,
-          response_content
-        );
-      } catch (emailError) {
-        console.error('Failed to send status update email:', emailError);
-      }
-    }
+   
     
     res.json({
       success: true,

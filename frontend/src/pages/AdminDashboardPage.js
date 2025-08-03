@@ -226,7 +226,7 @@ const [rejectLoading, setRejectLoading] = useState(false);
   };
 
   // ADD THIS FUNCTION TO AdminDashboardPage component
-const handleRejectRequest = async (rejectionData) => {
+const handleRejectRequest = async (rejectionReason) => {
   if (!selectedRequestForReject) {
     showError('No request selected for rejection');
     return;
@@ -235,31 +235,54 @@ const handleRejectRequest = async (rejectionData) => {
   try {
     setRejectLoading(true);
     
+    console.log('🚫 Starting reject process:', {
+      requestId: selectedRequestForReject.request_id,
+      reasonLength: rejectionReason.length
+    });
+    
     const response = await apiService.rejectRequest(
       selectedRequestForReject.request_id, 
-      rejectionData
+      { rejection_reason: rejectionReason }
     );
     
-    if (response.data.success) {
+    console.log('✅ Reject response received:', response.data);
+    
+    if (response.data && response.data.success) {
       showSuccess(`Request #${selectedRequestForReject.request_id} rejected successfully`);
       setShowRejectModal(false);
       setSelectedRequestForReject(null);
-      fetchRequests(); // Refresh the requests list
+      
+      // Refresh the requests list
+      if (typeof fetchRequests === 'function') {
+        fetchRequests();
+      }
+    } else {
+      throw new Error(response.data?.error || 'Unknown error occurred');
     }
+    
   } catch (error) {
-    console.error('Error rejecting request:', error);
+    console.error('❌ Error rejecting request:', error);
+    
+    let errorMessage = 'Failed to reject request. Please try again.';
     
     if (error.response?.status === 403) {
-      showError('Access denied: Insufficient permissions to reject requests');
+      errorMessage = 'Access denied: Insufficient permissions to reject requests';
     } else if (error.response?.status === 400) {
-      showError(error.response.data.error || 'Invalid rejection request');
-    } else {
-      showError('Failed to reject request. Please try again.');
+      errorMessage = error.response.data?.error || 'Invalid rejection request';
+    } else if (error.response?.status === 404) {
+      errorMessage = 'Request not found';
+    } else if (error.message === 'Network error: Could not reach server') {
+      errorMessage = 'Cannot connect to server. Please check your connection.';
+    } else if (error.response?.data?.error) {
+      errorMessage = error.response.data.error;
     }
+    
+    showError(errorMessage);
   } finally {
     setRejectLoading(false);
   }
 };
+
 
   useEffect(() => {
     if (activeTab === 'dashboard') {
@@ -959,119 +982,129 @@ const handleRejectRequest = async (rejectionData) => {
                       </div>
                     </div>
                     
-                    <div className="d-flex gap-2 flex-wrap">
-                      {canCreateResponses() && (
-                        <button
-                          className="btn btn-outline-info btn-sm"
-                          onClick={() => {
-                            setSelectedRequestForResponse({
-                              id: request.request_id,
-                              title: `#${request.request_id} - ${request.type_name}`,
-                              student: request.student_name
-                            });
-                            setShowResponseModal(true);
-                          }}
-                        >
-                          💬 {request.status === 'Pending' ? t('addResponse') : t('viewResponse')}
-                        </button>
-                      )}
+                 {/* REJECTION DISPLAY - Better styling */}
+        {request.status === 'Rejected' && (
+          <div className="alert alert-danger mb-3" style={{
+            backgroundColor: isDark ? '#2d0a0a' : '#f8d7da',
+            borderColor: isDark ? '#5d1a1a' : '#f1aeb5',
+            color: isDark ? '#ffffff' : '#721c24'
+          }}>
+            <div className="d-flex align-items-start">
+              <span className="me-2" style={{ fontSize: '1.2rem' }}>🚫</span>
+              <div className="flex-grow-1">
+                <h6 className="alert-heading mb-2">
+                  {t('requestRejected', 'Request Rejected')}
+                </h6>
+                <p className="mb-2">
+                  <strong>{t('rejectionReason', 'Rejection Reason')}:</strong>
+                </p>
+                <div className="p-2 rounded" style={{
+                  backgroundColor: isDark ? '#000000' : '#ffffff',
+                  border: isDark ? '1px solid #5d1a1a' : '1px solid #f1aeb5',
+                  fontStyle: 'italic'
+                }}>
+                  {request.rejection_reason || 'No reason provided'}
+                </div>
+                <small className="text-muted mt-2 d-block">
+                  Rejected on: {request.rejected_at ? new Date(request.rejected_at).toLocaleDateString() : 'Unknown'}
+                </small>
+              </div>
+            </div>
+          </div>
+        )}
+        
+        {/* Student info, submitted date etc. - no changes */}
+        <div className="row text-sm mb-3">
+          {/* existing student info */}
+        </div>
+        
+        {/* ACTION BUTTONS - Improved layout */}
+        <div className="d-flex gap-2 flex-wrap align-items-center">
+          {/* Response button */}
+          {canCreateResponses() && (
+            <button
+              className="btn btn-outline-info btn-sm"
+              onClick={() => {
+                setSelectedRequestForResponse({
+                  id: request.request_id,
+                  title: `#${request.request_id} - ${request.type_name}`,
+                  student: request.student_name
+                });
+                setShowResponseModal(true);
+              }}
+            >
+              💬 {request.status === 'Pending' ? t('addResponse') : t('viewResponse')}
+            </button>
+          )}
 
-                      {/* Status Update Buttons */}
-                      {canManageRequests() && request.status === 'Pending' && (
-                        <>
-                          <button
-                            className="btn btn-success btn-sm"
-                            onClick={() => updateRequestStatus(request.request_id, 'Completed')}
-                          >
-                            ✅ {t('markAsCompleted')}
-                          </button>
-                          
-                          <button
-                            className="btn btn-danger btn-sm"
-                            onClick={() => {
-                              setSelectedRequestForReject(request);
-                              setShowRejectModal(true);
-                            }}
-                          >
-                            🚫 {t('reject', 'Reject')}
-                          </button>
-                        </>
-                      )}
-                      
-                      {canManageRequests() && request.status === 'Informed' && (
-                        <>
-                          <button
-                            className="btn btn-success btn-sm"
-                            onClick={() => updateRequestStatus(request.request_id, 'Completed')}
-                          >
-                            ✅ {t('markAsCompleted')}
-                          </button>
-                          
-                          <button
-                            className="btn btn-danger btn-sm"
-                            onClick={() => {
-                              setSelectedRequestForReject(request);
-                              setShowRejectModal(true);
-                            }}
-                          >
-                            🚫 {t('reject', 'Reject')}
-                          </button>
-                        </>
-                      )}
-                      
-                      {/* Status Indicators */}
-                      {request.status === 'Completed' && (
-                        <span className="text-success fw-bold me-2">
-                          ✅ Request {t('completed')}
-                        </span>
-                      )}
-                      
-                      {request.status === 'Rejected' && (
-                        <div className="d-flex flex-column">
-                          <span className="text-danger fw-bold me-2">
-                            🚫 Request {t('rejected', 'Rejected')}
-                          </span>
-                          <button
-                            className="btn btn-outline-secondary btn-sm mt-1"
-                            onClick={async () => {
-                              try {
-                                const details = await apiService.getRejectionDetails(request.request_id);
-                                if (details.data.success) {
-                                  const rejection = details.data.data;
-                                   showInfo(
-                                    `Rejected by: ${rejection.rejected_by_name}\n` +
-                                    `Date: ${new Date(rejection.rejected_at).toLocaleDateString()}\n` +
-                                    `Reason: ${rejection.rejection_reason}`
-                                  );
-                                }
-                              } catch (error) {
-                                showError('Failed to load rejection details');
-                              }
-                            }}
-                          >
-                            📋 {t('viewReason', 'View Reason')}
-                          </button>
-                        </div>
-                      )}
-                      
-                      {/* File Attachments */}
-                      {request.attachment_count > 0 && (
-                        <button 
-                          className="btn btn-outline-secondary btn-sm"
-                          onClick={() => {
-                            setSelectedRequestId(request.request_id);
-                            setShowAttachments(true);
-                          }}
-                        >
-                          📎 {t('viewFiles')} ({request.attachment_count})
-                        </button>
-                      )}
+          {/* Status action buttons */}
+          {canManageRequests() && request.status === 'Pending' && (
+            <>
+              <button
+                className="btn btn-success btn-sm"
+                onClick={() => updateRequestStatus(request.request_id, 'Completed')}
+              >
+                ✅ {t('markAsCompleted')}
+              </button>
+              
+              <button
+                className="btn btn-danger btn-sm"
+                onClick={() => {
+                  setSelectedRequestForReject(request);
+                  setShowRejectModal(true);
+                }}
+              >
+                🚫 {t('reject', 'Reject')}
+              </button>
+            </>
+          )}
+          
+          {canManageRequests() && request.status === 'Informed' && (
+            <>
+              <button
+                className="btn btn-success btn-sm"
+                onClick={() => updateRequestStatus(request.request_id, 'Completed')}
+              >
+                ✅ {t('markAsCompleted')}
+              </button>
+              
+              <button
+                className="btn btn-danger btn-sm"
+                onClick={() => {
+                  setSelectedRequestForReject(request);
+                  setShowRejectModal(true);
+                }}
+              >
+                🚫 {t('reject', 'Reject')}
+              </button>
+            </>
+          )}
+          
+          {/* File attachments */}
+          {request.attachment_count > 0 && (
+            <button 
+              className="btn btn-outline-secondary btn-sm"
+              onClick={() => {
+                setSelectedRequestId(request.request_id);
+                setShowAttachments(true);
+              }}
+            >
+              📎 {t('viewFiles')} ({request.attachment_count})
+            </button>
+          )}
 
-                      {/* Permission Warning */}
-                      {!canManageRequests() && (
-                        <small className="text-muted">
-                          <em>⚠️ You have read-only access to requests</em>
-                        </small>
+          {/* Status indicators - moved to end */}
+          {request.status === 'Completed' && (
+            <span className="badge bg-success ms-auto">
+              ✅ {t('completed')}
+            </span>
+          )}
+
+          {/* Permission warning */}
+          {!canManageRequests() && (
+            <small className="text-muted ms-auto">
+              <em>⚠️ Read-only access</em>
+            </small>
                       )}
                     </div>
                   </div>
