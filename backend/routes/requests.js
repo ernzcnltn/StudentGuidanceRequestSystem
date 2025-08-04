@@ -3,10 +3,35 @@ const router = express.Router();
 const { pool } = require('../config/database');
 const { validateCreateRequest, validateStatusUpdate, validateIdParam } = require('../middleware/validation');
 const { upload, handleUploadError } = require('../middleware/upload');
-
+const jwt = require('jsonwebtoken');
 const path = require('path');
 const fs = require('fs');
 
+
+
+// Student auth middleware
+const authenticateStudent = async (req, res, next) => {
+  try {
+    const authHeader = req.headers['authorization'];
+    const token = authHeader && authHeader.split(' ')[1];
+
+    if (!token) {
+      return res.status(401).json({
+        success: false,
+        error: 'Access token required'
+      });
+    }
+
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
+    req.student = decoded;
+    next();
+  } catch (error) {
+    return res.status(403).json({
+      success: false,
+      error: 'Invalid token'
+    });
+  }
+};
 
 // GET /api/requests - Tüm talepleri getir
 router.get('/', async (req, res) => {
@@ -173,6 +198,58 @@ router.put('/:id/status', validateIdParam, validateStatusUpdate, async (req, res
   }
 });
 
+// POST /api/requests - Create new request (Student tarafından)
+router.post('/', authenticateStudent, async (req, res) => {
+  try {
+    const { type_id, content, priority = 'Medium' } = req.body;
+    const student_id = req.student.student_id;
+
+    if (!type_id || !content) {
+      return res.status(400).json({
+        success: false,
+        error: 'Type ID and content are required'
+      });
+    }
+
+    // Request type kontrolü
+    const [typeCheck] = await pool.execute(
+      'SELECT type_id, is_disabled FROM request_types WHERE type_id = ?',
+      [type_id]
+    );
+
+    if (typeCheck.length === 0 || typeCheck[0].is_disabled) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid or disabled request type'
+      });
+    }
+
+    const [result] = await pool.execute(`
+      INSERT INTO guidance_requests (student_id, type_id, content, priority, status, submitted_at)
+      VALUES (?, ?, ?, ?, 'Pending', NOW())
+    `, [student_id, type_id, content, priority]);
+
+    res.status(201).json({
+      success: true,
+      message: 'Request created successfully',
+      data: {
+        request_id: result.insertId,
+        student_id,
+        type_id,
+        content,
+        priority,
+        status: 'Pending'
+      }
+    });
+
+  } catch (error) {
+    console.error('Create request error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to create request'
+    });
+  }
+});
 
 // POST /api/requests/:id/upload - Dosya yükle
 router.post('/:id/upload', upload.array('files', 3), handleUploadError, async (req, res) => {

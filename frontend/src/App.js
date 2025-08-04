@@ -17,7 +17,7 @@ import DarkModeToggle from './components/DarkModeToggle';
 import FIULogo from './components/FIULogo';
 import ConfirmationModal from './components/ConfirmationModal';
 import LanguageDropdown from './components/LanguageDropdown';
-
+import { useConfirmation } from './hooks/useConfirmation';
 // Pages
 import HomePage from './pages/HomePage';
 import RequestsPage from './pages/RequestsPage';
@@ -185,19 +185,23 @@ const SimpleLanguageSelector = () => {
 const MainApp = () => {
   const { user, logout } = useAuth();
   const { t } = useTranslation();
-  const [showLogoutModal, setShowLogoutModal] = useState(false);
+  const { confirmationState, showConfirmation } = useConfirmation();
 
-  const handleLogoutClick = () => {
-    setShowLogoutModal(true);
-  };
+  const handleLogoutClick = async () => {
+    console.log('Navbar logout button clicked!');
+    
+    const confirmed = await showConfirmation({
+      title: t('logoutConfirmation', 'Logout Confirmation'),
+      message: t('logoutConfirmationMessage', 'Are you sure you want to logout?'),
+      type: 'danger',
+      confirmText: t('logout', 'Logout'),
+      cancelText: t('cancel', 'Cancel')
+    });
 
-  const handleLogoutConfirm = () => {
-    setShowLogoutModal(false);
-    logout();
-  };
-
-  const handleLogoutCancel = () => {
-    setShowLogoutModal(false);
+    if (confirmed) {
+      console.log('Navbar logout confirmed');
+      logout();
+    }
   };
 
   return (
@@ -281,17 +285,8 @@ const MainApp = () => {
         </div>
       </footer>
 
-      {/* Site İçi Logout Onay Modalı */}
-      <ConfirmationModal
-        show={showLogoutModal}
-        title="FIU Guidance System"
-        message={t('areYouSureLogout')}
-        confirmText={t('logout')}
-        cancelText={t('cancel')}
-        type="warning"
-        onConfirm={handleLogoutConfirm}
-        onCancel={handleLogoutCancel}
-      />
+      {/* Confirmation Modal - EN ÖNEMLİ KISIM! */}
+      <ConfirmationModal {...confirmationState} />
 
       {/* Dark Mode Toggle */}
       <DarkModeToggle />

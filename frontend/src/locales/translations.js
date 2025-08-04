@@ -4,7 +4,9 @@ export const translations = {
 
 maxFileSizeStudent: 'Maksimum dosya boyutu: 2MB',
 
-
+'logoutConfirmation': 'Çıkış Onayı',
+'logoutConfirmationMessage': 'Çıkış yapmak istediğinizden emin misiniz?',
+'rejected': 'Reddedildi',
 'Clear Form': 'Formu Temizle',
 dragAndDropFiles: 'Dosyaları buraya sürükleyin',
   orClickToSelect: 'veya dosya seçmek için yandaki butona tıklayın',
@@ -414,7 +416,9 @@ adminLogin: 'Akademik Personel Girişi',
 
   en: {
 
-   
+    'logoutConfirmation': 'Logout Confirmation',
+    'logoutConfirmationMessage': 'Are you sure you want to log out?',
+   'rejected': 'Rejected',
 'Clear Form': 'Clear Form',
  dragAndDropFiles: 'Drag and drop files here',
   orClickToSelect: 'or click the button above to select files',
@@ -822,6 +826,9 @@ sendResponse: 'Send Response',
   },
 ar: {
 
+  'logoutConfirmation': 'تأكيد تسجيل الخروج',
+  'logoutConfirmationMessage': 'هل أنت متأكد أنك تريد تسجيل الخروج؟',
+  'rejected': 'مرفوض',
   'Clear Form': 'مسح النموذج',
   dragAndDropFiles: 'اسحب الملفات هنا',
   orClickToSelect: 'أو انقر على الزر أعلاه لتحديد الملفات',
@@ -1195,6 +1202,9 @@ ar: {
 
 ru: {
 
+  'logoutConfirmation': 'Подтверждение выхода',
+  'logoutConfirmationMessage': 'Вы уверены, что хотите выйти?',
+  'rejected': 'Отклонено',
   'Clear Form': 'Очистить форму',
     dragAndDropFiles: 'Перетащите файлы сюда',
   orClickToSelect: 'или нажмите кнопку выше для выбора файлов',
@@ -1567,6 +1577,9 @@ requestTypes: {
 },
 fr: {
 
+  'logoutConfirmation': 'Confirmation de déconnexion',
+  'logoutConfirmationMessage': 'Êtes-vous sûr de vouloir vous déconnecter ?',
+  'rejected': 'Rejeté',
   'Clear Form': 'Effacer le formulaire',
 
  dragAndDropFiles: 'Glissez et déposez les fichiers ici',

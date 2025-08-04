@@ -467,7 +467,7 @@ const handleRejectRequest = async (rejectionReason) => {
     
     // RBAC Management Tabs (Super Admin only)
     if (isSuperAdmin()) {
-      tabs.push({ key: 'rbac', label: '🛡️ RBAC', icon: '🛡️' });
+     
       tabs.push({ key: 'users', label: '👥 Users', icon: '👥' });
       tabs.push({ key: 'roles', label: '🎭 Roles', icon: '🎭' });
       tabs.push({ key: 'permissions', label: '🔐 Permissions', icon: '🔐' });
@@ -800,15 +800,8 @@ const handleRejectRequest = async (rejectionReason) => {
                     </button>
                   )}
                   
-                  {isSuperAdmin() && (
-                    <button 
-                      className="btn btn-outline-primary"
-                      onClick={() => setActiveTab('rbac')}
-                      style={{ borderRadius: '8px' }}
-                    >
-                      🛡️ RBAC Management
-                    </button>
-                  )}
+                  
+                  
                 </div>
               </div>
             </div>

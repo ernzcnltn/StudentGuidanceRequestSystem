@@ -18,14 +18,15 @@ const { confirmationState, showConfirmation } = useConfirmation();
 const { logout } = useAuth(); // ← BU SATIRI EKLE
 
 
+
 const handleLogoutClick = async () => {
   console.log('Student logout button clicked!');
   
   const confirmed = await showConfirmation({
-    title: '🚪 Logout Confirmation',
-    message: 'Are you sure you want to logout from the student portal?\n\nThis action will:\n• End your current session\n• Return you to the login page\n• You will need to login again',
+    title: 'Logout Confirmation',
+    message: 'Are you sure you want to logout from the student portal?',
     type: 'danger',
-    confirmText: 'Logout Now',
+    confirmText: 'Logout',
     cancelText: 'Cancel'
   });
 
@@ -57,6 +58,10 @@ const handleLogoutClick = async () => {
 
     fetchData();
   }, []);
+
+
+
+
 
   // Kategori tıklama fonksiyonu
   const handleCategoryClick = (category) => {
@@ -91,6 +96,10 @@ const handleLogoutClick = async () => {
   }
 
   return (
+
+      <div>
+   
+
     <div>
       {/* Hero Section */}
       <div className="jumbotron bg-primary text-white p-5 rounded mb-4">
@@ -101,6 +110,8 @@ const handleLogoutClick = async () => {
         <Link className="btn btn-light btn-lg" to="/create-request">
           {t('createRequest')}
         </Link>
+       
+          </div>
       </div>
 
       {/* Request Categories */}

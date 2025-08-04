@@ -117,77 +117,77 @@ class RBACService {
    * @returns {Object} Result of assignment
    */
   async assignRoleToUser(userId, roleId, assignerId, expiresAt = null) {
-    const connection = await pool.getConnection();
-    
-    try {
-      await connection.beginTransaction();
+  const connection = await pool.getConnection();
+  
+  try {
+    await connection.beginTransaction();
 
-      console.log('🎭 Starting role assignment transaction:', { userId, roleId, assignerId, expiresAt });
+    console.log('🎭 Starting role assignment transaction:', { userId, roleId, assignerId, expiresAt });
 
-      // Check if assigner has permission to assign roles
-      const canAssign = await this.hasPermission(assignerId, 'users', 'manage_roles');
-      if (!canAssign) {
-        throw new Error('Insufficient permissions to assign roles');
-      }
-
-      // Check if role assignment already exists and is active
-      const [existing] = await connection.execute(`
-        SELECT user_id, is_active FROM user_roles 
-        WHERE user_id = ? AND role_id = ?
-      `, [userId, roleId]);
-
-      if (existing.length > 0) {
-        if (existing[0].is_active) {
-          throw new Error('User already has this role (active)');
-        } else {
-          // Reactivate existing role
-          await connection.execute(`
-            UPDATE user_roles 
-            SET is_active = TRUE, assigned_by = ?, expires_at = ?, assigned_at = NOW()
-            WHERE user_id = ? AND role_id = ?
-          `, [assignerId, expiresAt, userId, roleId]);
-          
-          console.log('✅ Reactivated existing role assignment');
-        }
-      } else {
-        // Insert new role assignment
-        await connection.execute(`
-          INSERT INTO user_roles (user_id, role_id, assigned_by, expires_at, is_active)
-          VALUES (?, ?, ?, ?, TRUE)
-        `, [userId, roleId, assignerId, expiresAt]);
-        
-        console.log('✅ Created new role assignment');
-      }
-
-      // Update user's role timestamp
-      await connection.execute(`
-        UPDATE admin_users 
-        SET last_role_update = NOW(), role_updated_by = ?
-        WHERE admin_id = ?
-      `, [assignerId, userId]);
-
-      await connection.commit();
-
-      console.log('✅ Role assignment transaction completed successfully');
-
-      return {
-        success: true,
-        message: 'Role assigned successfully',
-        data: {
-          user_id: userId,
-          role_id: roleId,
-          assigned_by: assignerId,
-          expires_at: expiresAt
-        }
-      };
-    } catch (error) {
-      await connection.rollback();
-      console.error('❌ Role assignment transaction failed:', error);
-      throw error;
-    } finally {
-      connection.release();
+    // Check if assigner has permission to assign roles
+    const canAssign = await this.hasPermission(assignerId, 'users', 'manage_roles');
+    if (!canAssign) {
+      throw new Error('Insufficient permissions to assign roles');
     }
+
+    // Check if role assignment already exists and is active
+    const [existing] = await connection.execute(`
+      SELECT user_id, is_active FROM user_roles 
+      WHERE user_id = ? AND role_id = ?
+    `, [userId, roleId]);
+
+    if (existing.length > 0) {
+      if (existing[0].is_active) {
+        throw new Error('User already has this role (active)');
+      } else {
+        // Reactivate existing role
+        await connection.execute(`
+          UPDATE user_roles 
+          SET is_active = TRUE, assigned_by = ?, expires_at = ?, assigned_at = NOW()
+          WHERE user_id = ? AND role_id = ?
+        `, [assignerId, expiresAt, userId, roleId]);
+        
+        console.log('✅ Reactivated existing role assignment');
+      }
+    } else {
+      // Insert new role assignment
+      await connection.execute(`
+        INSERT INTO user_roles (user_id, role_id, assigned_by, expires_at, is_active)
+        VALUES (?, ?, ?, ?, TRUE)
+      `, [userId, roleId, assignerId, expiresAt]);
+      
+      console.log('✅ Created new role assignment');
+    }
+
+    // Update user's role timestamp
+    await connection.execute(`
+      UPDATE admin_users 
+      SET last_role_update = NOW(), role_updated_by = ?
+      WHERE admin_id = ?
+    `, [assignerId, userId]);
+
+    await connection.commit();
+
+    console.log('✅ Role assignment transaction completed successfully');
+
+    return {
+      success: true,
+      message: 'Role assigned successfully',
+      data: {
+        user_id: userId,
+        role_id: roleId,
+        assigned_by: assignerId,
+        expires_at: expiresAt
+      }
+    };
+  } catch (error) {
+    await connection.rollback();
+    console.error('❌ Role assignment transaction failed:', error);
+    throw error;
+  } finally {
+    connection.release();
   }
+}
 
   /**
    * Remove role from user

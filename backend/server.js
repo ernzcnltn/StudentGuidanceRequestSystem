@@ -2,7 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const path = require('path');
 const cookieParser = require('cookie-parser');
-
+const authRoutes = require('./routes/auth');
 require('dotenv').config();
 
 // Import services
@@ -64,7 +64,7 @@ app.use('/api/admin-auth/login', authLimiter);
 app.use('/api/', generalLimiter);
 
 
-
+app.use('/api/auth', authRoutes);
 
 
 // Routes
@@ -256,7 +256,6 @@ const server = app.listen(PORT, () => {
   console.log('   📁 File Uploads');
   console.log('   🔐 Role-based Access');
   console.log('==========================================');
-  console.log('📧 Email notifications:', process.env.EMAIL_USER ? 'enabled' : 'disabled');
   
   
   console.log('✅ Server ready to accept connections\n');

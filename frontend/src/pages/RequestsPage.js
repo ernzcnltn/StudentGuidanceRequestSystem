@@ -382,7 +382,7 @@ const RequestsPage = () => {
             className={`btn ${filter === 'Rejected' ? 'btn-danger' : 'btn-outline-danger'}`}
             onClick={() => setFilter('Rejected')}
           >
-            🚫 {t('rejected', 'Rejected')} ({requests.filter(r => r.status === 'Rejected').length})
+             {t('rejected', 'Rejected')} ({requests.filter(r => r.status === 'Rejected').length})
           </button>
         </div>
       </div>

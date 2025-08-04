@@ -1589,6 +1589,75 @@ router.get('/rbac/roles',
   }
 );
 
+// POST /api/admin-auth/rbac/assign-role - Role atama (EKSİK OLAN BU!)
+router.post('/rbac/assign-role', 
+  authenticateAdmin, 
+  requirePermission('users', 'manage_roles'),
+  async (req, res) => {
+    try {
+      const { user_id, role_id, expires_at } = req.body;
+      const assignerId = req.admin.admin_id;
+
+      console.log('🎭 Role assignment request:', { user_id, role_id, assignerId, expires_at });
+
+      if (!user_id || !role_id) {
+        return res.status(400).json({
+          success: false,
+          error: 'User ID and Role ID are required'
+        });
+      }
+
+      // Validation first
+      const [roleCheck] = await pool.execute(`
+        SELECT role_id, role_name FROM roles WHERE role_id = ? AND is_active = TRUE
+      `, [role_id]);
+
+      if (roleCheck.length === 0) {
+        return res.status(404).json({
+          success: false,
+          error: 'Role not found'
+        });
+      }
+
+      const [userCheck] = await pool.execute(`
+        SELECT admin_id, username FROM admin_users WHERE admin_id = ? AND is_active = TRUE
+      `, [user_id]);
+
+      if (userCheck.length === 0) {
+        return res.status(404).json({
+          success: false,
+          error: 'User not found'
+        });
+      }
+
+      // Check if already assigned
+      const [existing] = await pool.execute(`
+        SELECT user_id, is_active FROM user_roles 
+        WHERE user_id = ? AND role_id = ? AND is_active = TRUE
+      `, [user_id, role_id]);
+
+      if (existing.length > 0) {
+        return res.status(409).json({
+          success: false,
+          error: 'User already has this role assigned'
+        });
+      }
+
+      // Assign role using RBAC service
+      const result = await rbacService.assignRoleToUser(user_id, role_id, assignerId, expires_at);
+      
+      console.log('✅ Role assignment successful:', result);
+      res.json(result);
+      
+    } catch (error) {
+      console.error('❌ Role assignment error:', error);
+      res.status(500).json({
+        success: false,
+        error: error.message || 'Failed to assign role'
+      });
+    }
+  }
+);
 
 // POST /api/admin-auth/rbac/validate-role-assignment - Validate role assignment
 router.post('/rbac/validate-role-assignment', 

@@ -199,13 +199,13 @@ const rbacApiMethods = {
   
   // ===== ROLE ASSIGNMENT =====
  rbacAssignRole: (userId, roleId, expiresAt = null) => {
-    console.log('🎭 Assigning role:', { userId, roleId, expiresAt });
-    return adminApi.post('/admin-auth/rbac/assign-role', { 
-      user_id: userId, 
-      role_id: roleId, 
-      expires_at: expiresAt 
-    });
-  },
+  console.log('🎭 Assigning role:', { userId, roleId, expiresAt });
+  return adminApi.post('/admin-auth/rbac/assign-role', { 
+    user_id: userId, 
+    role_id: roleId, 
+    expires_at: expiresAt 
+  });
+},
 
 
   rbacRemoveRole: (userId, roleId) => {
