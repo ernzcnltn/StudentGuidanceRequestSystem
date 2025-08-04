@@ -476,23 +476,23 @@ const handleRejectRequest = async (rejectionReason) => {
     const tabs = [];
     
     if (canViewAnalytics()) {
-      tabs.push({ key: 'dashboard', label: '📊 Dashboard', icon: '📊' });
+      tabs.push({ key: 'dashboard', label: '📊 Dashboard', icon: '' });
     }
     
     if (canViewRequests()) {
-      tabs.push({ key: 'requests', label: '📋 Manage Requests', icon: '📋' });
+      tabs.push({ key: 'requests', label: '📋 Manage Requests', icon: '' });
     }
     
     if (canManageSettings()) {
-      tabs.push({ key: 'settings', label: '⚙️ Settings', icon: '⚙️' });
+      tabs.push({ key: 'settings', label: '⚙️ Settings', icon: '' });
     }
     
     // RBAC Management Tabs (Super Admin only)
     if (isSuperAdmin()) {
      
-      tabs.push({ key: 'users', label: '👥 Users', icon: '👥' });
-      tabs.push({ key: 'roles', label: '🎭 Roles', icon: '🎭' });
-      tabs.push({ key: 'permissions', label: '🔐 Permissions', icon: '🔐' });
+      tabs.push({ key: 'users', label: '👥 Users', icon: '' });
+      tabs.push({ key: 'roles', label: '🎭 Roles', icon: '' });
+      tabs.push({ key: 'permissions', label: '🔐 Permissions', icon: '' });
     }
     
     // Department Admin can see user management for their department
@@ -689,54 +689,7 @@ const handleRejectRequest = async (rejectionReason) => {
                   </div>
 
 
-            {/* Request Type Statistics */}
-            <div 
-              className="card border-0 shadow-sm" 
-              style={{ 
-                borderRadius: '12px',
-                backgroundColor: isDark ? '#000000' : '#ffffff',
-                border: isDark ? '1px solid #333333' : '1px solid #e5e7eb'
-              }}
-            >
-              <div className="card-header bg-transparent border-0 p-4">
-                <h5 className="text-danger mb-0">📊 {t('requesttype')} Statistics</h5>
-              </div>
-              <div className="card-body p-4">
-                {dashboardData.type_stats && dashboardData.type_stats.length > 0 ? (
-                  <div className="row">
-                    {dashboardData.type_stats.map((stat, index) => (
-                      <div key={stat.type_name} className="col-md-6 mb-3">
-                        <div 
-                          className="d-flex justify-content-between align-items-center p-3 rounded-3"
-                          style={{ 
-                            borderLeft: `4px solid ${['#dc2626', '#f59e0b', '#10b981', '#3b82f6', '#8b5cf6'][index % 5]}`,
-                            backgroundColor: isDark ? '#111111' : '#f8f9fa',
-                            border: isDark ? '1px solid #333333' : '1px solid #e5e7eb'
-                          }}
-                        >
-                          <span className={`fw-semibold ${isDark ? 'text-light' : 'text-dark'}`}>
-                            {translateRequestType(stat.type_name)}
-                          </span>
-                          <span 
-                            className="badge"
-                            style={{ 
-                              backgroundColor: ['#dc2626', '#f59e0b', '#10b981', '#3b82f6', '#8b5cf6'][index % 5],
-                              color: 'white'
-                            }}
-                          >
-                            {stat.count || 0}
-                          </span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className={isDark ? 'text-light' : 'text-muted'}>
-                    {t('noRequestTypeData')}
-                  </p>
-                )}
-              </div>
-            </div>
+            
           </div>
           
           {/* Quick Actions */}

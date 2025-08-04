@@ -710,7 +710,7 @@ const RequestsPage = () => {
               <div className="modal-content">
                 <div className="modal-header">
                   <h5 className="modal-title text-danger">
-                    🚫 {t('rejectionDetails', 'Rejection Details')} - Request #{selectedRequestForRejectionDetails.requestId}
+                    🚫 {t('rejectionDetails', 'Rejection Details')} 
                   </h5>
                   <button
                     type="button"
@@ -729,7 +729,7 @@ const RequestsPage = () => {
                     <div className="card border-danger">
                       <div className="card-header bg-danger text-white">
                         <h6 className="mb-0">
-                          <span className="me-2">🚫</span>
+                          <span className="me-2"></span>
                           Why was this request rejected?
                         </h6>
                       </div>
@@ -787,10 +787,7 @@ const RequestsPage = () => {
                 
                 <div className="modal-footer">
                   <div className="text-muted small me-auto">
-                    Request rejected on {selectedRequestForRejectionDetails.rejected_at 
-                      ? new Date(selectedRequestForRejectionDetails.rejected_at).toLocaleDateString()
-                      : 'Unknown date'
-                    }
+                    
                   </div>
                   <button
                     type="button"
@@ -804,7 +801,7 @@ const RequestsPage = () => {
                     className="btn btn-primary"
                     onClick={() => setShowRejectionDetailsModal(false)}
                   >
-                    📝 Submit New Request
+                     Submit New Request
                   </Link>
                 </div>
               </div>
