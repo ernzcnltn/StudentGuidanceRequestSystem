@@ -14,12 +14,21 @@ const {
 } = require('../middleware/adminAuth');
 const rbacService = require('../services/rbacService');
 
-// POST /api/admin-auth/login - Admin giriş (değişiklik yok)
+// POST /api/admin-auth/login - Admin giriş (DEBUG VERSION)
 router.post('/login', async (req, res) => {
   try {
     const { username, password } = req.body;
 
+    console.log('=== LOGIN DEBUG START ===');
+    console.log('🔍 Received data:', { 
+      username, 
+      password: password?.substring(0, 10) + '...', 
+      passwordLength: password?.length,
+      fullPassword: password // GEÇİCİ - güvenlik için sonra kaldır
+    });
+
     if (!username || !password) {
+      console.log('❌ Missing username or password');
       return res.status(400).json({
         success: false,
         error: 'Username and password are required'
@@ -28,11 +37,24 @@ router.post('/login', async (req, res) => {
 
     // Admin'i bul
     const [admins] = await pool.execute(
-      'SELECT * FROM admin_users WHERE username = ? AND is_active = TRUE',
+      'SELECT admin_id, username, password_hash, full_name, email, department, role, is_super_admin FROM admin_users WHERE username = ? AND is_active = TRUE',
       [username]
     );
 
+    console.log('🔍 Database query result:', {
+      foundUsers: admins.length,
+      userData: admins.length > 0 ? {
+        username: admins[0].username,
+        department: admins[0].department,
+        is_super_admin: admins[0].is_super_admin,
+        hasPasswordHash: !!admins[0].password_hash,
+        passwordHashStart: admins[0].password_hash?.substring(0, 15),
+        passwordHashLength: admins[0].password_hash?.length
+      } : 'No user found'
+    });
+
     if (admins.length === 0) {
+      console.log('❌ User not found in database');
       return res.status(401).json({
         success: false,
         error: 'Invalid username or password'
@@ -41,8 +63,19 @@ router.post('/login', async (req, res) => {
 
     const admin = admins[0];
 
-    // Şifre kontrolü
+    // Manuel bcrypt test
+    console.log('🔍 Manual bcrypt test:');
+    console.log('Input password:', password);
+    console.log('Stored hash:', admin.password_hash);
+    
     const isValidPassword = await bcrypt.compare(password, admin.password_hash);
+    console.log('🔍 bcrypt.compare result:', isValidPassword);
+    
+    // Manuel hash test
+    const testHash = await bcrypt.hash(password, 10);
+    console.log('🔍 Fresh hash of input password:', testHash);
+    
+    console.log('=== LOGIN DEBUG END ===');
     
     if (!isValidPassword) {
       return res.status(401).json({
@@ -102,7 +135,7 @@ router.post('/login', async (req, res) => {
     }
 
   } catch (error) {
-    console.error('Admin login error:', error);
+    console.error('❌ Login error:', error);
     res.status(500).json({
       success: false,
       error: 'Admin login failed'
@@ -110,7 +143,7 @@ router.post('/login', async (req, res) => {
   }
 });
 
- // GET /api/admin-auth/dashboard - Dashboard data (EKSİK ya da HATALI!)
+ // GET /api/admin-auth/dashboard - Dashboard data (DÜZELT!)
 router.get('/dashboard', 
   authenticateAdmin, 
   commonPermissions.viewAnalytics(),
@@ -118,7 +151,8 @@ router.get('/dashboard',
     try {
       console.log('📊 Fetching dashboard data for:', req.admin.department);
       
-      const department = req.admin.is_super_admin ? null : req.admin.department;
+      const isPureSuperAdmin = req.admin.is_super_admin && !req.admin.department;
+      const department = isPureSuperAdmin ? null : req.admin.department;
       
       // Get request counts by status
       let statusQuery = `
@@ -130,7 +164,7 @@ router.get('/dashboard',
       `;
       
       const params = [];
-      if (department) {
+      if (!isPureSuperAdmin && department) {
         statusQuery += ' WHERE rt.category = ?';
         params.push(department);
       }
@@ -149,7 +183,7 @@ router.get('/dashboard',
       `;
       
       const typeParams = [];
-      if (department) {
+      if (!isPureSuperAdmin && department) {
         typeQuery += ' WHERE rt.category = ?';
         typeParams.push(department);
       }
@@ -180,7 +214,7 @@ router.get('/dashboard',
         data: {
           totals,
           type_stats: typeStats,
-          department: department || 'ALL'
+          department: isPureSuperAdmin ? 'ALL' : department
         }
       });
       
@@ -418,7 +452,9 @@ router.get('/rbac/users',
   requirePermission('users', 'view'),
   async (req, res) => {
     try {
-      const department = req.admin.is_super_admin ? null : req.admin.department;
+      const isPureSuperAdmin = req.admin.is_super_admin && !req.admin.department;
+      const department = isPureSuperAdmin ? null : req.admin.department;
+      
       const users = await rbacService.getUsersWithRoles(department);
       
       res.json({
@@ -999,7 +1035,7 @@ router.get('/requests',
   async (req, res) => {
     try {
       const department = req.admin.department;
-      const isSuper = req.admin.is_super_admin;
+      const isPureSuperAdmin = req.admin.is_super_admin && !req.admin.department;
       const { status } = req.query;
 
       let query = `
@@ -1027,7 +1063,7 @@ router.get('/requests',
       const params = [];
       const conditions = [];
 
-      if (!isSuper) {
+      if (!isPureSuperAdmin && department) {
         conditions.push('rt.category = ?');
         params.push(department);
       }
@@ -1061,9 +1097,9 @@ router.get('/requests',
         data: requests,
         meta: {
           total: requests.length,
-          department: isSuper ? 'ALL' : department,
+          department: isPureSuperAdmin ? 'ALL' : department,
           filter: status || 'all',
-          is_super_admin: isSuper
+          is_pure_super_admin: isPureSuperAdmin
         }
       });
 
@@ -1088,11 +1124,11 @@ router.get('/request-types',
   async (req, res) => {
     try {
       const department = req.admin.department;
-      const isSuper = req.admin.is_super_admin;
+      const isPureSuperAdmin = req.admin.is_super_admin && !req.admin.department;
 
       let query, params;
 
-      if (isSuper) {
+      if (isPureSuperAdmin) {
         query = `
           SELECT 
             type_id,
@@ -1127,8 +1163,8 @@ router.get('/request-types',
         success: true,
         data: requestTypes,
         meta: {
-          department: isSuper ? 'ALL' : department,
-          is_super_admin: isSuper
+          department: isPureSuperAdmin ? 'ALL' : department,
+          is_pure_super_admin: isPureSuperAdmin
         }
       });
 

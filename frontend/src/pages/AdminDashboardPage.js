@@ -143,21 +143,25 @@ const fetchRejectionDetails = async (requestId) => {
     }
 
     try {
-      setLoading(true);
-      const response = await apiService.getAdminDashboard();
-      
-      if (response.data && response.data.success) {
-        setDashboardData(response.data.data);
-      }
-    } catch (error) {
-      console.error('Error fetching dashboard data:', error);
-      if (error.response?.status === 403) {
-        showError('Access denied: Insufficient permissions for dashboard');
-      }
-    } finally {
-      setLoading(false);
+       setLoading(true);
+    // BU KONTROLÜ EKLE:
+    const isPureSuperAdmin = isSuperAdmin() && !department;
+    const dashboardParams = isPureSuperAdmin ? {} : { department };
+    
+    const response = await apiService.getAdminDashboard(dashboardParams);
+    
+    if (response.data && response.data.success) {
+      setDashboardData(response.data.data);
     }
-  }, [canViewAnalytics, showError]);
+  } catch (error) {
+    console.error('Error fetching dashboard data:', error);
+    if (error.response?.status === 403) {
+      showError('Access denied: Insufficient permissions for dashboard');
+    }
+  } finally {
+    setLoading(false);
+  }
+}, [canViewAnalytics, showError, department, isSuperAdmin]);
 
   const fetchRequests = useCallback(async () => {
     if (!canViewRequests()) {
@@ -497,7 +501,7 @@ const handleRejectRequest = async (rejectionReason) => {
     
     // Department Admin can see user management for their department
     if (isDepartmentAdmin() && !isSuperAdmin()) {
-      tabs.push({ key: 'dept-users', label: '👥 Dept Users', icon: '👥' });
+      tabs.push({ key: 'dept-users', label: '👥 Dept Users', icon: '' });
     }
     
     return tabs;
