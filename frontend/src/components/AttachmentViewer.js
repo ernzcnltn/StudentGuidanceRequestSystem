@@ -160,7 +160,12 @@ const AttachmentViewer = ({ requestId, onClose }) => {
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          padding: '20px'
+          padding: '20px',
+           opacity: 1, 
+            filter: 'none',
+           backdropFilter: 'none' 
+          
+
         }}
         onClick={handlePreviewBackdropClick}
       >
@@ -208,7 +213,8 @@ const AttachmentViewer = ({ requestId, onClose }) => {
                   maxWidth: '100%',
                   maxHeight: '80vh',
                   objectFit: 'contain',
-                  borderRadius: '4px'
+                  borderRadius: '4px',
+                  backgroundColor: '#fff'
                 }}
                 onLoad={() => console.log('Image loaded successfully')}
                 onError={(e) => {
