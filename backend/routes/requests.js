@@ -1,3 +1,4 @@
+// backend/routes/requests.js - FIXED VERSION with rejection details endpoint
 const express = require('express');
 const router = express.Router();
 const { pool } = require('../config/database');
@@ -6,8 +7,6 @@ const { upload, handleUploadError } = require('../middleware/upload');
 const jwt = require('jsonwebtoken');
 const path = require('path');
 const fs = require('fs');
-
-
 
 // Student auth middleware
 const authenticateStudent = async (req, res, next) => {
@@ -45,6 +44,8 @@ router.get('/', async (req, res) => {
         gr.submitted_at,
         gr.updated_at,
         gr.resolved_at,
+        gr.rejected_at,
+        gr.rejection_reason,
         s.name as student_name,
         s.student_number,
         s.email as student_email,
@@ -95,6 +96,8 @@ router.get('/student/:studentId', async (req, res) => {
         gr.submitted_at,
         gr.updated_at,
         gr.resolved_at,
+        gr.rejected_at,
+        gr.rejection_reason,
         rt.type_name,
         rt.category,
         COUNT(a.attachment_id) as attachment_count
@@ -129,9 +132,6 @@ router.get('/student/:studentId', async (req, res) => {
   }
 });
 
-
-    
-   
 // PUT /api/requests/:id/status - Update status with email notification
 router.put('/:id/status', validateIdParam, validateStatusUpdate, async (req, res) => {
   try {
@@ -175,8 +175,6 @@ router.put('/:id/status', validateIdParam, validateStatusUpdate, async (req, res
         [requestId, response_content]
       );
     }
-    
-   
     
     res.json({
       success: true,
@@ -422,49 +420,12 @@ router.get('/attachments/:filename', async (req, res) => {
   }
 });
 
-router.get('/requests/:requestId/rejection-details', authenticateStudent, async (req, res) => {
-  try {
-    const { requestId } = req.params;
-    const studentId = req.user.student_id; // JWT'den gelen student ID
-    
-    // Student sadece kendi request'inin detaylarını görebilir
-    const rejectionDetails = await db.query(`
-      SELECT 
-        rr.reason,
-        rr.additional_info,
-        rr.rejected_at,
-        rr.rejected_by_admin,
-        a.name as admin_name
-      FROM request_rejections rr
-      JOIN requests r ON r.request_id = rr.request_id
-      LEFT JOIN admins a ON a.admin_id = rr.rejected_by_admin
-      WHERE rr.request_id = ? AND r.student_id = ?
-    `, [requestId, studentId]);
-    
-    if (rejectionDetails.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: 'Rejection details not found'
-      });
-    }
-    
-    res.json({
-      success: true,
-      data: rejectionDetails[0]
-    });
-  } catch (error) {
-    console.error('Get rejection details error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to get rejection details'
-    });
-  }
-});
-
-// ✅ YENİ EKLENEN: GET /api/requests/:id/responses - Student Request Responses
+// FIXED: GET /api/requests/:id/responses - Student Request Responses
 router.get('/:id/responses', async (req, res) => {
   try {
     const requestId = req.params.id;
+    
+    console.log('📋 Getting responses for request:', requestId);
     
     // Request'in var olup olmadığını kontrol et
     const [requestCheck] = await pool.execute(
@@ -485,13 +446,16 @@ router.get('/:id/responses', async (req, res) => {
         ar.response_id,
         ar.response_content,
         ar.created_at,
-        COALESCE(au.name, au.username, 'Admin') as created_by_admin
+        ar.is_internal,
+        COALESCE(au.full_name, au.name, au.username, 'Admin') as created_by_admin
       FROM admin_responses ar
       LEFT JOIN admin_users au ON ar.admin_id = au.admin_id
-      WHERE ar.request_id = ?
+      WHERE ar.request_id = ? AND ar.is_internal = FALSE
       ORDER BY ar.created_at ASC`,
       [requestId]
     );
+    
+    console.log(`📋 Found ${responses.length} responses for request ${requestId}`);
     
     res.json({
       success: true,
@@ -499,10 +463,54 @@ router.get('/:id/responses', async (req, res) => {
       count: responses.length
     });
   } catch (error) {
-    console.error('Get student responses error:', error);
+    console.error('❌ Get student responses error:', error);
     res.status(500).json({
       success: false,
       error: 'Failed to get responses'
+    });
+  }
+});
+
+// NEW: GET /api/requests/:requestId/rejection-details - Student rejection details
+router.get('/:requestId/rejection-details', authenticateStudent, async (req, res) => {
+  try {
+    const { requestId } = req.params;
+    const studentId = req.student.student_id; // JWT'den gelen student ID
+    
+    console.log('📋 Getting rejection details for request (STUDENT):', { requestId, studentId });
+    
+    // Student sadece kendi request'inin detaylarını görebilir
+    const [rejectionDetails] = await pool.execute(`
+      SELECT 
+        gr.rejection_reason as reason,
+        '' as additional_info,
+        gr.rejected_at,
+        gr.rejected_by,
+        COALESCE(au.full_name, au.name, au.username, 'Admin') as admin_name
+      FROM guidance_requests gr
+      LEFT JOIN admin_users au ON gr.rejected_by = au.admin_id
+      WHERE gr.request_id = ? AND gr.student_id = ? AND gr.status = 'Rejected'
+    `, [requestId, studentId]);
+    
+    if (rejectionDetails.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'Rejection details not found or request is not rejected'
+      });
+    }
+    
+    console.log('✅ Found rejection details:', rejectionDetails[0]);
+    
+    res.json({
+      success: true,
+      data: rejectionDetails[0]
+    });
+  } catch (error) {
+    console.error('❌ Get rejection details error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to get rejection details',
+      error: error.message
     });
   }
 });

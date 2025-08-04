@@ -1,102 +1,72 @@
 // frontend/src/components/RequestRejectModal.js
 import React, { useState } from 'react';
-import { useTheme } from '../contexts/ThemeContext';
 import { useTranslation } from '../hooks/useTranslation';
 
-const RequestRejectModal = ({ 
-  show, 
-  onHide, 
-  request, 
-  onRejectConfirm,
-  loading = false 
-}) => {
-  const { isDark } = useTheme();
-  const { t } = useTranslation();
+const RequestRejectModal = ({ show, onHide, request, onRejectConfirm, loading }) => {
+  const { t, translateRequestType } = useTranslation();
   const [rejectionReason, setRejectionReason] = useState('');
-  const [showPreviewReasons, setShowPreviewReasons] = useState(false);
+  const [errors, setErrors] = useState({});
 
-  // Common rejection reasons for quick selection
-  const commonReasons = [
-    {
-      id: 'incomplete_docs',
-      text: 'Incomplete or missing required documents',
-      tr: 'Eksik veya gerekli belgeler eksik'
-    },
-    {
-      id: 'incorrect_info',
-      text: 'Incorrect or invalid information provided',
-      tr: 'Yanlış veya geçersiz bilgi verildi'
-    },
-    {
-      id: 'duplicate_request',
-      text: 'Duplicate request - already processed',
-      tr: 'Mükerrer talep - zaten işlendi'
-    },
-    {
-      id: 'not_eligible',
-      text: 'Student not eligible for this service',
-      tr: 'Öğrenci bu hizmet için uygun değil'
-    },
-    {
-      id: 'deadline_passed',
-      text: 'Application deadline has passed',
-      tr: 'Başvuru süresi geçmiş'
-    },
-    {
-      id: 'requires_meeting',
-      text: 'In-person meeting required before processing',
-      tr: 'İşlemden önce yüz yüze görüşme gerekli'
-    },
-    {
-      id: 'insufficient_payment',
-      text: 'Required payment not completed',
-      tr: 'Gerekli ödeme tamamlanmamış'
-    },
-    {
-      id: 'prerequisites_missing',
-      text: 'Prerequisites not fulfilled',
-      tr: 'Ön koşullar yerine getirilmemiş'
-    }
+  const predefinedReasons = [
+    'Incomplete information provided',
+    'Missing required documents',
+    'Request does not meet department criteria',
+    'Duplicate request already submitted',
+    'Request submitted to wrong department',
+    'Information provided is unclear or insufficient',
+    'Required supporting evidence not provided',
+    'Request exceeds department policy limits'
   ];
 
-    const handleSubmit = (e) => {
-    e.preventDefault();
-    if (rejectionReason.length < 20) {
-        alert(t('reasonTooShort', 'Please provide a more detailed reason (minimum 20 characters required)'));
-        return;
-    }
-    onRejectConfirm(rejectionReason);
-    setRejectionReason('');
-    setShowPreviewReasons(false);
-    };
-    
+  const handleReasonSelect = (reason) => {
+    setRejectionReason(reason);
+    setErrors({});
+  };
 
-  const handleCommonReasonSelect = (reason) => {
-    setRejectionReason(reason.text);
-    setShowPreviewReasons(false);
+  const handleCustomReasonChange = (e) => {
+    setRejectionReason(e.target.value);
+    setErrors({});
+  };
+
+  const validateForm = () => {
+    const newErrors = {};
+    
+    if (!rejectionReason || rejectionReason.trim().length === 0) {
+      newErrors.reason = 'Rejection reason is required';
+    } else if (rejectionReason.trim().length < 10) {
+      newErrors.reason = 'Rejection reason must be at least 10 characters long';
+    } else if (rejectionReason.trim().length > 500) {
+      newErrors.reason = 'Rejection reason cannot exceed 500 characters';
+    }
+    
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    
+    if (!validateForm()) {
+      return;
+    }
+    
+    console.log('🚫 Submitting rejection with reason:', rejectionReason.trim());
+    onRejectConfirm(rejectionReason.trim());
+  };
+
+  const handleCancel = () => {
+    setRejectionReason('');
+    setErrors({});
+    onHide();
   };
 
   const handleBackdropClick = (e) => {
-    if (e.target === e.currentTarget && !loading) {
-      onHide();
+    if (e.target === e.currentTarget) {
+      handleCancel();
     }
   };
 
-  const handleModalClose = () => {
-    if (!loading) {
-      setRejectionReason('');
-      setShowPreviewReasons(false);
-      onHide();
-    }
-  };
-
-  if (!show) return null;
-
-  const modalStyle = {
-    backgroundColor: isDark ? '#000000' : '#ffffff',
-    borderColor: isDark ? '#333333' : '#dee2e6',
-    color: isDark ? '#ffffff' : '#000000'
-  };
+  if (!show || !request) return null;
 
   return (
     <>
@@ -113,187 +83,151 @@ const RequestRejectModal = ({
         tabIndex="-1"
         style={{ zIndex: 1050 }}
       >
-        <div className="modal-dialog modal-lg">
-          <div className="modal-content" style={modalStyle}>
-            <div className="modal-header border-bottom">
-              <h5 className="modal-title text-danger d-flex align-items-center">
-                <span className="me-2" style={{ fontSize: '1.5rem' }}>🚫</span>
-                {t('rejectRequest', 'Reject Request')}
+        <div className="modal-dialog modal-lg modal-dialog-scrollable">
+          <div className="modal-content">
+            <div className="modal-header bg-danger text-white">
+              <h5 className="modal-title">
+                🚫 {t('rejectRequest', 'Reject Request')} #{request.request_id}
               </h5>
-              {!loading && (
-                <button 
-                  type="button" 
-                  className="btn-close"
-                  onClick={handleModalClose}
-                  aria-label="Close"
-                ></button>
-              )}
+              <button 
+                type="button" 
+                className="btn-close btn-close-white" 
+                onClick={handleCancel}
+                disabled={loading}
+              ></button>
             </div>
-
-            <form onSubmit={handleSubmit}>
-              <div className="modal-body">
-                {/* Request Info */}
-                {request && (
-                  <div 
-                    className="alert alert-warning mb-4"
-                    style={{
-                      backgroundColor: isDark ? '#332701' : '#fff3cd',
-                      borderColor: isDark ? '#664d03' : '#ffecb5',
-                      color: isDark ? '#ffffff' : '#664d03'
-                    }}
-                  >
-                    <h6 className="alert-heading d-flex align-items-center">
-                      <span className="me-2">📋</span>
-                      {t('requestDetails', 'Request Details')}
-                    </h6>
-                    <div className="row">
-                      <div className="col-md-6">
-                        <strong>{t('requestId', 'Request ID')}:</strong> #{request.request_id}<br/>
-                        <strong>{t('student', 'Student')}:</strong> {request.student_name}<br/>
-                        <strong>{t('studentNumber', 'Student Number')}:</strong> {request.student_number}
-                      </div>
-                      <div className="col-md-6">
-                        <strong>{t('requestType', 'Type')}:</strong> {request.type_name}<br/>
-                        <strong>{t('currentStatus', 'Current Status')}:</strong> 
-                        <span className={`badge ms-1 ${
-                          request.status === 'Pending' ? 'bg-warning text-dark' : 'bg-info'
-                        }`}>
-                          {request.status}
-                        </span><br/>
-                        <strong>{t('submittedAt', 'Submitted')}:</strong> {new Date(request.submitted_at).toLocaleDateString()}
-                      </div>
+            
+            <div className="modal-body">
+              {/* Request Information */}
+              <div className="card border-danger mb-4">
+                <div className="card-header bg-danger text-dark">
+                  <h6 className="mb-0">
+                    <span className="me-2">📋</span>
+                    Request Information
+                  </h6>
+                </div>
+                <div className="card-body">
+                  <div className="row">
+                    <div className="col-md-6">
+                      <strong>Student:</strong> {request.student_name}<br/>
+                      <strong>Type:</strong> {translateRequestType(request.type_name)}<br/>
+                      <strong>Priority:</strong> {request.priority || 'Medium'}
                     </div>
-                    
-                    {/* Request Content Preview */}
-                    {request.content && (
-                      <div className="mt-3">
-                        <strong>{t('requestContent', 'Request Content')}:</strong>
-                        <div 
-                          className="mt-1 p-2 rounded border"
-                          style={{ 
-                            backgroundColor: isDark ? '#000000' : '#ffffff',
-                            maxHeight: '100px',
-                            overflowY: 'auto',
-                            fontSize: '0.9rem'
-                          }}
-                        >
-                          {request.content.length > 200 
-                            ? `${request.content.substring(0, 200)}...` 
-                            : request.content
-                          }
+                    <div className="col-md-6">
+                      <strong>Submitted:</strong> {new Date(request.submitted_at).toLocaleString()}<br/>
+                      <strong>Current Status:</strong> <span className="badge bg-warning text-dark">{request.status}</span>
+                    </div>
+                  </div>
+                  <div className="mt-3">
+                    <strong>Content:</strong>
+                    <div className="p-2 bg-light rounded border mt-1">
+                      {request.content.length > 200 
+                        ? request.content.substring(0, 200) + '...' 
+                        : request.content
+                      }
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Rejection Form */}
+              <form onSubmit={handleSubmit}>
+                <div className="mb-4">
+                  <label className="form-label fw-bold text-danger">
+                    <span className="me-2">🚫</span>
+                    Reason for Rejection *
+                  </label>
+                  
+                  {/* Predefined Reasons */}
+                  <div className="mb-3">
+                    <small className="text-muted d-block mb-2">
+                      Select a common reason or write a custom one below:
+                    </small>
+                    <div className="row">
+                      {predefinedReasons.map((reason, index) => (
+                        <div key={index} className="col-md-6 mb-2">
+                          <button
+                            type="button"
+                            className={`btn btn-outline-secondary btn-sm w-100 text-start ${
+                              rejectionReason === reason ? 'active' : ''
+                            }`}
+                            onClick={() => handleReasonSelect(reason)}
+                            disabled={loading}
+                            style={{ 
+                              minHeight: '40px',
+                              fontSize: '0.85rem',
+                              whiteSpace: 'normal'
+                            }}
+                          >
+                            {reason}
+                          </button>
                         </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Custom Reason Textarea */}
+                  <div className="mb-3">
+                    <label className="form-label">
+                      Custom Rejection Reason:
+                    </label>
+                    <textarea
+                      className={`form-control ${errors.reason ? 'is-invalid' : ''}`}
+                      rows="4"
+                      value={rejectionReason}
+                      onChange={handleCustomReasonChange}
+                      placeholder="Enter a detailed reason for rejecting this request..."
+                      disabled={loading}
+                      maxLength={500}
+                    />
+                    {errors.reason && (
+                      <div className="invalid-feedback">
+                        {errors.reason}
                       </div>
                     )}
+                    <div className="form-text">
+                      {rejectionReason.length}/500 characters
+                      {rejectionReason.length < 10 && (
+                        <span className="text-danger ms-2">
+                          (Minimum 10 characters required)
+                        </span>
+                      )}
+                    </div>
                   </div>
-                )}
+                </div>
 
                 
 
-           
-
-                {/* Rejection Reason */}
-                <div className="mb-4">
-                  <label className={`form-label ${isDark ? 'text-light' : 'text-dark'}`}>
-                    <span className="me-2">📝</span>
-                    {t('rejectionReason', 'Rejection Reason')} 
-                    <span className="text-danger ms-1">*</span>
-                  </label>
-                  <textarea
-                    className="form-control"
-                    rows="5"
-                    value={rejectionReason}
-                    onChange={(e) => setRejectionReason(e.target.value)}
-                    placeholder={t('rejectionReasonPlaceholder', 
-                      'Please provide a detailed and constructive reason for rejecting this request. Explain what needs to be corrected or what requirements are missing. This message will be sent to the student via email.'
-                    )}
-                    required
+                {/* Form Actions */}
+                <div className="d-flex gap-2 justify-content-end">
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    onClick={handleCancel}
                     disabled={loading}
-                    style={{
-                      backgroundColor: isDark ? '#000000' : '#ffffff',
-                      borderColor: rejectionReason.length >= 20 
-                        ? (isDark ? '#28a745' : '#28a745') 
-                        : (isDark ? '#333333' : '#ced4da'),
-                      color: isDark ? '#ffffff' : '#000000',
-                      resize: 'vertical',
-                      minHeight: '120px'
-                    }}
-                  />
-                  <div className="d-flex justify-content-between mt-2">
-                    <small className={isDark ? 'text-light' : 'text-muted'}>
-                      {t('beSpecific', 'Be specific and constructive. Help the student understand how to correct their request.')}
-                    </small>
-                    <small className={`${
-                      rejectionReason.length < 20 
-                        ? 'text-warning' 
-                        : rejectionReason.length > 500 
-                        ? 'text-info'
-                        : 'text-success'
-                    }`}>
-                      {rejectionReason.length} / 1000 {t('characters', 'characters')}
-                    </small>
-                  </div>
-                </div>
-
-                {/* Character Count Warning */}
-                {rejectionReason.length > 0 && rejectionReason.length < 20 && (
-                  <div className="alert alert-warning">
-                    <div className="d-flex align-items-center">
-                      <span className="me-2">⚠️</span>
-                      <small>
-                        {t('reasonTooShort', 'Please provide a more detailed reason (minimum 20 characters required)')}
-                      </small>
-                    </div>
-                  </div>
-                )}
-
-               
-
-              
-              </div>
-
-              <div className="modal-footer border-top">
-                <div className="d-flex justify-content-between align-items-center w-100">
-                  <div className="text-muted small">
-                    {request && (
+                  >
+                    {t('cancel', 'Cancel')}
+                  </button>
+                  
+                  <button
+                    type="submit"
+                    className="btn btn-danger"
+                    disabled={loading || !rejectionReason.trim() || rejectionReason.trim().length < 10}
+                  >
+                    {loading ? (
                       <>
-                        
-                       
+                        <span className="spinner-border spinner-border-sm me-2" role="status"></span>
+                        {t('rejecting', 'Rejecting...')}
+                      </>
+                    ) : (
+                      <>
+                        🚫 {t('confirmReject', 'Confirm Rejection')}
                       </>
                     )}
-                  </div>
-                  <div className="d-flex gap-2">
-                    {!loading && (
-                      <button 
-                        type="button" 
-                        className="btn btn-secondary"
-                        onClick={handleModalClose}
-                      >
-                        <span className="me-1"></span>
-                        {t('cancel', 'Cancel')}
-                      </button>
-                    )}
-                    <button 
-                      type="submit" 
-                      className="btn btn-danger"
-                      disabled={loading || rejectionReason.length < 20}
-                      style={{ minWidth: '140px' }}
-                    >
-                      {loading ? (
-                        <>
-                          <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
-                          {t('rejecting', 'Rejecting')}...
-                        </>
-                      ) : (
-                        <>
-                          <span className="me-1"></span>
-                          {t('rejectRequest', 'Reject Request')}
-                        </>
-                      )}
-                    </button>
-                  </div>
+                  </button>
                 </div>
-              </div>
-            </form>
+              </form>
+            </div>
           </div>
         </div>
       </div>

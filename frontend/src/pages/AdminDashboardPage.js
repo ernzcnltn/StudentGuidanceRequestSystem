@@ -1608,7 +1608,7 @@ const handleRejectRequest = async (rejectionReason) => {
             borderColor: isDark ? '#333333' : '#dee2e6'
           }}>
             <h5 className="modal-title text-danger">
-              🚫 Rejection Details - Request #{selectedRejectionDetails.requestId}
+              🚫 Rejection Details 
             </h5>
             <button
               type="button"
@@ -1682,21 +1682,9 @@ const handleRejectRequest = async (rejectionReason) => {
               </div>
             </div>
 
-            <div className="alert alert-info" style={{
-              backgroundColor: isDark ? '#0a1a2d' : '#d1ecf1',
-              borderColor: isDark ? '#1a3d5c' : '#bee5eb',
-              color: isDark ? '#ffffff' : '#0c5460'
-            }}>
-              <h6 className="alert-heading">
-                <span className="me-2">ℹ️</span>
-                Admin Actions Available:
-              </h6>
-              <ul className="mb-0">
-                <li>You can reopen this request if needed</li>
-                <li>Contact the student to provide additional guidance</li>
-                <li>Review the rejection reason for quality assurance</li>
-              </ul>
-            </div>
+            
+              
+            
           </div>
 
           <div className="modal-footer" style={{
@@ -1704,30 +1692,17 @@ const handleRejectRequest = async (rejectionReason) => {
             borderColor: isDark ? '#333333' : '#dee2e6'
           }}>
             <div className="text-muted small me-auto">
-              Request rejected on {selectedRejectionDetails.rejected_at 
-                ? new Date(selectedRejectionDetails.rejected_at).toLocaleDateString()
-                : 'Unknown date'
-              }
+              
+              
             </div>
             <button
               type="button"
               className="btn btn-secondary"
               onClick={() => setShowRejectionDetailsModal(false)}
             >
-              Close
+        {t('close')}
             </button>
-            {/* Opsiyonel: Reopen butonu */}
-            <button
-              type="button"
-              className="btn btn-warning"
-              onClick={() => {
-                // Reopen request functionality
-                console.log('Reopen request:', selectedRejectionDetails.requestId);
-                setShowRejectionDetailsModal(false);
-              }}
-            >
-              🔄 Reopen Request
-            </button>
+            
           </div>
         </div>
       </div>

@@ -1,8 +1,9 @@
+// frontend/src/pages/RequestsPage.js - FIXED VERSION
 import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { apiService } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
-import { useTranslation } from '../hooks/useTranslation'; // YENİ EKLENEN
+import { useTranslation } from '../hooks/useTranslation';
 import AttachmentViewer from '../components/AttachmentViewer';
 
 const RequestsPage = () => {
@@ -19,7 +20,7 @@ const RequestsPage = () => {
   const [selectedRequestForResponses, setSelectedRequestForResponses] = useState(null);
   const [showResponsesModal, setShowResponsesModal] = useState(false);
 
-  // Yeni eklenenlar:
+  // Rejection details state
   const [rejectionDetails, setRejectionDetails] = useState({});
   const [loadingRejectionDetails, setLoadingRejectionDetails] = useState(false);
   const [selectedRequestForRejectionDetails, setSelectedRequestForRejectionDetails] = useState(null);
@@ -32,7 +33,7 @@ const RequestsPage = () => {
       try {
         setLoading(true);
         const response = await apiService.getStudentRequests(studentId);
-        // Requestleri gönderme tarihine göre sırala (en yeni önce)
+        // Sort requests by submission date (newest first)
         const sortedRequests = response.data.data.sort((a, b) => 
           new Date(b.submitted_at) - new Date(a.submitted_at)
         );
@@ -48,6 +49,7 @@ const RequestsPage = () => {
     loadRequests();
   }, [studentId]);
 
+  // FIXED: Fetch rejection details for students
   const fetchRejectionDetails = async (requestId) => {
     if (rejectionDetails[requestId]) {
       return rejectionDetails[requestId];
@@ -55,28 +57,34 @@ const RequestsPage = () => {
 
     try {
       setLoadingRejectionDetails(true);
-      const response = await apiService.getRejectionDetails(requestId);
+      console.log('📋 Fetching rejection details for request:', requestId);
+      
+      // Use the student API endpoint for rejection details
+      const response = await apiService.getStudentRejectionDetails(requestId);
 
       if (response.data.success) {
+        const details = response.data.data;
         setRejectionDetails(prev => ({
           ...prev,
-          [requestId]: response.data.data
+          [requestId]: details
         }));
-        return response.data.data;
+        return details;
+      } else {
+        console.error('Failed to fetch rejection details:', response.data);
+        return null;
       }
     } catch (error) {
       console.error('Error fetching rejection details:', error);
+      return null;
     } finally {
       setLoadingRejectionDetails(false);
     }
-    return null;
   };
 
   const fetchRequests = async () => {
     try {
       setLoading(true);
       const response = await apiService.getStudentRequests(studentId);
-      // Requestleri gönderme tarihine göre sırala (en yeni önce)
       const sortedRequests = response.data.data.sort((a, b) => 
         new Date(b.submitted_at) - new Date(a.submitted_at)
       );
@@ -94,7 +102,7 @@ const RequestsPage = () => {
       'Pending': 'bg-warning text-dark',
       'Informed': 'bg-info text-white',
       'Completed': 'bg-success text-white',
-      'Rejected': 'bg-danger text-white' // YENİ EKLENEN
+      'Rejected': 'bg-danger text-white'
     };
     return statusStyles[status] || 'bg-secondary text-white';
   };
@@ -104,7 +112,7 @@ const RequestsPage = () => {
       'Pending': '⏳',
       'Informed': '💬',
       'Completed': '✅',
-      'Rejected': '🚫'  // YENİ EKLENEN
+      'Rejected': '🚫'
     };
     return statusIcons[status] || '📋';
   };
@@ -129,7 +137,6 @@ const RequestsPage = () => {
     return icons[priority] || '🟡';
   };
 
-  // Filtrelenmiş requestleri de tarihe göre sırala
   const filteredRequests = requests
     .filter(request => {
       if (filter === 'all') return true;
@@ -162,20 +169,34 @@ const RequestsPage = () => {
     };
   };
 
-  // StudentResponseViewer Component (Senin kodun içinde olduğu gibi)
+  // FIXED: Student Response Viewer Component
   const StudentResponseViewer = ({ requestId, requestTitle, onClose }) => {
     const [responses, setResponses] = useState([]);
     const [loading, setLoading] = useState(false);
+    const [error, setError] = useState(null);
 
     const fetchResponses = useCallback(async () => {
       try {
         setLoading(true);
+        setError(null);
+        
+        console.log('📋 Fetching student responses for request:', requestId);
+        
+        // Use the correct student API endpoint
         const response = await apiService.getRequestResponses(requestId);
+        
+        console.log('📋 Student responses response:', response.data);
+        
         if (response.data.success) {
-          setResponses(response.data.data);
+          setResponses(response.data.data || []);
+          console.log(`✅ Loaded ${response.data.data.length} responses`);
+        } else {
+          setError('Failed to load responses');
+          console.error('❌ Failed to load responses:', response.data);
         }
       } catch (error) {
-        console.error('Error fetching responses:', error);
+        console.error('❌ Error fetching student responses:', error);
+        setError('Failed to load responses: ' + error.message);
       } finally {
         setLoading(false);
       }
@@ -208,10 +229,9 @@ const RequestsPage = () => {
         >
           <div className="modal-dialog modal-lg modal-dialog-scrollable">
             <div className="modal-content">
-
               <div className="modal-header">
                 <h5 className="modal-title">
-                  💬 {t('responsesFor')}: {requestTitle}
+                  💬 {t('responsesFor', 'Responses for')}: {requestTitle}
                 </h5>
                 <button type="button" className="btn-close" onClick={onClose}></button>
               </div>
@@ -220,37 +240,74 @@ const RequestsPage = () => {
                 {loading ? (
                   <div className="text-center py-4">
                     <div className="spinner-border text-primary" role="status"></div>
-                    <p className="mt-3">{t('loadingResponses')}</p>
+                    <p className="mt-3">{t('loadingResponses', 'Loading responses...')}</p>
+                  </div>
+                ) : error ? (
+                  <div className="alert alert-danger">
+                    <h6>❌ Error Loading Responses</h6>
+                    <p className="mb-2">{error}</p>
+                    <button className="btn btn-outline-danger btn-sm" onClick={fetchResponses}>
+                      🔄 Try Again
+                    </button>
                   </div>
                 ) : responses.length === 0 ? (
                   <div className="text-center py-5">
                     <div className="text-muted">
                       <div style={{ fontSize: '4rem' }}>💬</div>
-                      <h5 className="mt-3">{t('noResponsesYet')}</h5>
-                      <p>{t('adminHasntResponded')}</p>
+                      <h5 className="mt-3">{t('noResponsesYet', 'No responses yet')}</h5>
+                      <p>{t('adminHasntResponded', 'The admin hasn\'t responded to this request yet.')}</p>
                     </div>
                   </div>
                 ) : (
                   <div>
-                    <h6 className="mb-3">{t('adminResponses')} ({responses.length})</h6>
+                    <div className="d-flex justify-content-between align-items-center mb-3">
+                      <h6 className="mb-0">
+                        📋 {t('adminResponses', 'Admin Responses')} ({responses.length})
+                      </h6>
+                      <button className="btn btn-outline-primary btn-sm" onClick={fetchResponses}>
+                        🔄 Refresh
+                      </button>
+                    </div>
+                    
                     {responses.map((response, index) => (
-                      <div key={response.response_id} className="card mb-3">
+                      <div key={response.response_id || index} className="card mb-3 shadow-sm">
                         <div className="card-body">
                           <div className="d-flex justify-content-between align-items-start mb-3">
                             <div className="d-flex align-items-center">
                               <span className="badge bg-primary me-2">#{index + 1}</span>
-                              <strong className="text-primary">
-                                {response.created_by_admin}
-                              </strong>
+                              <div>
+                                <strong className="text-primary d-block">
+                                  👨‍💼 {response.created_by_admin || 'Admin'}
+                                </strong>
+                                <small className="text-muted">
+                                  📅 {new Date(response.created_at).toLocaleDateString()}
+                                  {' '}🕐 {new Date(response.created_at).toLocaleTimeString()}
+                                </small>
+                              </div>
                             </div>
-                            <small className="text-muted">
-                              📅 {new Date(response.created_at).toLocaleDateString()}
-                              🕐 {new Date(response.created_at).toLocaleTimeString()}
-                            </small>
                           </div>
-                          <div className="bg-light p-3 rounded">
-                            <p className="mb-0">{response.response_content}</p>
+                          
+                          <div className="bg-light p-3 rounded border-start border-primary border-4">
+                            <p className="mb-0" style={{ whiteSpace: 'pre-wrap', lineHeight: '1.6' }}>
+                              {response.response_content}
+                            </p>
                           </div>
+                          
+                          {/* Show response attachments if any */}
+                          {response.attachments && response.attachments.length > 0 && (
+                            <div className="mt-3 p-2 bg-info bg-opacity-10 rounded">
+                              <small className="text-info fw-bold">
+                                📎 Attachments ({response.attachments.length}):
+                              </small>
+                              <div className="d-flex flex-wrap gap-1 mt-1">
+                                {response.attachments.map((file, fileIndex) => (
+                                  <span key={fileIndex} className="badge bg-info">
+                                    {file.file_name}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                          )}
                         </div>
                       </div>
                     ))}
@@ -260,13 +317,12 @@ const RequestsPage = () => {
 
               <div className="modal-footer">
                 <div className="text-muted small me-auto">
-                  {responses.length} {t('responsesFound')}
+                  {error ? 'Error loading responses' : `${responses.length} ${t('responsesFound', 'responses found')}`}
                 </div>
                 <button type="button" className="btn btn-secondary" onClick={onClose}>
-                  {t('close')}
+                  {t('close', 'Close')}
                 </button>
               </div>
-
             </div>
           </div>
         </div>
@@ -322,7 +378,7 @@ const RequestsPage = () => {
             </div>
           </div>
         </div>
-        <div className="col-md-3">
+        <div className="col-md-2">
           <div className="card text-center">
             <div className="card-body">
               <h3 className="text-warning mb-1">{requests.filter(r => r.status === 'Pending').length}</h3>
@@ -330,7 +386,7 @@ const RequestsPage = () => {
             </div>
           </div>
         </div>
-        <div className="col-md-3">
+        <div className="col-md-2">
           <div className="card text-center">
             <div className="card-body">
               <h3 className="text-info mb-1">{requests.filter(r => r.status === 'Informed').length}</h3>
@@ -338,7 +394,7 @@ const RequestsPage = () => {
             </div>
           </div>
         </div>
-        <div className="col-md-3">
+        <div className="col-md-2">
           <div className="card text-center">
             <div className="card-body">
               <h3 className="text-success mb-1">{requests.filter(r => r.status === 'Completed').length}</h3>
@@ -422,7 +478,7 @@ const RequestsPage = () => {
                     <div>
                       <h6 className="mb-1">
                         <span className="me-2">{getStatusIcon(request.status)}</span>
-                        {translateRequestType(request.type_name)} {/* BURADA ÇEVİRİ */}
+                        {translateRequestType(request.type_name)}
                       </h6>
                     </div>
                     <div className="d-flex align-items-center gap-2">
@@ -509,22 +565,39 @@ const RequestsPage = () => {
                                     {formatDate(request.rejected_at).date} at {formatDate(request.rejected_at).time}
                                   </span>
 
-                                  {/* Reddetme sebebi butonu */}
+                                  {/* FIXED: Rejection reason button */}
                                   <button
                                     className="btn btn-sm btn-outline-danger"
                                     onClick={async () => {
+                                      console.log('📋 Loading rejection details for request:', request.request_id);
                                       const details = await fetchRejectionDetails(request.request_id);
                                       if (details) {
+                                        console.log('✅ Rejection details loaded:', details);
                                         setSelectedRequestForRejectionDetails({
                                           requestId: request.request_id,
                                           reason: details.reason,
-                                          additionalInfo: details.additional_info || ''
+                                          additional_info: details.additional_info || '',
+                                          rejected_at: details.rejected_at,
+                                          admin_name: details.admin_name || 'Unknown Admin'
                                         });
                                         setShowRejectionDetailsModal(true);
+                                      } else {
+                                        console.error('❌ Failed to load rejection details');
+                                        alert('Failed to load rejection details. Please try again.');
                                       }
                                     }}
+                                    disabled={loadingRejectionDetails}
                                   >
-                                    {t('viewRejectionReason', 'View Rejection Reason')}
+                                    {loadingRejectionDetails ? (
+                                      <>
+                                        <span className="spinner-border spinner-border-sm me-1"></span>
+                                        Loading...
+                                      </>
+                                    ) : (
+                                      <>
+                                        🚫 {t('viewRejectionReason', 'View Rejection Reason')}
+                                      </>
+                                    )}
                                   </button>
                                 </div>
                               )}
@@ -555,11 +628,12 @@ const RequestsPage = () => {
                                 </button>
                               )}
 
-                              {/* View Responses */}
+                              {/* FIXED: View Responses - Updated conditions */}
                               {(request.status === 'Informed' || request.status === 'Completed') && (
                                 <button
                                   className="btn btn-sm btn-outline-info"
                                   onClick={() => {
+                                    console.log('💬 Opening responses modal for request:', request.request_id);
                                     setSelectedRequestForResponses({
                                       id: request.request_id,
                                       title: `#${request.request_id} - ${request.type_name}`
@@ -567,7 +641,7 @@ const RequestsPage = () => {
                                     setShowResponsesModal(true);
                                   }}
                                 >
-                                  💬 {t('viewResponse')}
+                                  💬 {t('viewResponse', 'View Responses')}
                                 </button>
                               )}
                             </div>
@@ -604,7 +678,7 @@ const RequestsPage = () => {
         />
       )}
 
-      {/* Student Response Viewer Modal */}
+      {/* FIXED: Student Response Viewer Modal */}
       {showResponsesModal && selectedRequestForResponses && (
         <StudentResponseViewer
           requestId={selectedRequestForResponses.id}
@@ -616,7 +690,7 @@ const RequestsPage = () => {
         />
       )}
 
-      {/* Rejection Details Modal */}
+      {/* FIXED: Rejection Details Modal */}
       {showRejectionDetailsModal && selectedRequestForRejectionDetails && (
         <>
           {/* Modal Backdrop */}
@@ -632,11 +706,11 @@ const RequestsPage = () => {
             tabIndex="-1"
             style={{ zIndex: 1050 }}
           >
-            <div className="modal-dialog modal-md modal-dialog-scrollable">
+            <div className="modal-dialog modal-lg modal-dialog-scrollable">
               <div className="modal-content">
                 <div className="modal-header">
                   <h5 className="modal-title text-danger">
-                    🚫 {t('rejectionDetails')}
+                    🚫 {t('rejectionDetails', 'Rejection Details')} - Request #{selectedRequestForRejectionDetails.requestId}
                   </h5>
                   <button
                     type="button"
@@ -644,33 +718,94 @@ const RequestsPage = () => {
                     onClick={() => setShowRejectionDetailsModal(false)}
                   ></button>
                 </div>
+                
                 <div className="modal-body">
                   {loadingRejectionDetails ? (
                     <div className="text-center py-4">
                       <div className="spinner-border text-danger" role="status"></div>
-                      <p className="mt-3">{t('loading')}</p>
+                      <p className="mt-3">{t('loading', 'Loading...')}</p>
                     </div>
                   ) : (
-                    <>
-                      <p>
-                        <strong>{t('reason')}:</strong> {selectedRequestForRejectionDetails.reason}
-                      </p>
-                      {selectedRequestForRejectionDetails.additionalInfo && (
-                        <p>
-                          <strong>{t('additionalInfo')}:</strong> {selectedRequestForRejectionDetails.additionalInfo}
-                        </p>
-                      )}
-                    </>
+                    <div className="card border-danger">
+                      <div className="card-header bg-danger text-white">
+                        <h6 className="mb-0">
+                          <span className="me-2">🚫</span>
+                          Why was this request rejected?
+                        </h6>
+                      </div>
+                      <div className="card-body">
+                        <div className="mb-3">
+                          <label className="form-label fw-bold">Rejection Reason:</label>
+                          <div className="p-3 bg-light rounded border">
+                            {selectedRequestForRejectionDetails.reason || 'No reason provided'}
+                          </div>
+                        </div>
+
+                        {selectedRequestForRejectionDetails.additional_info && (
+                          <div className="mb-3">
+                            <label className="form-label fw-bold">Additional Information:</label>
+                            <div className="p-3 bg-light rounded border">
+                              {selectedRequestForRejectionDetails.additional_info}
+                            </div>
+                          </div>
+                        )}
+
+                        <div className="row">
+                          <div className="col-md-6">
+                            <label className="form-label fw-bold">Rejected Date:</label>
+                            <p className="text-muted">
+                              {selectedRequestForRejectionDetails.rejected_at 
+                                ? new Date(selectedRequestForRejectionDetails.rejected_at).toLocaleString()
+                                : 'Unknown'
+                              }
+                            </p>
+                          </div>
+                          <div className="col-md-6">
+                            <label className="form-label fw-bold">Rejected By:</label>
+                            <p className="text-muted">
+                              {selectedRequestForRejectionDetails.admin_name || 'Unknown Admin'}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
                   )}
+
+                  <div className="alert alert-info mt-3">
+                    <h6 className="alert-heading">
+                      <span className="me-2">ℹ️</span>
+                      What can you do next?
+                    </h6>
+                    <ul className="mb-0">
+                      <li>Review the rejection reason carefully</li>
+                      <li>If you think this was a mistake, contact the {selectedRequestForRejectionDetails.admin_name || 'admin'} directly</li>
+                      <li>You can submit a new request with the required corrections</li>
+                      <li>Contact student support if you need additional help</li>
+                    </ul>
+                  </div>
                 </div>
+                
                 <div className="modal-footer">
+                  <div className="text-muted small me-auto">
+                    Request rejected on {selectedRequestForRejectionDetails.rejected_at 
+                      ? new Date(selectedRequestForRejectionDetails.rejected_at).toLocaleDateString()
+                      : 'Unknown date'
+                    }
+                  </div>
                   <button
                     type="button"
                     className="btn btn-secondary"
                     onClick={() => setShowRejectionDetailsModal(false)}
                   >
-                    {t('close')}
+                    {t('close', 'Close')}
                   </button>
+                  <Link 
+                    to="/create-request" 
+                    className="btn btn-primary"
+                    onClick={() => setShowRejectionDetailsModal(false)}
+                  >
+                    📝 Submit New Request
+                  </Link>
                 </div>
               </div>
             </div>

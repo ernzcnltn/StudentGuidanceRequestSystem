@@ -696,7 +696,6 @@ getAdminRejectionDetails: (requestId) => {
 },
 
 
-// Request rejection methods (FIXED)
 rejectRequest: (requestId, rejectionData) => {
   console.log('🚫 Rejecting request:', { requestId, hasReason: !!rejectionData.rejection_reason });
   
@@ -723,6 +722,13 @@ rejectRequest: (requestId, rejectionData) => {
         throw error;
       }
     });
+},
+
+
+// Get rejection statistics (for admin analytics)
+getRejectionStatistics: () => {
+  console.log('📊 Getting rejection statistics...');
+  return adminApi.get('/admin-auth/statistics/rejections');
 },
 
 unrejectRequest: (requestId, reopenData) => {
@@ -859,104 +865,7 @@ getRequestStatusBadge: (status) => {
   // Create notification (admin only)
   createNotification: (notificationData) => adminApi.post('/notifications/create', notificationData),
 
-  // Test all notification endpoints
-  testNotificationEndpoints: async () => {
-    const isAdmin = !!localStorage.getItem('admin_token');
-    const results = {
-      userType: isAdmin ? 'admin' : 'student',
-      tests: {}
-    };
-    
-    console.log('🧪 Testing notification endpoints as:', results.userType);
-    
-    // Test 1: Get notifications
-    try {
-      console.log('🧪 Testing get notifications...');
-      const getResponse = isAdmin 
-        ? await apiService.getAdminNotifications()
-        : await apiService.getStudentNotifications();
-      
-      results.tests.getNotifications = { 
-        success: getResponse?.data?.success || false, 
-        count: getResponse?.data?.data?.length || 0,
-        data: getResponse?.data?.data || []
-      };
-      console.log('✅ Get notifications test completed');
-    } catch (error) {
-      results.tests.getNotifications = { success: false, error: error.message };
-      console.log('❌ Get notifications test failed:', error.message);
-    }
-    
-    // Test 2: Mark as read (use first notification if available)
-    if (results.tests.getNotifications?.data?.length > 0) {
-      try {
-        console.log('🧪 Testing mark as read...');
-        const testId = results.tests.getNotifications.data[0].id;
-        const markResponse = await apiService.markNotificationAsRead(testId);
-        
-        results.tests.markAsRead = { 
-          success: markResponse?.data?.success || false,
-          testId: testId
-        };
-        console.log('✅ Mark as read test completed');
-      } catch (error) {
-        results.tests.markAsRead = { success: false, error: error.message };
-        console.log('❌ Mark as read test failed:', error.message);
-      }
-    }
-    
-    // Test 3: Mark all as read
-    try {
-      console.log('🧪 Testing mark all as read...');
-      const markAllResponse = await apiService.markAllNotificationsAsRead();
-      
-      results.tests.markAllAsRead = { 
-        success: markAllResponse?.data?.success || false 
-      };
-      console.log('✅ Mark all as read test completed');
-    } catch (error) {
-      results.tests.markAllAsRead = { success: false, error: error.message };
-      console.log('❌ Mark all as read test failed:', error.message);
-    }
-    
-    // Test 4: Delete notification (use first notification if available)
-    if (results.tests.getNotifications?.data?.length > 0) {
-      try {
-        console.log('🧪 Testing delete notification...');
-        const testId = results.tests.getNotifications.data[0].id;
-        const deleteResponse = await apiService.deleteNotification(testId);
-        
-        results.tests.deleteNotification = { 
-          success: deleteResponse?.data?.success || false,
-          testId: testId
-        };
-        console.log('✅ Delete notification test completed');
-      } catch (error) {
-        results.tests.deleteNotification = { success: false, error: error.message };
-        console.log('❌ Delete notification test failed:', error.message);
-      }
-    }
-    
-    // Test 5: Unread count
-    try {
-      console.log('🧪 Testing unread count...');
-      const countResponse = isAdmin 
-        ? await apiService.getAdminUnreadCount()
-        : await apiService.getUnreadNotificationCount();
-      
-      results.tests.unreadCount = { 
-        success: countResponse?.data?.success || false,
-        count: countResponse?.data?.data?.unread_count || 0
-      };
-      console.log('✅ Unread count test completed');
-    } catch (error) {
-      results.tests.unreadCount = { success: false, error: error.message };
-      console.log('❌ Unread count test failed:', error.message);
-    }
-    
-    console.log('🎯 Notification endpoints test summary:', results);
-    return results;
-  },
+  
 
   // Manual notification testing
   createTestNotification: async () => {

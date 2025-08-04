@@ -2425,35 +2425,47 @@ router.put('/requests/:requestId/reject',
     }
   }
 );
-// Admin rejection details endpoint
+
+
+// GET /api/admin-auth/requests/:requestId/rejection-details - Admin rejection details endpoint
 router.get('/requests/:requestId/rejection-details', authenticateAdmin, async (req, res) => {
   try {
     const { requestId } = req.params;
-    console.log('Admin getting rejection details for request:', requestId);
+    console.log('📋 Admin getting rejection details for request:', requestId);
     
-    const query = `
+    // Departman erişim kontrolü
+    let query = `
       SELECT 
-        rr.reason,
-        rr.additional_info,
-        rr.rejected_at,
-        rr.rejected_by_admin,
-        a.username as admin_name
-      FROM request_rejections rr
-      LEFT JOIN admin_users a ON a.admin_id = rr.rejected_by_admin
-      WHERE rr.request_id = ?
+        gr.rejection_reason as reason,
+        '' as additional_info,
+        gr.rejected_at,
+        gr.rejected_by,
+        COALESCE(au.full_name, au.name, au.username, 'Admin') as admin_name,
+        rt.category
+      FROM guidance_requests gr
+      LEFT JOIN admin_users au ON gr.rejected_by = au.admin_id
+      JOIN request_types rt ON gr.type_id = rt.type_id
+      WHERE gr.request_id = ? AND gr.status = 'Rejected'
     `;
     
-    // pool.execute kullanın (db yerine)
-    const [rows] = await pool.execute(query, [requestId]);
+    const params = [requestId];
+    
+    // Super admin değilse departman kontrolü yap
+    if (!req.admin.is_super_admin) {
+      query += ' AND rt.category = ?';
+      params.push(req.admin.department);
+    }
+    
+    const [rows] = await pool.execute(query, params);
     
     if (rows.length === 0) {
       return res.status(404).json({
         success: false,
-        message: 'No rejection details found for this request'
+        message: 'Rejection details not found for this request in your department'
       });
     }
     
-    console.log('Found admin rejection details:', rows[0]);
+    console.log('✅ Found admin rejection details:', rows[0]);
     
     res.json({
       success: true,
@@ -2461,7 +2473,7 @@ router.get('/requests/:requestId/rejection-details', authenticateAdmin, async (r
     });
     
   } catch (error) {
-    console.error('Admin rejection details error:', error);
+    console.error('❌ Admin rejection details error:', error);
     res.status(500).json({
       success: false,
       message: 'Failed to get rejection details',
@@ -2627,7 +2639,6 @@ router.get('/statistics/rejections',
     }
   }
 );
-
 
 // GET /api/admin-auth/rbac/dashboard - RBAC Dashboard verilerini getir (Super Admin Only)
 router.get('/rbac/dashboard', 
