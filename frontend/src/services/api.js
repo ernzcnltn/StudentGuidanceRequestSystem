@@ -113,6 +113,8 @@ const rbacCache = {
   }
 };
 
+
+
 // ===== RBAC API METHODS =====
 const rbacApiMethods = {
 
@@ -687,7 +689,11 @@ export const apiService = {
   addAdminResponse: (id, responseData) => adminApi.post(`/admin-auth/requests/${id}/responses`, responseData),
   updateAdminResponse: (requestId, responseId, responseData) => adminApi.put(`/admin-auth/requests/${requestId}/responses/${responseId}`, responseData),
   deleteAdminResponse: (requestId, responseId) => adminApi.delete(`/admin-auth/requests/${requestId}/responses/${responseId}`),
-
+getRequestResponses: (id) => studentApi.get(`/requests/${id}/responses`),
+getAdminRejectionDetails: (requestId) => {
+  console.log('📋 Getting rejection details for request (ADMIN):', requestId);
+  return adminApi.get(`/admin-auth/requests/${requestId}/rejection-details`);
+},
 
 
 // Request rejection methods (FIXED)
@@ -726,7 +732,26 @@ unrejectRequest: (requestId, reopenData) => {
 
 getRejectionDetails: (requestId) => {
   console.log('📋 Getting rejection details for request:', requestId);
-  return adminApi.get(`/admin-auth/requests/${requestId}/rejection-details`);
+  
+  // Admin token varsa admin API kullan, yoksa student API kullan
+  const adminToken = localStorage.getItem('admin_token');
+  const studentToken = localStorage.getItem('student_token');
+  
+  if (adminToken) {
+    console.log('🔑 Using admin API for rejection details');
+    return adminApi.get(`/admin-auth/requests/${requestId}/rejection-details`);
+  } else if (studentToken) {
+    console.log('🔑 Using student API for rejection details');
+    return studentApi.get(`/requests/${requestId}/rejection-details`);
+  } else {
+    return Promise.reject(new Error('No authentication token found'));
+  }
+},
+
+// Explicit methods for specific contexts
+getStudentRejectionDetails: (requestId) => {
+  console.log('📋 Getting rejection details for request (STUDENT):', requestId);
+  return studentApi.get(`/requests/${requestId}/rejection-details`);
 },
 
 getRejectionStatistics: () => {

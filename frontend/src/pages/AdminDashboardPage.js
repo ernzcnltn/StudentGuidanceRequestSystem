@@ -64,7 +64,9 @@ const [rejectLoading, setRejectLoading] = useState(false);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const { showSuccess, showError, showInfo } = useToast();
 
-
+const [showRejectionDetailsModal, setShowRejectionDetailsModal] = useState(false);
+const [selectedRejectionDetails, setSelectedRejectionDetails] = useState(null);
+const [rejectionDetailsLoading, setRejectionDetailsLoading] = useState(false);
 
   
   // Add Request Type Form State
@@ -97,7 +99,27 @@ const [rejectLoading, setRejectLoading] = useState(false);
     }
   };
 
-  
+  // Rejection details fetch fonksiyonu
+const fetchRejectionDetails = async (requestId) => {
+  try {
+    setRejectionDetailsLoading(true);
+    const response = await apiService.getAdminRejectionDetails(requestId);
+    
+    if (response.data.success) {
+      setSelectedRejectionDetails({
+        requestId,
+        ...response.data.data
+      });
+      setShowRejectionDetailsModal(true);
+    }
+  } catch (error) {
+    console.error('Error fetching rejection details:', error);
+    showError('Failed to load rejection details');
+  } finally {
+    setRejectionDetailsLoading(false);
+  }
+};
+
   // Admin Language Dropdown
   const AdminLanguageSelector = () => {
     return <LanguageDropdown variant="admin" />;
@@ -565,12 +587,7 @@ const handleRejectRequest = async (rejectionReason) => {
                   )}
                 </div>
                 <div className="text-end">
-                  <button 
-                    className="btn btn-outline-info btn-sm"
-                    onClick={() => setShowRBACDebug(!showRBACDebug)}
-                  >
-                    🔍 RBAC Debug
-                  </button>
+                  
                 </div>
               </div>
             </div>
@@ -975,36 +992,25 @@ const handleRejectRequest = async (rejectionReason) => {
                       </div>
                     </div>
                     
-                 {/* REJECTION DISPLAY - Better styling */}
-        {request.status === 'Rejected' && (
-          <div className="alert alert-danger mb-3" style={{
-            backgroundColor: isDark ? '#2d0a0a' : '#f8d7da',
-            borderColor: isDark ? '#5d1a1a' : '#f1aeb5',
-            color: isDark ? '#ffffff' : '#721c24'
-          }}>
-            <div className="d-flex align-items-start">
-              <span className="me-2" style={{ fontSize: '1.2rem' }}>🚫</span>
-              <div className="flex-grow-1">
-                <h6 className="alert-heading mb-2">
-                  {t('requestRejected', 'Request Rejected')}
-                </h6>
-                <p className="mb-2">
-                  <strong>{t('rejectionReason', 'Rejection Reason')}:</strong>
-                </p>
-                <div className="p-2 rounded" style={{
-                  backgroundColor: isDark ? '#000000' : '#ffffff',
-                  border: isDark ? '1px solid #5d1a1a' : '1px solid #f1aeb5',
-                  fontStyle: 'italic'
-                }}>
-                  {request.rejection_reason || 'No reason provided'}
-                </div>
-                <small className="text-muted mt-2 d-block">
-                  Rejected on: {request.rejected_at ? new Date(request.rejected_at).toLocaleDateString() : 'Unknown'}
-                </small>
-              </div>
-            </div>
-          </div>
-        )}
+                {/* Rejection Details Button - Sadece rejected request'ler için */}
+{request.status === 'Rejected' && (
+  <button
+    className="btn btn-outline-danger btn-sm"
+    onClick={() => fetchRejectionDetails(request.request_id)}
+    disabled={rejectionDetailsLoading}
+  >
+    {rejectionDetailsLoading ? (
+      <>
+        <span className="spinner-border spinner-border-sm me-1"></span>
+        Loading...
+      </>
+    ) : (
+      <>
+        🚫 View Rejection Details
+      </>
+    )}
+  </button>
+)}
         
         {/* Student info, submitted date etc. - no changes */}
         <div className="row text-sm mb-3">
@@ -1571,6 +1577,163 @@ const handleRejectRequest = async (rejectionReason) => {
           loading={rejectLoading}
         />
       )}
+
+
+
+
+{/* Rejection Details Modal */}
+{showRejectionDetailsModal && selectedRejectionDetails && (
+  <>
+    {/* Modal Backdrop */}
+    <div
+      className="modal-backdrop fade show"
+      style={{ zIndex: 1040 }}
+      onClick={() => setShowRejectionDetailsModal(false)}
+    ></div>
+
+    {/* Modal */}
+    <div
+      className="modal fade show d-block"
+      tabIndex="-1"
+      style={{ zIndex: 1050 }}
+    >
+      <div className="modal-dialog modal-lg modal-dialog-scrollable">
+        <div className="modal-content" style={{
+          backgroundColor: isDark ? '#000000' : '#ffffff',
+          borderColor: isDark ? '#333333' : '#dee2e6',
+          color: isDark ? '#ffffff' : '#000000'
+        }}>
+          <div className="modal-header" style={{
+            backgroundColor: isDark ? '#111111' : '#f8f9fa',
+            borderColor: isDark ? '#333333' : '#dee2e6'
+          }}>
+            <h5 className="modal-title text-danger">
+              🚫 Rejection Details - Request #{selectedRejectionDetails.requestId}
+            </h5>
+            <button
+              type="button"
+              className="btn-close"
+              onClick={() => setShowRejectionDetailsModal(false)}
+              style={{
+                filter: isDark ? 'invert(1)' : 'none'
+              }}
+            ></button>
+          </div>
+
+          <div className="modal-body">
+            <div className="card border-danger mb-3" style={{
+              backgroundColor: isDark ? '#2d0a0a' : '#f8d7da',
+              borderColor: '#dc3545'
+            }}>
+              <div className="card-header bg-danger text-white">
+                <h6 className="mb-0">
+                  <span className="me-2">🚫</span>
+                  Rejection Information
+                </h6>
+              </div>
+              <div className="card-body">
+                <div className="mb-3">
+                  <label className="form-label fw-bold">
+                    Rejection Reason:
+                  </label>
+                  <div className="p-3 rounded border" style={{
+                    backgroundColor: isDark ? '#000000' : '#ffffff',
+                    borderColor: isDark ? '#555555' : '#ced4da'
+                  }}>
+                    {selectedRejectionDetails.reason || 'No reason provided'}
+                  </div>
+                </div>
+
+                {selectedRejectionDetails.additional_info && (
+                  <div className="mb-3">
+                    <label className="form-label fw-bold">
+                      Additional Information:
+                    </label>
+                    <div className="p-3 rounded border" style={{
+                      backgroundColor: isDark ? '#000000' : '#ffffff',
+                      borderColor: isDark ? '#555555' : '#ced4da'
+                    }}>
+                      {selectedRejectionDetails.additional_info}
+                    </div>
+                  </div>
+                )}
+
+                <div className="row">
+                  <div className="col-md-6">
+                    <label className="form-label fw-bold">
+                      Rejected Date:
+                    </label>
+                    <p className={isDark ? 'text-light' : 'text-muted'}>
+                      {selectedRejectionDetails.rejected_at 
+                        ? new Date(selectedRejectionDetails.rejected_at).toLocaleString()
+                        : 'Unknown'
+                      }
+                    </p>
+                  </div>
+                  <div className="col-md-6">
+                    <label className="form-label fw-bold">
+                      Rejected By:
+                    </label>
+                    <p className={isDark ? 'text-light' : 'text-muted'}>
+                      {selectedRejectionDetails.admin_name || 'Unknown Admin'}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="alert alert-info" style={{
+              backgroundColor: isDark ? '#0a1a2d' : '#d1ecf1',
+              borderColor: isDark ? '#1a3d5c' : '#bee5eb',
+              color: isDark ? '#ffffff' : '#0c5460'
+            }}>
+              <h6 className="alert-heading">
+                <span className="me-2">ℹ️</span>
+                Admin Actions Available:
+              </h6>
+              <ul className="mb-0">
+                <li>You can reopen this request if needed</li>
+                <li>Contact the student to provide additional guidance</li>
+                <li>Review the rejection reason for quality assurance</li>
+              </ul>
+            </div>
+          </div>
+
+          <div className="modal-footer" style={{
+            backgroundColor: isDark ? '#111111' : '#f8f9fa',
+            borderColor: isDark ? '#333333' : '#dee2e6'
+          }}>
+            <div className="text-muted small me-auto">
+              Request rejected on {selectedRejectionDetails.rejected_at 
+                ? new Date(selectedRejectionDetails.rejected_at).toLocaleDateString()
+                : 'Unknown date'
+              }
+            </div>
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={() => setShowRejectionDetailsModal(false)}
+            >
+              Close
+            </button>
+            {/* Opsiyonel: Reopen butonu */}
+            <button
+              type="button"
+              className="btn btn-warning"
+              onClick={() => {
+                // Reopen request functionality
+                console.log('Reopen request:', selectedRejectionDetails.requestId);
+                setShowRejectionDetailsModal(false);
+              }}
+            >
+              🔄 Reopen Request
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </>
+)}
 
 
       {/* Dark Mode Toggle - Modern */}

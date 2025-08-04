@@ -422,6 +422,45 @@ router.get('/attachments/:filename', async (req, res) => {
   }
 });
 
+router.get('/requests/:requestId/rejection-details', authenticateStudent, async (req, res) => {
+  try {
+    const { requestId } = req.params;
+    const studentId = req.user.student_id; // JWT'den gelen student ID
+    
+    // Student sadece kendi request'inin detaylarını görebilir
+    const rejectionDetails = await db.query(`
+      SELECT 
+        rr.reason,
+        rr.additional_info,
+        rr.rejected_at,
+        rr.rejected_by_admin,
+        a.name as admin_name
+      FROM request_rejections rr
+      JOIN requests r ON r.request_id = rr.request_id
+      LEFT JOIN admins a ON a.admin_id = rr.rejected_by_admin
+      WHERE rr.request_id = ? AND r.student_id = ?
+    `, [requestId, studentId]);
+    
+    if (rejectionDetails.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'Rejection details not found'
+      });
+    }
+    
+    res.json({
+      success: true,
+      data: rejectionDetails[0]
+    });
+  } catch (error) {
+    console.error('Get rejection details error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to get rejection details'
+    });
+  }
+});
+
 // ✅ YENİ EKLENEN: GET /api/requests/:id/responses - Student Request Responses
 router.get('/:id/responses', async (req, res) => {
   try {

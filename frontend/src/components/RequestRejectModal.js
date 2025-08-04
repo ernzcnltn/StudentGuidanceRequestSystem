@@ -187,95 +187,9 @@ const RequestRejectModal = ({
                   </div>
                 )}
 
-                {/* Warning */}
-                <div 
-                  className="alert alert-danger mb-4"
-                  style={{
-                    backgroundColor: isDark ? '#2d0a0a' : '#f8d7da',
-                    borderColor: isDark ? '#5d1a1a' : '#f1aeb5',
-                    color: isDark ? '#ffffff' : '#721c24'
-                  }}
-                >
-                  <h6 className="alert-heading d-flex align-items-center">
-                    <span className="me-2">⚠️</span>
-                    {t('important', 'Important')}
-                  </h6>
-                  <p className="mb-2">
-                    {t('rejectWarning', 'This action will reject the student\'s request and notify them via email. Please provide a clear and constructive reason for rejection.')}
-                  </p>
-                  <ul className="mb-0 small">
-                    <li>{t('studentNotified', 'Student will be notified immediately via email')}</li>
-                    <li>{t('actionPermanent', 'This action can only be undone by Super Administrators')}</li>
-                    <li>{t('beConstructive', 'Be specific and constructive in your feedback')}</li>
-                  </ul>
-                </div>
+                
 
-                {/* Common Reasons */}
-                <div className="mb-4">
-                  <div className="d-flex justify-content-between align-items-center mb-3">
-                    <label className={`form-label mb-0 ${isDark ? 'text-light' : 'text-dark'}`}>
-                      <span className="me-2">💡</span>
-                      {t('commonReasons', 'Common Rejection Reasons')}
-                    </label>
-                    <button
-                      type="button"
-                      className={`btn btn-sm ${showPreviewReasons ? 'btn-secondary' : 'btn-outline-secondary'}`}
-                      onClick={() => setShowPreviewReasons(!showPreviewReasons)}
-                      disabled={loading}
-                    >
-                      {showPreviewReasons ? (
-                        <>
-                          <span className="me-1">▲</span>
-                          {t('hideTemplates', 'Hide Templates')}
-                        </>
-                      ) : (
-                        <>
-                          <span className="me-1">▼</span>
-                          {t('showTemplates', 'Show Templates')}
-                        </>
-                      )}
-                    </button>
-                  </div>
-                  
-                  <small className={isDark ? 'text-light' : 'text-muted'}>
-                    {t('clickToUse', 'Click on a reason below to use as template, then customize as needed')}
-                  </small>
-                  
-                  {showPreviewReasons && (
-                    <div 
-                      className="border rounded p-3 mt-3"
-                      style={{ 
-                        backgroundColor: isDark ? '#111111' : '#f8f9fa',
-                        borderColor: isDark ? '#333333' : '#e5e7eb',
-                        maxHeight: '250px',
-                        overflowY: 'auto'
-                      }}
-                    >
-                      <div className="row">
-                        {commonReasons.map((reason) => (
-                          <div key={reason.id} className="col-12 mb-2">
-                            <button
-                              type="button"
-                              className="btn btn-outline-primary btn-sm w-100 text-start"
-                              onClick={() => handleCommonReasonSelect(reason)}
-                              disabled={loading}
-                              style={{ 
-                                padding: '8px 12px',
-                                fontSize: '0.85rem',
-                                lineHeight: '1.2'
-                              }}
-                            >
-                              <div className="d-flex justify-content-between align-items-start">
-                                <span className="flex-grow-1">{reason.text}</span>
-                                <span className="ms-2 text-muted">→</span>
-                              </div>
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
+           
 
                 {/* Rejection Reason */}
                 <div className="mb-4">
@@ -332,62 +246,9 @@ const RequestRejectModal = ({
                   </div>
                 )}
 
-                {/* Preview */}
-                {rejectionReason.length >= 20 && (
-                  <div 
-                    className="alert alert-info"
-                    style={{
-                      backgroundColor: isDark ? '#0a2a2a' : '#d1ecf1',
-                      borderColor: isDark ? '#1a4d4d' : '#bee5eb',
-                      color: isDark ? '#ffffff' : '#0c5460'
-                    }}
-                  >
-                    <h6 className="alert-heading d-flex align-items-center">
-                      <span className="me-2">📧</span>
-                      {t('emailPreview', 'Email Preview')}
-                    </h6>
-                    <p className="mb-2 small">
-                      {t('studentWillReceive', 'The student will receive this message in their rejection notification email:')}
-                    </p>
-                    <div 
-                      className="p-3 border rounded"
-                      style={{ 
-                        backgroundColor: isDark ? '#000000' : '#ffffff',
-                        borderColor: isDark ? '#333333' : '#dee2e6',
-                        fontStyle: 'italic',
-                        fontSize: '0.9rem',
-                        lineHeight: '1.5'
-                      }}
-                    >
-                      "{rejectionReason}"
-                    </div>
-                    <small className="text-muted mt-2 d-block">
-                      {t('emailContext', 'This will be included in a formatted email with additional context and next steps.')}
-                    </small>
-                  </div>
-                )}
+               
 
-                {/* Guidelines */}
-                <div 
-                  className="alert mb-0"
-                  style={{
-                    backgroundColor: isDark ? '#1a1a2e' : '#e7f3ff',
-                    borderColor: isDark ? '#2d2d5f' : '#b3d7ff',
-                    color: isDark ? '#ffffff' : '#004085'
-                  }}
-                >
-                  <h6 className="alert-heading d-flex align-items-center">
-                    <span className="me-2">📚</span>
-                    {t('guidelines', 'Rejection Guidelines')}
-                  </h6>
-                  <ul className="mb-0 small">
-                    <li>{t('explainSpecific', 'Explain specifically what is wrong or missing')}</li>
-                    <li>{t('provideSolution', 'Provide guidance on how to correct the issue')}</li>
-                    <li>{t('useProfessional', 'Use professional and respectful language')}</li>
-                    <li>{t('includeDeadlines', 'Include relevant deadlines or requirements if applicable')}</li>
-                    <li>{t('suggestNextSteps', 'Suggest clear next steps for the student')}</li>
-                  </ul>
-                </div>
+              
               </div>
 
               <div className="modal-footer border-top">
@@ -395,15 +256,8 @@ const RequestRejectModal = ({
                   <div className="text-muted small">
                     {request && (
                       <>
-                        <span className="me-3">
-                          <strong>{t('request', 'Request')}:</strong> #{request.request_id}
-                        </span>
-                        <span className="me-3">
-                          <strong>{t('student', 'Student')}:</strong> {request.student_name}
-                        </span>
-                        <span>
-                          <strong>{t('type', 'Type')}:</strong> {request.type_name}
-                        </span>
+                        
+                       
                       </>
                     )}
                   </div>
@@ -414,7 +268,7 @@ const RequestRejectModal = ({
                         className="btn btn-secondary"
                         onClick={handleModalClose}
                       >
-                        <span className="me-1">❌</span>
+                        <span className="me-1"></span>
                         {t('cancel', 'Cancel')}
                       </button>
                     )}
@@ -431,7 +285,7 @@ const RequestRejectModal = ({
                         </>
                       ) : (
                         <>
-                          <span className="me-1">🚫</span>
+                          <span className="me-1"></span>
                           {t('rejectRequest', 'Reject Request')}
                         </>
                       )}

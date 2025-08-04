@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Link } from 'react-router-dom';
 import { apiService } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 import { useTranslation } from '../hooks/useTranslation'; // YENİ EKLENEN
@@ -8,7 +8,6 @@ import AttachmentViewer from '../components/AttachmentViewer';
 const RequestsPage = () => {
   const { user } = useAuth();
   const { t, translateRequestType } = useTranslation();
-  const navigate = useNavigate();
 
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -33,7 +32,11 @@ const RequestsPage = () => {
       try {
         setLoading(true);
         const response = await apiService.getStudentRequests(studentId);
-        setRequests(response.data.data);
+        // Requestleri gönderme tarihine göre sırala (en yeni önce)
+        const sortedRequests = response.data.data.sort((a, b) => 
+          new Date(b.submitted_at) - new Date(a.submitted_at)
+        );
+        setRequests(sortedRequests);
       } catch (error) {
         console.error('Error fetching requests:', error);
         setError('Failed to load requests');
@@ -73,7 +76,11 @@ const RequestsPage = () => {
     try {
       setLoading(true);
       const response = await apiService.getStudentRequests(studentId);
-      setRequests(response.data.data);
+      // Requestleri gönderme tarihine göre sırala (en yeni önce)
+      const sortedRequests = response.data.data.sort((a, b) => 
+        new Date(b.submitted_at) - new Date(a.submitted_at)
+      );
+      setRequests(sortedRequests);
     } catch (error) {
       console.error('Error fetching requests:', error);
       setError('Failed to load requests');
@@ -122,10 +129,13 @@ const RequestsPage = () => {
     return icons[priority] || '🟡';
   };
 
-  const filteredRequests = requests.filter(request => {
-    if (filter === 'all') return true;
-    return request.status === filter;
-  });
+  // Filtrelenmiş requestleri de tarihe göre sırala
+  const filteredRequests = requests
+    .filter(request => {
+      if (filter === 'all') return true;
+      return request.status === filter;
+    })
+    .sort((a, b) => new Date(b.submitted_at) - new Date(a.submitted_at));
 
   const toggleExpanded = (requestId) => {
     const newExpanded = new Set(expandedRequests);
@@ -157,11 +167,7 @@ const RequestsPage = () => {
     const [responses, setResponses] = useState([]);
     const [loading, setLoading] = useState(false);
 
-    useEffect(() => {
-      fetchResponses();
-    }, [requestId]);
-
-    const fetchResponses = async () => {
+    const fetchResponses = useCallback(async () => {
       try {
         setLoading(true);
         const response = await apiService.getRequestResponses(requestId);
@@ -173,7 +179,11 @@ const RequestsPage = () => {
       } finally {
         setLoading(false);
       }
-    };
+    }, [requestId]);
+
+    useEffect(() => {
+      fetchResponses();
+    }, [fetchResponses]);
 
     const handleBackdropClick = (e) => {
       if (e.target === e.currentTarget) {

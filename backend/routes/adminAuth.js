@@ -4,6 +4,7 @@ const router = express.Router();
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { pool } = require('../config/database');
+
 const { 
   authenticateAdmin, 
   requirePermission, 
@@ -2424,47 +2425,50 @@ router.put('/requests/:requestId/reject',
     }
   }
 );
-// GET /api/admin-auth/requests/:requestId/rejection-details - Get rejection details
-router.get('/requests/:requestId/rejection-details', 
-  authenticateAdmin, 
-  commonPermissions.viewRequests(),
-  async (req, res) => {
-    try {
-      const { requestId } = req.params;
-
-      const [rejectionDetails] = await pool.execute(`
-        SELECT 
-          gr.rejection_reason,
-          gr.rejected_at,
-          au.full_name as rejected_by_name,
-          au.username as rejected_by_username,
-          au.department as rejected_by_department
-        FROM guidance_requests gr
-        LEFT JOIN admin_users au ON gr.rejected_by = au.admin_id
-        WHERE gr.request_id = ? AND gr.status = 'Rejected'
-      `, [requestId]);
-
-      if (rejectionDetails.length === 0) {
-        return res.status(404).json({
-          success: false,
-          error: 'Request not found or not rejected'
-        });
-      }
-
-      res.json({
-        success: true,
-        data: rejectionDetails[0]
-      });
-
-    } catch (error) {
-      console.error('Error fetching rejection details:', error);
-      res.status(500).json({
+// Admin rejection details endpoint
+router.get('/requests/:requestId/rejection-details', authenticateAdmin, async (req, res) => {
+  try {
+    const { requestId } = req.params;
+    console.log('Admin getting rejection details for request:', requestId);
+    
+    const query = `
+      SELECT 
+        rr.reason,
+        rr.additional_info,
+        rr.rejected_at,
+        rr.rejected_by_admin,
+        a.username as admin_name
+      FROM request_rejections rr
+      LEFT JOIN admin_users a ON a.admin_id = rr.rejected_by_admin
+      WHERE rr.request_id = ?
+    `;
+    
+    // pool.execute kullanın (db yerine)
+    const [rows] = await pool.execute(query, [requestId]);
+    
+    if (rows.length === 0) {
+      return res.status(404).json({
         success: false,
-        error: 'Failed to fetch rejection details'
+        message: 'No rejection details found for this request'
       });
     }
+    
+    console.log('Found admin rejection details:', rows[0]);
+    
+    res.json({
+      success: true,
+      data: rows[0]
+    });
+    
+  } catch (error) {
+    console.error('Admin rejection details error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to get rejection details',
+      error: error.message
+    });
   }
-);
+});
 
 // POST /api/admin-auth/requests/:requestId/unreject - Unreject/Reopen request (Super Admin only)
 router.post('/requests/:requestId/unreject', 
