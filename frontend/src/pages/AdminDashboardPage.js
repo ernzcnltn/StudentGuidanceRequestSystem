@@ -57,7 +57,7 @@ const [rejectLoading, setRejectLoading] = useState(false);
   const [requestTypes, setRequestTypes] = useState([]);
   const [loading, setLoading] = useState(false);
   const [filters, setFilters] = useState({
-    status: ''
+    status: 'Pending',
   });
   const [selectedRequestId, setSelectedRequestId] = useState(null);
   const [showAttachments, setShowAttachments] = useState(false);
@@ -430,7 +430,7 @@ const handleRejectRequest = async (rejectionReason) => {
       showError('You do not have permission to view requests');
       return;
     }
-    setFilters({ status: '' });
+    setFilters({ status: 'Pending' });
     fetchRequests();
   };
 
@@ -832,6 +832,7 @@ const handleRejectRequest = async (rejectionReason) => {
             <option value="Pending">{t('pending')}</option>
             <option value="Informed">{t('informed')}</option>
             <option value="Completed">{t('completed')}</option>
+            <option value="Rejected">{t('rejected', 'Rejected')}</option>
           </select>
           
           <button 
