@@ -604,12 +604,543 @@ const rbacHelpers = {
   }
 };
 
+// ===== ADMIN STATISTICS METHODS =====
+const adminStatisticsMethods = {
+  // Get admin performance statistics
+  getAdminStatistics: (params = {}) => {
+    console.log('📊 Fetching admin statistics:', params);
+    return adminApi.get('/admin-auth/statistics/admins', { params });
+  },
+
+  // Export admin statistics
+  exportAdminStatistics: (params = {}) => {
+    console.log('📤 Exporting admin statistics:', params);
+    return adminApi.get('/admin-auth/statistics/admins/export', { 
+      params,
+      responseType: params.format === 'csv' ? 'blob' : 'json'
+    });
+  },
+
+  // Get individual admin statistics
+  getIndividualAdminStatistics: (adminId, params = {}) => {
+    console.log('📊 Fetching individual admin statistics:', { adminId, params });
+    return adminApi.get(`/admin-auth/statistics/admins/${adminId}`, { params });
+  },
+
+  // Get admin performance ranking
+  getAdminPerformanceRanking: (params = {}) => {
+    console.log('🏆 Fetching admin performance ranking:', params);
+    return adminApi.get('/admin-auth/statistics/admins/ranking', { params });
+  },
+
+  // Get department comparison statistics (Super Admin only)
+  getDepartmentComparisonStats: (params = {}) => {
+    console.log('📊 Fetching department comparison stats:', params);
+    return adminApi.get('/admin-auth/statistics/departments/comparison', { params });
+  },
+
+  // Get admin workload analysis
+  getAdminWorkloadAnalysis: (params = {}) => {
+    console.log('📈 Fetching admin workload analysis:', params);
+    return adminApi.get('/admin-auth/statistics/admins/workload', { params });
+  },
+
+  // Get admin activity timeline
+  getAdminActivityTimeline: (adminId, params = {}) => {
+    console.log('📅 Fetching admin activity timeline:', { adminId, params });
+    return adminApi.get(`/admin-auth/statistics/admins/${adminId}/timeline`, { params });
+  },
+
+  // Helper methods for statistics
+  calculatePerformanceScore: (completed, total) => {
+    if (total === 0) return 0;
+    return Math.round((completed / total) * 100);
+  },
+
+  formatWorkTime: (minutes) => {
+    if (minutes < 60) {
+      return `${minutes}m`;
+    }
+    const hours = Math.floor(minutes / 60);
+    const remainingMinutes = minutes % 60;
+    return `${hours}h ${remainingMinutes}m`;
+  },
+
+  getPerformanceLevel: (score) => {
+    if (score >= 90) return { level: 'Excellent', color: 'success', icon: '🏆' };
+    if (score >= 70) return { level: 'Good', color: 'warning', icon: '⭐' };
+    if (score >= 50) return { level: 'Average', color: 'info', icon: '📈' };
+    return { level: 'Needs Improvement', color: 'danger', icon: '📉' };
+  },
+
+  // Statistics comparison helpers
+  compareAdminPerformance: (admin1, admin2) => {
+    const score1 = admin1.performance_score || 0;
+    const score2 = admin2.performance_score || 0;
+    
+    return {
+      better_performer: score1 > score2 ? admin1 : admin2,
+      performance_difference: Math.abs(score1 - score2),
+      comparison: {
+        requests: {
+          admin1: admin1.total_requests || 0,
+          admin2: admin2.total_requests || 0,
+          difference: (admin1.total_requests || 0) - (admin2.total_requests || 0)
+        },
+        response_time: {
+          admin1: admin1.avg_response_time || 0,
+          admin2: admin2.avg_response_time || 0,
+          difference: (admin1.avg_response_time || 0) - (admin2.avg_response_time || 0)
+        }
+      }
+    };
+  },
+
+  // Generate statistics summary
+  generateStatisticsSummary: (statistics) => {
+    if (!statistics || !statistics.detailed_admins) {
+      return { total: 0, summary: 'No data available' };
+    }
+
+    const admins = statistics.detailed_admins;
+    const total = admins.length;
+    const totalRequests = admins.reduce((sum, admin) => sum + (admin.total_requests || 0), 0);
+    const avgPerformance = total > 0 ? 
+      Math.round(admins.reduce((sum, admin) => sum + (admin.performance_score || 0), 0) / total) : 0;
+
+    const topPerformer = admins.reduce((best, current) => 
+      (current.performance_score || 0) > (best.performance_score || 0) ? current : best
+    , admins[0]);
+
+    return {
+      total_admins: total,
+      total_requests: totalRequests,
+      avg_performance: avgPerformance,
+      top_performer: topPerformer,
+      summary: `${total} admins handled ${totalRequests} requests with ${avgPerformance}% average performance`
+    };
+  },
+
+  // Data transformation helpers
+  transformStatisticsForChart: (statistics) => {
+    if (!statistics || !statistics.detailed_admins) return [];
+
+    return statistics.detailed_admins.map(admin => ({
+      name: admin.full_name,
+      department: admin.department,
+      requests: admin.total_requests || 0,
+      completed: admin.completed_requests || 0,
+      performance: admin.performance_score || 0,
+      responseTime: admin.avg_response_time || 0
+    }));
+  },
+
+  // Trend analysis helpers
+  analyzeTrends: (trends) => {
+    if (!trends || !trends.weekly_data) return null;
+
+    const weeklyData = trends.weekly_data;
+    if (weeklyData.length < 2) return null;
+
+    const latest = weeklyData[weeklyData.length - 1];
+    const previous = weeklyData[weeklyData.length - 2];
+
+    const requestsTrend = latest.requests - previous.requests;
+    const responsesTrend = latest.responses - previous.responses;
+
+    return {
+      requests_trend: {
+        direction: requestsTrend > 0 ? 'up' : requestsTrend < 0 ? 'down' : 'stable',
+        change: requestsTrend,
+        percentage: previous.requests > 0 ? Math.round((requestsTrend / previous.requests) * 100) : 0
+      },
+      responses_trend: {
+        direction: responsesTrend > 0 ? 'up' : responsesTrend < 0 ? 'down' : 'stable',
+        change: responsesTrend,
+        percentage: previous.responses > 0 ? Math.round((responsesTrend / previous.responses) * 100) : 0
+      }
+    };
+  },
+
+  // Filter and sort helpers
+  filterAdminsByPerformance: (admins, minScore = 0, maxScore = 100) => {
+    return admins.filter(admin => {
+      const score = admin.performance_score || 0;
+      return score >= minScore && score <= maxScore;
+    });
+  },
+
+  sortAdminsByMetric: (admins, metric = 'performance_score', order = 'desc') => {
+    return [...admins].sort((a, b) => {
+      const aValue = a[metric] || 0;
+      const bValue = b[metric] || 0;
+      
+      if (order === 'desc') {
+        return bValue - aValue;
+      }
+      return aValue - bValue;
+    });
+  },
+
+  // Export helpers
+  generateCSVFromStatistics: (statistics) => {
+    if (!statistics || !statistics.detailed_admins) return '';
+
+    const headers = [
+      'Admin ID', 'Username', 'Full Name', 'Department', 'Total Requests',
+      'Completed Requests', 'Pending Requests', 'Informed Requests', 
+      'Rejected Requests', 'Total Responses', 'Avg Response Time (hours)',
+      'Performance Score (%)', 'Last Activity'
+    ];
+
+    const rows = statistics.detailed_admins.map(admin => [
+      admin.admin_id,
+      admin.username,
+      admin.full_name,
+      admin.department,
+      admin.total_requests || 0,
+      admin.completed_requests || 0,
+      admin.pending_requests || 0,
+      admin.informed_requests || 0,
+      admin.rejected_requests || 0,
+      admin.total_responses || 0,
+      admin.avg_response_time || 0,
+      admin.performance_score || 0,
+      admin.last_activity ? new Date(admin.last_activity).toLocaleDateString() : 'Never'
+    ]);
+
+    return [headers, ...rows]
+      .map(row => row.map(field => `"${field}"`).join(','))
+      .join('\n');
+  },
+
+  // Caching helpers for statistics
+  cacheStatistics: (key, data, expiry = 300000) => { // 5 minutes default
+    try {
+      const cacheItem = {
+        data,
+        timestamp: Date.now(),
+        expiry: Date.now() + expiry
+      };
+      sessionStorage.setItem(`admin_stats_${key}`, JSON.stringify(cacheItem));
+    } catch (error) {
+      console.warn('Failed to cache statistics:', error);
+    }
+  },
+
+  getCachedStatistics: (key) => {
+    try {
+      const cached = sessionStorage.getItem(`admin_stats_${key}`);
+      if (!cached) return null;
+
+      const item = JSON.parse(cached);
+      if (Date.now() > item.expiry) {
+        sessionStorage.removeItem(`admin_stats_${key}`);
+        return null;
+      }
+
+      return item.data;
+    } catch (error) {
+      console.warn('Failed to get cached statistics:', error);
+      return null;
+    }
+  },
+
+  clearStatisticsCache: () => {
+    try {
+      const keys = Object.keys(sessionStorage);
+      keys.forEach(key => {
+        if (key.startsWith('admin_stats_')) {
+          sessionStorage.removeItem(key);
+        }
+      });
+      console.log('📊 Statistics cache cleared');
+    } catch (error) {
+      console.warn('Failed to clear statistics cache:', error);
+    }
+  }
+};
+
 
 // API functions
 export const apiService = {
   // ===== EXISTING METHODS (PRESERVED) =====
+
   
-  // ===== STUDENT AUTH =====
+
+...adminStatisticsMethods,
+
+ // Wrapper method with caching
+  getAdminStatisticsWithCache: async (params = {}, useCache = true) => {
+    const cacheKey = JSON.stringify(params);
+    
+    if (useCache) {
+      const cached = adminStatisticsMethods.getCachedStatistics(cacheKey);
+      if (cached) {
+        console.log('📊 Using cached admin statistics');
+        return { data: { success: true, data: cached, fromCache: true } };
+      }
+    }
+
+    try {
+      const response = await adminStatisticsMethods.getAdminStatistics(params);
+      
+      if (response.data.success && useCache) {
+        adminStatisticsMethods.cacheStatistics(cacheKey, response.data.data);
+      }
+      
+      return response;
+    } catch (error) {
+      console.error('Failed to fetch admin statistics:', error);
+      throw error;
+    }
+  },
+
+  // Debug method for statistics
+  debugAdminStatistics: async (params = {}) => {
+    try {
+      console.group('🔍 Admin Statistics Debug');
+      
+      const response = await adminStatisticsMethods.getAdminStatistics(params);
+      
+      if (response.data.success) {
+        const stats = response.data.data;
+        console.log('Overview:', stats.overview);
+        console.log('Admin count:', stats.detailed_admins?.length || 0);
+        console.log('Department breakdown:', stats.department_breakdown?.length || 0);
+        console.log('Top performers:', stats.top_performers);
+        console.log('Trends available:', !!stats.trends);
+        
+        // Performance analysis
+        if (stats.detailed_admins && stats.detailed_admins.length > 0) {
+          const avgPerformance = stats.detailed_admins.reduce((sum, admin) => 
+            sum + (admin.performance_score || 0), 0) / stats.detailed_admins.length;
+          console.log('Average performance score:', Math.round(avgPerformance));
+          
+          const topPerformer = stats.detailed_admins.reduce((best, current) => 
+            (current.performance_score || 0) > (best.performance_score || 0) ? current : best);
+          console.log('Top performer:', topPerformer.full_name, '-', topPerformer.performance_score + '%');
+        }
+      } else {
+        console.error('Statistics request failed:', response.data);
+      }
+      
+      console.groupEnd();
+      return response;
+    } catch (error) {
+      console.error('❌ Statistics debug failed:', error);
+      throw error;
+    }
+  },
+
+  // Validate statistics data
+  validateStatisticsData: (statistics) => {
+    const errors = [];
+    
+    if (!statistics) {
+      errors.push('Statistics data is null or undefined');
+      return { isValid: false, errors };
+    }
+    
+    if (!statistics.overview) {
+      errors.push('Overview data is missing');
+    }
+    
+    if (!statistics.detailed_admins || !Array.isArray(statistics.detailed_admins)) {
+      errors.push('Detailed admins data is missing or invalid');
+    }
+    
+    if (statistics.detailed_admins) {
+      statistics.detailed_admins.forEach((admin, index) => {
+        if (!admin.admin_id) {
+          errors.push(`Admin at index ${index} is missing admin_id`);
+        }
+        if (!admin.full_name) {
+          errors.push(`Admin at index ${index} is missing full_name`);
+        }
+        if (typeof admin.performance_score !== 'number') {
+          errors.push(`Admin at index ${index} has invalid performance_score`);
+        }
+      });
+    }
+    
+    return {
+      isValid: errors.length === 0,
+      errors,
+      warnings: []
+    };
+  },
+
+  // Performance metrics calculator
+  calculateAdvancedMetrics: (statistics) => {
+    if (!statistics || !statistics.detailed_admins) {
+      return null;
+    }
+
+    const admins = statistics.detailed_admins;
+    const totalAdmins = admins.length;
+    
+    if (totalAdmins === 0) return null;
+
+    // Calculate various metrics
+    const totalRequests = admins.reduce((sum, admin) => sum + (admin.total_requests || 0), 0);
+    const totalCompleted = admins.reduce((sum, admin) => sum + (admin.completed_requests || 0), 0);
+    const totalResponses = admins.reduce((sum, admin) => sum + (admin.total_responses || 0), 0);
+    
+    const avgRequestsPerAdmin = totalRequests / totalAdmins;
+    const avgCompletionRate = totalRequests > 0 ? (totalCompleted / totalRequests) * 100 : 0;
+    const avgResponsesPerAdmin = totalResponses / totalAdmins;
+    
+    // Performance distribution
+    const performanceScores = admins.map(admin => admin.performance_score || 0);
+    const highPerformers = performanceScores.filter(score => score >= 80).length;
+    const mediumPerformers = performanceScores.filter(score => score >= 60 && score < 80).length;
+    const lowPerformers = performanceScores.filter(score => score < 60).length;
+    
+    // Response time analysis
+    const responseTimes = admins
+      .map(admin => admin.avg_response_time || 0)
+      .filter(time => time > 0);
+    
+    const avgResponseTime = responseTimes.length > 0 ? 
+      responseTimes.reduce((sum, time) => sum + time, 0) / responseTimes.length : 0;
+    
+    return {
+      overview: {
+        total_admins: totalAdmins,
+        total_requests: totalRequests,
+        total_completed: totalCompleted,
+        total_responses: totalResponses,
+        avg_requests_per_admin: Math.round(avgRequestsPerAdmin * 100) / 100,
+        avg_completion_rate: Math.round(avgCompletionRate * 100) / 100,
+        avg_responses_per_admin: Math.round(avgResponsesPerAdmin * 100) / 100,
+        avg_response_time_hours: Math.round(avgResponseTime * 100) / 100
+      },
+      performance_distribution: {
+        high_performers: highPerformers,
+        medium_performers: mediumPerformers,
+        low_performers: lowPerformers,
+        high_performer_percentage: Math.round((highPerformers / totalAdmins) * 100),
+        medium_performer_percentage: Math.round((mediumPerformers / totalAdmins) * 100),
+        low_performer_percentage: Math.round((lowPerformers / totalAdmins) * 100)
+      },
+      benchmarks: {
+        top_10_percent_threshold: this.calculatePercentile(performanceScores, 90),
+        median_performance: this.calculatePercentile(performanceScores, 50),
+        bottom_10_percent_threshold: this.calculatePercentile(performanceScores, 10)
+      }
+    };
+  },
+
+  // Calculate percentile
+  calculatePercentile: (values, percentile) => {
+    if (values.length === 0) return 0;
+    
+    const sorted = [...values].sort((a, b) => a - b);
+    const index = Math.ceil((percentile / 100) * sorted.length) - 1;
+    return sorted[Math.max(0, index)];
+  },
+
+  // Generate insights from statistics
+  generateStatisticsInsights: (statistics) => {
+    if (!statistics || !statistics.detailed_admins) {
+      return { insights: [], recommendations: [] };
+    }
+
+    const insights = [];
+    const recommendations = [];
+    const admins = statistics.detailed_admins;
+    const metrics = apiService.calculateAdvancedMetrics(statistics);
+
+    if (!metrics) return { insights, recommendations };
+
+    // Performance insights
+    if (metrics.performance_distribution.high_performer_percentage >= 70) {
+      insights.push({
+        type: 'positive',
+        icon: '🎉',
+        title: 'Strong Team Performance',
+        message: `${metrics.performance_distribution.high_performer_percentage}% of admins are high performers`
+      });
+    } else if (metrics.performance_distribution.low_performer_percentage >= 30) {
+      insights.push({
+        type: 'warning',
+        icon: '⚠️',
+        title: 'Performance Concerns',
+        message: `${metrics.performance_distribution.low_performer_percentage}% of admins need performance improvement`
+      });
+      recommendations.push({
+        priority: 'high',
+        action: 'Provide additional training for low-performing admins',
+        impact: 'Improve overall team efficiency'
+      });
+    }
+
+    // Workload insights
+    if (metrics.overview.avg_requests_per_admin > 50) {
+      insights.push({
+        type: 'warning',
+        icon: '📈',
+        title: 'High Workload',
+        message: `Average ${Math.round(metrics.overview.avg_requests_per_admin)} requests per admin`
+      });
+      recommendations.push({
+        priority: 'medium',
+        action: 'Consider workload distribution or hiring additional staff',
+        impact: 'Prevent admin burnout and maintain quality'
+      });
+    }
+
+    // Response time insights
+    if (metrics.overview.avg_response_time_hours > 24) {
+      insights.push({
+        type: 'negative',
+        icon: '🐌',
+        title: 'Slow Response Times',
+        message: `Average response time is ${Math.round(metrics.overview.avg_response_time_hours)} hours`
+      });
+      recommendations.push({
+        priority: 'high',
+        action: 'Implement response time targets and monitoring',
+        impact: 'Improve student satisfaction'
+      });
+    } else if (metrics.overview.avg_response_time_hours < 4) {
+      insights.push({
+        type: 'positive',
+        icon: '⚡',
+        title: 'Excellent Response Times',
+        message: `Average response time is only ${Math.round(metrics.overview.avg_response_time_hours)} hours`
+      });
+    }
+
+    // Completion rate insights
+    if (metrics.overview.avg_completion_rate >= 90) {
+      insights.push({
+        type: 'positive',
+        icon: '✅',
+        title: 'High Completion Rate',
+        message: `${Math.round(metrics.overview.avg_completion_rate)}% of requests are successfully completed`
+      });
+    } else if (metrics.overview.avg_completion_rate < 70) {
+      insights.push({
+        type: 'warning',
+        icon: '📉',
+        title: 'Low Completion Rate',
+        message: `Only ${Math.round(metrics.overview.avg_completion_rate)}% of requests are completed`
+      });
+      recommendations.push({
+        priority: 'high',
+        action: 'Investigate reasons for incomplete requests',
+        impact: 'Improve service quality and student satisfaction'
+      });
+    }
+
+    return { insights, recommendations };
+  },
+
+  
+  
+   // ===== STUDENT AUTH =====
   login: (student_number, password) => studentApi.post('/auth/login', { student_number, password }),
   register: (userData) => studentApi.post('/auth/register', userData),
   getProfile: () => studentApi.get('/auth/me'),
@@ -683,6 +1214,10 @@ export const apiService = {
   toggleRequestType: (id) => adminApi.put(`/admin-auth/request-types/${id}/toggle`),
   updateRequestType: (id, typeData) => adminApi.put(`/admin-auth/request-types/${id}`, typeData),
   deleteRequestType: (id) => adminApi.delete(`/admin-auth/request-types/${id}`),
+  
+
+
+
   
   // ===== ADMIN REQUEST RESPONSES =====
   getAdminRequestResponses: (id) => adminApi.get(`/admin-auth/requests/${id}/responses`),
@@ -1148,6 +1683,11 @@ getRequestStatusBadge: (status) => {
   },
 };
 
+
+
+
+
+
 // Student API Response interceptor
 studentApi.interceptors.response.use(
   (response) => response,
@@ -1202,6 +1742,9 @@ adminApi.interceptors.request.use(
   },
   (error) => Promise.reject(error)
 );
+
+
+
 
 // Token geçerliliğini kontrol et
 export const checkTokenValidity = (isAdmin = false) => {
@@ -1287,5 +1830,12 @@ export const rateLimiter = {
     return true;
   }
 };
+
+
+
+
+
+
+
 
 export default { studentApi, adminApi };

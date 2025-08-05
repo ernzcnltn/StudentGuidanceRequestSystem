@@ -1178,6 +1178,496 @@ router.get('/request-types',
   }
 );
 
+
+
+// GET /api/admin-auth/statistics/admins - Admin performance statistics
+router.get('/statistics/admins', 
+  authenticateAdmin, 
+  requireAnyPermission([
+    { resource: 'analytics', action: 'view_department' },
+    { resource: 'analytics', action: 'view_system' }
+  ]),
+  async (req, res) => {
+    try {
+      const { period = '30', department: filterDepartment } = req.query;
+      const isPureSuperAdmin = req.admin.is_super_admin && !req.admin.department;
+      const targetDepartment = isPureSuperAdmin ? filterDepartment : req.admin.department;
+      
+      console.log('📊 Fetching admin statistics:', { 
+        period, 
+        targetDepartment, 
+        isPureSuperAdmin 
+      });
+
+      // Calculate date range
+      const endDate = new Date();
+      const startDate = new Date();
+      startDate.setDate(startDate.getDate() - parseInt(period));
+
+      // Base query conditions
+      let departmentCondition = '';
+      let departmentParams = [];
+      
+      if (targetDepartment) {
+        departmentCondition = ' AND au.department = ?';
+        departmentParams = [targetDepartment];
+      }
+
+      // 1. Overview Statistics
+      const [overviewStats] = await pool.execute(`
+        SELECT 
+          COUNT(DISTINCT au.admin_id) as total_admins,
+          COUNT(DISTINCT CASE WHEN au.is_active = TRUE THEN au.admin_id END) as active_admins,
+          COUNT(DISTINCT gr.request_id) as total_requests_handled,
+          ROUND(AVG(TIMESTAMPDIFF(HOUR, gr.submitted_at, ar.created_at)), 1) as avg_response_time
+        FROM admin_users au
+        LEFT JOIN admin_responses ar ON au.admin_id = ar.admin_id AND ar.created_at BETWEEN ? AND ?
+        LEFT JOIN guidance_requests gr ON ar.request_id = gr.request_id
+        WHERE 1=1 ${departmentCondition}
+      `, [startDate, endDate, ...departmentParams]);
+
+      // 2. Detailed Admin Statistics
+      const [detailedAdmins] = await pool.execute(`
+        SELECT 
+          au.admin_id,
+          au.username,
+          au.full_name,
+          au.email,
+          au.department,
+          au.is_super_admin,
+          au.is_active,
+          
+          -- Request handling stats
+          COUNT(DISTINCT gr.request_id) as total_requests,
+          COUNT(DISTINCT CASE WHEN gr.status = 'Completed' THEN gr.request_id END) as completed_requests,
+          COUNT(DISTINCT CASE WHEN gr.status = 'Pending' THEN gr.request_id END) as pending_requests,
+          COUNT(DISTINCT CASE WHEN gr.status = 'Informed' THEN gr.request_id END) as informed_requests,
+          COUNT(DISTINCT CASE WHEN gr.status = 'Rejected' THEN gr.request_id END) as rejected_requests,
+          
+          -- Response stats
+          COUNT(DISTINCT ar.response_id) as total_responses,
+          
+          -- Performance metrics
+          ROUND(AVG(TIMESTAMPDIFF(HOUR, gr.submitted_at, ar.created_at)), 1) as avg_response_time,
+          ROUND(
+            (COUNT(DISTINCT CASE WHEN gr.status = 'Completed' THEN gr.request_id END) * 100.0 / 
+             NULLIF(COUNT(DISTINCT gr.request_id), 0)), 1
+          ) as performance_score,
+          
+          -- Work time estimation (based on response activity)
+          ROUND(COUNT(DISTINCT ar.response_id) * 15) as total_work_time, -- 15 min per response estimate
+          
+          -- Last activity
+          MAX(ar.created_at) as last_activity
+          
+        FROM admin_users au
+        LEFT JOIN admin_responses ar ON au.admin_id = ar.admin_id AND ar.created_at BETWEEN ? AND ?
+        LEFT JOIN guidance_requests gr ON ar.request_id = gr.request_id
+        WHERE au.is_active = TRUE ${departmentCondition}
+        GROUP BY au.admin_id, au.username, au.full_name, au.email, au.department, au.is_super_admin, au.is_active
+        HAVING total_requests > 0 OR total_responses > 0
+        ORDER BY performance_score DESC, total_requests DESC
+      `, [startDate, endDate, ...departmentParams]);
+
+      // 3. Department Breakdown (Super Admin Only)
+      let departmentBreakdown = [];
+      if (isPureSuperAdmin) {
+        const [deptStats] = await pool.execute(`
+          SELECT 
+            au.department,
+            COUNT(DISTINCT au.admin_id) as admin_count,
+            COUNT(DISTINCT gr.request_id) as total_requests,
+            COUNT(DISTINCT CASE WHEN gr.status = 'Completed' THEN gr.request_id END) as completed_requests,
+            ROUND(AVG(TIMESTAMPDIFF(HOUR, gr.submitted_at, ar.created_at)), 1) as avg_response_time,
+            ROUND(
+              (COUNT(DISTINCT CASE WHEN gr.status = 'Completed' THEN gr.request_id END) * 100.0 / 
+               NULLIF(COUNT(DISTINCT gr.request_id), 0)), 1
+            ) as performance_score
+          FROM admin_users au
+          LEFT JOIN admin_responses ar ON au.admin_id = ar.admin_id AND ar.created_at BETWEEN ? AND ?
+          LEFT JOIN guidance_requests gr ON ar.request_id = gr.request_id
+          WHERE au.is_active = TRUE AND au.department IS NOT NULL
+          GROUP BY au.department
+          ORDER BY performance_score DESC
+        `, [startDate, endDate]);
+        
+        departmentBreakdown = deptStats;
+      }
+
+      // 4. Top Performers
+      const [topPerformersRequests] = await pool.execute(`
+        SELECT 
+          au.admin_id,
+          au.full_name,
+          au.department,
+          COUNT(DISTINCT gr.request_id) as total_requests
+        FROM admin_users au
+        LEFT JOIN admin_responses ar ON au.admin_id = ar.admin_id AND ar.created_at BETWEEN ? AND ?
+        LEFT JOIN guidance_requests gr ON ar.request_id = gr.request_id
+        WHERE au.is_active = TRUE ${departmentCondition}
+        GROUP BY au.admin_id, au.full_name, au.department
+        HAVING total_requests > 0
+        ORDER BY total_requests DESC
+        LIMIT 10
+      `, [startDate, endDate, ...departmentParams]);
+
+      const [topPerformersResponseTime] = await pool.execute(`
+        SELECT 
+          au.admin_id,
+          au.full_name,
+          au.department,
+          ROUND(AVG(TIMESTAMPDIFF(HOUR, gr.submitted_at, ar.created_at)), 1) as avg_response_time
+        FROM admin_users au
+        INNER JOIN admin_responses ar ON au.admin_id = ar.admin_id AND ar.created_at BETWEEN ? AND ?
+        INNER JOIN guidance_requests gr ON ar.request_id = gr.request_id
+        WHERE au.is_active = TRUE ${departmentCondition}
+        GROUP BY au.admin_id, au.full_name, au.department
+        HAVING COUNT(DISTINCT ar.response_id) >= 5 -- Minimum 5 responses for meaningful average
+        ORDER BY avg_response_time ASC
+        LIMIT 10
+      `, [startDate, endDate, ...departmentParams]);
+
+      // 5. Trends Data
+      const [weeklyTrends] = await pool.execute(`
+        SELECT 
+          WEEK(ar.created_at) as week_number,
+          COUNT(DISTINCT gr.request_id) as requests,
+          COUNT(DISTINCT ar.response_id) as responses
+        FROM admin_responses ar
+        INNER JOIN guidance_requests gr ON ar.request_id = gr.request_id
+        INNER JOIN admin_users au ON ar.admin_id = au.admin_id
+        WHERE ar.created_at BETWEEN ? AND ? ${departmentCondition ? 'AND au.department = ?' : ''}
+        GROUP BY WEEK(ar.created_at)
+        ORDER BY week_number
+      `, [startDate, endDate, ...(departmentCondition ? departmentParams : [])]);
+
+      const [peakHours] = await pool.execute(`
+        SELECT 
+          HOUR(ar.created_at) as hour,
+          COUNT(DISTINCT ar.response_id) as requests
+        FROM admin_responses ar
+        INNER JOIN admin_users au ON ar.admin_id = au.admin_id
+        WHERE ar.created_at BETWEEN ? AND ? ${departmentCondition ? 'AND au.department = ?' : ''}
+        GROUP BY HOUR(ar.created_at)
+        ORDER BY requests DESC
+        LIMIT 8
+      `, [startDate, endDate, ...(departmentCondition ? departmentParams : [])]);
+
+      const [requestTypes] = await pool.execute(`
+        SELECT 
+          rt.type_name,
+          COUNT(DISTINCT gr.request_id) as count,
+          ROUND(COUNT(DISTINCT gr.request_id) * 100.0 / (
+            SELECT COUNT(DISTINCT gr2.request_id) 
+            FROM guidance_requests gr2 
+            INNER JOIN request_types rt2 ON gr2.type_id = rt2.type_id
+            WHERE gr2.submitted_at BETWEEN ? AND ? ${departmentCondition ? 'AND rt2.category = ?' : ''}
+          ), 1) as percentage
+        FROM guidance_requests gr
+        INNER JOIN request_types rt ON gr.type_id = rt.type_id
+        WHERE gr.submitted_at BETWEEN ? AND ? ${departmentCondition ? 'AND rt.category = ?' : ''}
+        GROUP BY rt.type_id, rt.type_name
+        ORDER BY count DESC
+        LIMIT 10
+      `, [
+        startDate, endDate, ...(departmentCondition ? departmentParams : []),
+        startDate, endDate, ...(departmentCondition ? departmentParams : [])
+      ]);
+
+      // Build response
+      const statisticsData = {
+        overview: overviewStats[0] || {
+          total_admins: 0,
+          active_admins: 0,
+          total_requests_handled: 0,
+          avg_response_time: 0
+        },
+        detailed_admins: detailedAdmins.map(admin => ({
+          ...admin,
+          performance_score: admin.performance_score || 0,
+          avg_response_time: admin.avg_response_time || 0,
+          total_work_time: admin.total_work_time || 0
+        })),
+        department_breakdown: departmentBreakdown,
+        top_performers: {
+          requests: topPerformersRequests,
+          response_time: topPerformersResponseTime
+        },
+        trends: {
+          weekly_data: weeklyTrends,
+          peak_hours: peakHours,
+          request_types: requestTypes
+        },
+        meta: {
+          period: parseInt(period),
+          start_date: startDate.toISOString(),
+          end_date: endDate.toISOString(),
+          department: targetDepartment || 'ALL',
+          is_super_admin: isPureSuperAdmin
+        }
+      };
+
+      console.log('✅ Admin statistics compiled:', {
+        overview: statisticsData.overview,
+        admin_count: statisticsData.detailed_admins.length,
+        department_breakdown_count: statisticsData.department_breakdown.length
+      });
+
+      res.json({
+        success: true,
+        data: statisticsData
+      });
+
+    } catch (error) {
+      console.error('Admin statistics error:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to fetch admin statistics'
+      });
+    }
+  }
+);
+
+// GET /api/admin-auth/statistics/admins/export - Export admin statistics
+router.get('/statistics/admins/export', 
+  authenticateAdmin, 
+  requireAnyPermission([
+    { resource: 'analytics', action: 'view_department' },
+    { resource: 'analytics', action: 'export' }
+  ]),
+  async (req, res) => {
+    try {
+      const { period = '30', department: filterDepartment, format = 'json' } = req.query;
+      const isPureSuperAdmin = req.admin.is_super_admin && !req.admin.department;
+      const targetDepartment = isPureSuperAdmin ? filterDepartment : req.admin.department;
+
+      console.log('📊 Exporting admin statistics:', { period, targetDepartment, format });
+
+      // Reuse the same logic as the main statistics endpoint
+      const endDate = new Date();
+      const startDate = new Date();
+      startDate.setDate(startDate.getDate() - parseInt(period));
+
+      let departmentCondition = '';
+      let departmentParams = [];
+      
+      if (targetDepartment) {
+        departmentCondition = ' AND au.department = ?';
+        departmentParams = [targetDepartment];
+      }
+
+      const [detailedAdmins] = await pool.execute(`
+        SELECT 
+          au.admin_id,
+          au.username,
+          au.full_name,
+          au.email,
+          au.department,
+          au.is_super_admin,
+          COUNT(DISTINCT gr.request_id) as total_requests,
+          COUNT(DISTINCT CASE WHEN gr.status = 'Completed' THEN gr.request_id END) as completed_requests,
+          COUNT(DISTINCT CASE WHEN gr.status = 'Pending' THEN gr.request_id END) as pending_requests,
+          COUNT(DISTINCT CASE WHEN gr.status = 'Informed' THEN gr.request_id END) as informed_requests,
+          COUNT(DISTINCT CASE WHEN gr.status = 'Rejected' THEN gr.request_id END) as rejected_requests,
+          COUNT(DISTINCT ar.response_id) as total_responses,
+          ROUND(AVG(TIMESTAMPDIFF(HOUR, gr.submitted_at, ar.created_at)), 1) as avg_response_time,
+          ROUND(
+            (COUNT(DISTINCT CASE WHEN gr.status = 'Completed' THEN gr.request_id END) * 100.0 / 
+             NULLIF(COUNT(DISTINCT gr.request_id), 0)), 1
+          ) as performance_score,
+          MAX(ar.created_at) as last_activity
+        FROM admin_users au
+        LEFT JOIN admin_responses ar ON au.admin_id = ar.admin_id AND ar.created_at BETWEEN ? AND ?
+        LEFT JOIN guidance_requests gr ON ar.request_id = gr.request_id
+        WHERE au.is_active = TRUE ${departmentCondition}
+        GROUP BY au.admin_id, au.username, au.full_name, au.email, au.department, au.is_super_admin
+        ORDER BY performance_score DESC, total_requests DESC
+      `, [startDate, endDate, ...departmentParams]);
+
+      if (format === 'csv') {
+        // Generate CSV
+        const csvHeaders = [
+          'Admin ID', 'Username', 'Full Name', 'Email', 'Department', 'Is Super Admin',
+          'Total Requests', 'Completed Requests', 'Pending Requests', 'Informed Requests', 
+          'Rejected Requests', 'Total Responses', 'Avg Response Time (hours)', 
+          'Performance Score (%)', 'Last Activity'
+        ];
+
+        const csvRows = detailedAdmins.map(admin => [
+          admin.admin_id,
+          admin.username,
+          admin.full_name,
+          admin.email,
+          admin.department,
+          admin.is_super_admin ? 'Yes' : 'No',
+          admin.total_requests,
+          admin.completed_requests,
+          admin.pending_requests,
+          admin.informed_requests,
+          admin.rejected_requests,
+          admin.total_responses,
+          admin.avg_response_time || 0,
+          admin.performance_score || 0,
+          admin.last_activity ? new Date(admin.last_activity).toISOString() : 'Never'
+        ]);
+
+        const csvContent = [csvHeaders, ...csvRows]
+          .map(row => row.map(field => `"${field}"`).join(','))
+          .join('\n');
+
+        res.setHeader('Content-Type', 'text/csv');
+        res.setHeader('Content-Disposition', `attachment; filename="admin_statistics_${period}days.csv"`);
+        res.send(csvContent);
+      } else {
+        // Return JSON
+        res.json({
+          success: true,
+          data: {
+            export_info: {
+              period: parseInt(period),
+              start_date: startDate.toISOString(),
+              end_date: endDate.toISOString(),
+              department: targetDepartment || 'ALL',
+              generated_at: new Date().toISOString(),
+              generated_by: req.admin.username
+            },
+            admins: detailedAdmins
+          }
+        });
+      }
+
+    } catch (error) {
+      console.error('Export admin statistics error:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to export admin statistics'
+      });
+    }
+  }
+);
+
+// GET /api/admin-auth/statistics/admins/:adminId - Individual admin statistics
+router.get('/statistics/admins/:adminId', 
+  authenticateAdmin, 
+  requireAnyPermission([
+    { resource: 'analytics', action: 'view_department' },
+    { resource: 'users', action: 'view' }
+  ]),
+  async (req, res) => {
+    try {
+      const { adminId } = req.params;
+      const { period = '30' } = req.query;
+
+      console.log('📊 Fetching individual admin statistics:', { adminId, period });
+
+      // Check if user can view this admin's stats
+      const [targetAdmin] = await pool.execute(`
+        SELECT admin_id, username, full_name, department, is_super_admin
+        FROM admin_users 
+        WHERE admin_id = ? AND is_active = TRUE
+      `, [adminId]);
+
+      if (targetAdmin.length === 0) {
+        return res.status(404).json({
+          success: false,
+          error: 'Admin not found'
+        });
+      }
+
+      const admin = targetAdmin[0];
+
+      // Department access control
+      if (!req.admin.is_super_admin && admin.department !== req.admin.department) {
+        return res.status(403).json({
+          success: false,
+          error: 'Access denied: Cannot view statistics for other departments'
+        });
+      }
+
+      const endDate = new Date();
+      const startDate = new Date();
+      startDate.setDate(startDate.getDate() - parseInt(period));
+
+      // Detailed statistics for this admin
+      const [adminStats] = await pool.execute(`
+        SELECT 
+          COUNT(DISTINCT gr.request_id) as total_requests,
+          COUNT(DISTINCT CASE WHEN gr.status = 'Completed' THEN gr.request_id END) as completed_requests,
+          COUNT(DISTINCT CASE WHEN gr.status = 'Pending' THEN gr.request_id END) as pending_requests,
+          COUNT(DISTINCT CASE WHEN gr.status = 'Informed' THEN gr.request_id END) as informed_requests,
+          COUNT(DISTINCT CASE WHEN gr.status = 'Rejected' THEN gr.request_id END) as rejected_requests,
+          COUNT(DISTINCT ar.response_id) as total_responses,
+          ROUND(AVG(TIMESTAMPDIFF(HOUR, gr.submitted_at, ar.created_at)), 1) as avg_response_time,
+          MIN(ar.created_at) as first_activity,
+          MAX(ar.created_at) as last_activity
+        FROM admin_responses ar
+        INNER JOIN guidance_requests gr ON ar.request_id = gr.request_id
+        WHERE ar.admin_id = ? AND ar.created_at BETWEEN ? AND ?
+      `, [adminId, startDate, endDate]);
+
+      // Daily activity breakdown
+      const [dailyActivity] = await pool.execute(`
+        SELECT 
+          DATE(ar.created_at) as activity_date,
+          COUNT(DISTINCT ar.response_id) as responses,
+          COUNT(DISTINCT gr.request_id) as requests_handled
+        FROM admin_responses ar
+        INNER JOIN guidance_requests gr ON ar.request_id = gr.request_id
+        WHERE ar.admin_id = ? AND ar.created_at BETWEEN ? AND ?
+        GROUP BY DATE(ar.created_at)
+        ORDER BY activity_date DESC
+      `, [adminId, startDate, endDate]);
+
+      // Request type breakdown
+      const [requestTypeBreakdown] = await pool.execute(`
+        SELECT 
+          rt.type_name,
+          COUNT(DISTINCT gr.request_id) as count
+        FROM admin_responses ar
+        INNER JOIN guidance_requests gr ON ar.request_id = gr.request_id
+        INNER JOIN request_types rt ON gr.type_id = rt.type_id
+        WHERE ar.admin_id = ? AND ar.created_at BETWEEN ? AND ?
+        GROUP BY rt.type_id, rt.type_name
+        ORDER BY count DESC
+      `, [adminId, startDate, endDate]);
+
+      res.json({
+        success: true,
+        data: {
+          admin: admin,
+          statistics: adminStats[0] || {
+            total_requests: 0,
+            completed_requests: 0,
+            pending_requests: 0,
+            informed_requests: 0,
+            rejected_requests: 0,
+            total_responses: 0,
+            avg_response_time: 0,
+            first_activity: null,
+            last_activity: null
+          },
+          daily_activity: dailyActivity,
+          request_type_breakdown: requestTypeBreakdown,
+          meta: {
+            period: parseInt(period),
+            start_date: startDate.toISOString(),
+            end_date: endDate.toISOString()
+          }
+        }
+      });
+
+    } catch (error) {
+      console.error('Individual admin statistics error:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to fetch admin statistics'
+      });
+    }
+  }
+);
+
+
+
 // PUT /api/admin-auth/requests/:requestId/status - Status güncelleme (RBAC korumalı)
 router.put('/requests/:requestId/status', 
   authenticateAdmin, 

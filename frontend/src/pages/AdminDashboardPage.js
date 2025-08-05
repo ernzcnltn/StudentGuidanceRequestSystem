@@ -10,6 +10,8 @@ import AdminNotificationCenter from '../components/AdminNotificationCenter';
 import FIULogo from '../components/FIULogo';
 import RequestRejectModal from '../components/RequestRejectModal';
 
+import AdminStatisticsPage from '../components/AdminStatisticsPage';
+
 import LanguageDropdown from '../components/LanguageDropdown';
 import RoleManagementPage from '../components/RoleManagementPage';
 import UserManagementPage from '../components/UserManagementPage';
@@ -40,7 +42,9 @@ const AdminDashboardPage = () => {
     canManageRequestTypes,
     isSuperAdmin,
     isDepartmentAdmin,
-    getAccessibleDepartments
+    getAccessibleDepartments,
+    
+
   } = useAdminAuth();
   
   const [showRejectModal, setShowRejectModal] = useState(false);
@@ -591,7 +595,16 @@ const handleRejectRequest = async (rejectionReason) => {
                   )}
                 </div>
                 <div className="text-end">
-                  
+                  {/* ADD THIS: Statistics preview for admins */}
+                {(isDepartmentAdmin() || isSuperAdmin()) && (
+                  <button 
+                    className="btn btn-outline-primary btn-sm"
+                    onClick={() => setActiveTab('statistics')}
+                    title="View detailed admin statistics"
+                  >
+                    📈 View Statistics
+                  </button>
+                )}
                 </div>
               </div>
             </div>
@@ -602,204 +615,201 @@ const handleRejectRequest = async (rejectionReason) => {
       <RBACDebugInfo />
 
       {loading ? (
-        <div className="text-center py-5">
-          <div className="spinner-border text-danger" role="status"></div>
-          <p className={`mt-3 ${isDark ? 'text-light' : 'text-dark'}`}>
-            {t('loading')} dashboard...
-          </p>
-        </div>
-      ) : dashboardData && dashboardData.totals ? (
-        <div className="row">
-          {/* Quick Stats Cards */}
-          <div className="col-lg-8">
-            <div className="row mb-4">
-              <div className="col-md-4 mb-3">
-                <div 
-                  className="card border-0 shadow-sm h-100" 
-                  style={{ 
-                    borderRadius: '12px',
-                    backgroundColor: isDark ? '#000000' : '#ffffff',
-                    border: isDark ? '1px solid #333333' : '1px solid #e5e7eb'
-                  }}
-
-
-                >
-                  <div className="card-body text-center p-4">
-                    <div className="text-warning mb-3" style={{ fontSize: '2.5rem' }}>⏳</div>
-                    <h3 className="text-warning mb-1">{dashboardData.totals.pending || 0}</h3>
-                    <p className={`mb-0 ${isDark ? 'text-light' : 'text-muted'}`}>
-                      {t('pending')}
-                    </p>
-                  </div>
-                </div>
-              </div>
-              <div className="col-md-4 mb-3">
-                <div 
-                  className="card border-0 shadow-sm h-100" 
-                  style={{ 
-                    borderRadius: '12px',
-                    backgroundColor: isDark ? '#000000' : '#ffffff',
-                    border: isDark ? '1px solid #333333' : '1px solid #e5e7eb'
-                  }}
-
-                >
-                  <div className="card-body text-center p-4">
-                    <div className="text-info mb-3" style={{ fontSize: '2.5rem' }}>💬</div>
-                    <h3 className="text-info mb-1">{dashboardData.totals.informed || 0}</h3>
-                    <p className={`mb-0 ${isDark ? 'text-light' : 'text-muted'}`}>
-                      {t('informed')}
-                    </p>
-                  </div>
-                </div>
-              </div>
-              <div className="col-md-4 mb-3">
-                <div 
-                  className="card border-0 shadow-sm h-100" 
-                  style={{ 
-                    borderRadius: '12px',
-                    backgroundColor: isDark ? '#000000' : '#ffffff',
-                    border: isDark ? '1px solid #333333' : '1px solid #e5e7eb'
-                  }}
-                >
-                  <div className="card-body text-center p-4">
-                    <div className="text-success mb-3" style={{ fontSize: '2.5rem' }}>✅</div>
-                    <h3 className="text-success mb-1">{dashboardData.totals.completed || 0}</h3>
-                    <p className={`mb-0 ${isDark ? 'text-light' : 'text-muted'}`}>
-                      {t('completed')}
-                    </p>
-                  </div>
+      <div className="text-center py-5">
+        <div className="spinner-border text-danger" role="status"></div>
+        <p className={`mt-3 ${isDark ? 'text-light' : 'text-dark'}`}>
+          {t('loading')} dashboard...
+        </p>
+      </div>
+    ) : dashboardData && dashboardData.totals ? (
+      <div className="row">
+        {/* Existing dashboard cards */}
+        <div className="col-lg-8">
+          <div className="row mb-4">
+            <div className="col-md-4 mb-3">
+              <div 
+                className="card border-0 shadow-sm h-100" 
+                style={{ 
+                  borderRadius: '12px',
+                  backgroundColor: isDark ? '#000000' : '#ffffff',
+                  border: isDark ? '1px solid #333333' : '1px solid #e5e7eb'
+                }}
+              >
+                <div className="card-body text-center p-4">
+                  <div className="text-warning mb-3" style={{ fontSize: '2.5rem' }}>⏳</div>
+                  <h3 className="text-warning mb-1">{dashboardData.totals.pending || 0}</h3>
+                  <p className={`mb-0 ${isDark ? 'text-light' : 'text-muted'}`}>
+                    {t('pending')}
+                  </p>
                 </div>
               </div>
             </div>
-
-                    
-                  <div className="col-md-3 mb-3">
-                    <div 
-                      className="card border-0 shadow-sm h-100" 
-                      style={{ 
-                        borderRadius: '12px',
-                        backgroundColor: isDark ? '#000000' : '#ffffff',
-                        border: isDark ? '1px solid #333333' : '1px solid #e5e7eb'
-                      }}
-                    >
-                      <div className="card-body text-center p-4">
-                        <div className="text-danger mb-3" style={{ fontSize: '2.5rem' }}>🚫</div>
-                        <h3 className="text-danger mb-1">{dashboardData.totals.rejected || 0}</h3>
-                        <p className={`mb-0 ${isDark ? 'text-light' : 'text-muted'}`}>
-                          {t('rejected', 'Rejected')}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-
-
-            
+            <div className="col-md-4 mb-3">
+              <div 
+                className="card border-0 shadow-sm h-100" 
+                style={{ 
+                  borderRadius: '12px',
+                  backgroundColor: isDark ? '#000000' : '#ffffff',
+                  border: isDark ? '1px solid #333333' : '1px solid #e5e7eb'
+                }}
+              >
+                <div className="card-body text-center p-4">
+                  <div className="text-info mb-3" style={{ fontSize: '2.5rem' }}>💬</div>
+                  <h3 className="text-info mb-1">{dashboardData.totals.informed || 0}</h3>
+                  <p className={`mb-0 ${isDark ? 'text-light' : 'text-muted'}`}>
+                    {t('informed')}
+                  </p>
+                </div>
+              </div>
+            </div>
+            <div className="col-md-4 mb-3">
+              <div 
+                className="card border-0 shadow-sm h-100" 
+                style={{ 
+                  borderRadius: '12px',
+                  backgroundColor: isDark ? '#000000' : '#ffffff',
+                  border: isDark ? '1px solid #333333' : '1px solid #e5e7eb'
+                }}
+              >
+                <div className="card-body text-center p-4">
+                  <div className="text-success mb-3" style={{ fontSize: '2.5rem' }}>✅</div>
+                  <h3 className="text-success mb-1">{dashboardData.totals.completed || 0}</h3>
+                  <p className={`mb-0 ${isDark ? 'text-light' : 'text-muted'}`}>
+                    {t('completed')}
+                  </p>
+                </div>
+              </div>
+            </div>
           </div>
-          
-          {/* Quick Actions */}
-          <div className="col-lg-4">
+
+          {/* ADD THIS: Rejected requests card */}
+          <div className="col-md-3 mb-3">
             <div 
-              className="card border-0 shadow-sm" 
+              className="card border-0 shadow-sm h-100" 
               style={{ 
                 borderRadius: '12px',
                 backgroundColor: isDark ? '#000000' : '#ffffff',
                 border: isDark ? '1px solid #333333' : '1px solid #e5e7eb'
               }}
             >
-              <div className="card-header bg-transparent border-0 p-4">
-                <h5 className="text-danger mb-0">⚡ {t('quickActions')}</h5>
-              </div>
-              <div className="card-body p-4">
-                <div className="d-grid gap-2">
-                  {canViewRequests() && (
-                    <button 
-                      className="btn btn-outline-danger"
-                      onClick={() => setActiveTab('requests')}
-                      style={{ borderRadius: '8px' }}
-                    >
-                      📋 {t('viewAll')} {t('requests')}
-                    </button>
-                  )}
-                  
-                  
-                  {canViewRequests() && (
-                    <button 
-                      className="btn btn-outline-danger"
-                      onClick={() => {
-                        setFilters({...filters, status: 'Rejected'});
-                        setActiveTab('requests');
-                      }}
-                      style={{ borderRadius: '8px' }}
-                    >
-                      🚫 {t('rejected', 'Rejected')} ({dashboardData.totals.rejected || 0})
-                    </button>
-                  )}
-
-
-                  {canViewRequests() && (
-                    <>
-                    
-                      <button 
-                        className="btn btn-outline-warning"
-                        onClick={() => {
-                          setFilters({...filters, status: 'Pending'});
-                          setActiveTab('requests');
-                        }}
-                        style={{ borderRadius: '8px' }}
-                      >
-                        ⏳ {t('pending')} ({dashboardData.totals.pending || 0})
-                      </button>
-                      <button 
-                        className="btn btn-outline-info"
-                        onClick={() => {
-                          setFilters({...filters, status: 'Informed'});
-                          setActiveTab('requests');
-                        }}
-                        style={{ borderRadius: '8px' }}
-                      >
-                        💬 {t('informed')} ({dashboardData.totals.informed || 0})
-                      </button>
-
-                      
-                    </>
-                  )}
-                  
-                  {canManageSettings() && (
-                    <button 
-                      className="btn btn-outline-secondary"
-                      onClick={() => setActiveTab('settings')}
-                      style={{ borderRadius: '8px' }}
-                    >
-                      ⚙️ {t('settings')}
-                    </button>
-                  )}
-                  
-                  
-                  
-                </div>
+              <div className="card-body text-center p-4">
+                <div className="text-danger mb-3" style={{ fontSize: '2.5rem' }}>🚫</div>
+                <h3 className="text-danger mb-1">{dashboardData.totals.rejected || 0}</h3>
+                <p className={`mb-0 ${isDark ? 'text-light' : 'text-muted'}`}>
+                  {t('rejected', 'Rejected')}
+                </p>
               </div>
             </div>
           </div>
         </div>
-      ) : (
-        <div 
-          className="card border-0 shadow-sm" 
-          style={{ 
-            borderRadius: '12px',
-            backgroundColor: isDark ? '#000000' : '#ffffff',
-            border: isDark ? '1px solid #333333' : '1px solid #e5e7eb'
-          }}
-        >
-          <div className="card-body text-center p-5">
-            <div className="text-danger mb-3" style={{ fontSize: '3rem' }}>⚠️</div>
-            <h5 className={isDark ? 'text-light' : 'text-dark'}>
-              {t('failedToLoadDashboard')}
-            </h5>
-            <p className={isDark ? 'text-light' : 'text-muted'}>
-              {t('pleaseCheckConnection')}
-            </p>
-            <button className="btn btn-danger" onClick={fetchDashboardData}>
-              🔄 {t('retry')}
+        
+        {/* Quick Actions - Updated */}
+        <div className="col-lg-4">
+          <div 
+            className="card border-0 shadow-sm" 
+            style={{ 
+              borderRadius: '12px',
+              backgroundColor: isDark ? '#000000' : '#ffffff',
+              border: isDark ? '1px solid #333333' : '1px solid #e5e7eb'
+            }}
+          >
+            <div className="card-header bg-transparent border-0 p-4">
+              <h5 className="text-danger mb-0">⚡ {t('quickActions')}</h5>
+            </div>
+            <div className="card-body p-4">
+              <div className="d-grid gap-2">
+                {canViewRequests() && (
+                  <button 
+                    className="btn btn-outline-danger"
+                    onClick={() => setActiveTab('requests')}
+                    style={{ borderRadius: '8px' }}
+                  >
+                    📋 {t('viewAll')} {t('requests')}
+                  </button>
+                )}
+                
+                {canViewRequests() && (
+                  <button 
+                    className="btn btn-outline-danger"
+                    onClick={() => {
+                      setFilters({...filters, status: 'Rejected'});
+                      setActiveTab('requests');
+                    }}
+                    style={{ borderRadius: '8px' }}
+                  >
+                    🚫 {t('rejected', 'Rejected')} ({dashboardData.totals.rejected || 0})
+                  </button>
+                )}
+
+                {canViewRequests() && (
+                  <>
+                    <button 
+                      className="btn btn-outline-warning"
+                      onClick={() => {
+                        setFilters({...filters, status: 'Pending'});
+                        setActiveTab('requests');
+                      }}
+                      style={{ borderRadius: '8px' }}
+                    >
+                      ⏳ {t('pending')} ({dashboardData.totals.pending || 0})
+                    </button>
+                    <button 
+                      className="btn btn-outline-info"
+                      onClick={() => {
+                        setFilters({...filters, status: 'Informed'});
+                        setActiveTab('requests');
+                      }}
+                      style={{ borderRadius: '8px' }}
+                    >
+                      💬 {t('informed')} ({dashboardData.totals.informed || 0})
+                    </button>
+                  </>
+                )}
+                
+                {/* ADD THIS: Statistics quick action */}
+                {(isDepartmentAdmin() || isSuperAdmin()) && (
+                  <button 
+                    className="btn btn-outline-success"
+                    onClick={() => setActiveTab('statistics')}
+                    style={{ borderRadius: '8px' }}
+                  >
+                    📈 {t('viewStatistics', 'View Statistics')}
+                  </button>
+                )}
+                
+                {canManageSettings() && (
+                  <button 
+                    className="btn btn-outline-secondary"
+                    onClick={() => setActiveTab('settings')}
+                    style={{ borderRadius: '8px' }}
+                  >
+                    ⚙️ {t('settings')}
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    ) : (
+      <div 
+        className="card border-0 shadow-sm" 
+        style={{ 
+          borderRadius: '12px',
+          backgroundColor: isDark ? '#000000' : '#ffffff',
+          border: isDark ? '1px solid #333333' : '1px solid #e5e7eb'
+        }}
+      >
+        <div className="card-body text-center p-5">
+          <div className="text-danger mb-3" style={{ fontSize: '3rem' }}>⚠️</div>
+          <h5 className={isDark ? 'text-light' : 'text-dark'}>
+            {t('failedToLoadDashboard')}
+          </h5>
+          <p className={isDark ? 'text-light' : 'text-muted'}>
+            {t('pleaseCheckConnection')}
+          </p>
+          <button className="btn btn-danger" onClick={fetchDashboardData}>
+            🔄 {t('retry')}
             </button>
           </div>
         </div>
@@ -1272,6 +1282,20 @@ const handleRejectRequest = async (rejectionReason) => {
     </div>
   );
 
+  // 3. Add renderStatistics function
+  const renderStatistics = () => {
+  if (!canViewAnalytics() || (!isDepartmentAdmin() && !isSuperAdmin())) {
+    return (
+      <div className="alert alert-warning">
+        <h5>🔒 Access Denied</h5>
+        <p>Statistics are only available for Department Admins and Super Administrators.</p>
+      </div>
+    );
+  }
+
+  return <AdminStatisticsPage />;
+};
+
   // RBAC Management Tab Content
   const renderRBACManagement = () => {
     if (!isSuperAdmin()) {
@@ -1333,6 +1357,8 @@ const handleRejectRequest = async (rejectionReason) => {
         return renderRequests();
       case 'settings':
         return renderSettings();
+        case 'statistics':  // ADD THIS CASE
+      return renderStatistics();
       case 'rbac':
         return renderRBACManagement();
       case 'users':
