@@ -607,9 +607,136 @@ const rbacHelpers = {
 // ===== ADMIN STATISTICS METHODS =====
 const adminStatisticsMethods = {
   // Get admin performance statistics
-  getAdminStatistics: (params = {}) => {
-    console.log('📊 Fetching admin statistics:', params);
-    return adminApi.get('/admin-auth/statistics/admins', { params });
+   getAdminStatistics: async (params = {}) => {
+    try {
+      console.log('📊 Fetching admin statistics with params:', params);
+      
+      // Validate parameters
+      const validatedParams = {
+        period: params.period && !isNaN(params.period) ? String(params.period) : '30',
+        department: params.department || '',
+        ...params
+      };
+
+      const response = await adminApi.get('/admin-auth/statistics/admins', { 
+        params: validatedParams,
+        timeout: 30000 // 30 second timeout for large datasets
+      });
+
+      if (response.data.success) {
+        console.log('✅ Statistics loaded successfully:', {
+          adminCount: response.data.data.detailed_admins?.length || 0,
+          period: validatedParams.period,
+          department: validatedParams.department || 'ALL'
+        });
+      }
+
+      return response;
+    } catch (error) {
+      console.error('❌ Failed to fetch admin statistics:', error);
+      
+      // Enhanced error handling
+      if (error.code === 'ECONNABORTED') {
+        throw new Error('Request timeout - dataset too large');
+      } else if (error.response?.status === 403) {
+        throw new Error('Access denied: Insufficient permissions to view statistics');
+      } else if (error.response?.status === 404) {
+        throw new Error('Statistics endpoint not found');
+      } else if (error.response?.data?.error) {
+        throw new Error(error.response.data.error);
+      }
+      
+      throw error;
+    }
+  },
+
+   // Cached statistics with TTL
+  getAdminStatisticsWithCache: async (params = {}, useCache = true, ttl = 300000) => {
+    const cacheKey = `admin_stats_${JSON.stringify(params)}`;
+    
+    if (useCache) {
+      const cached = adminStatisticsMethods.getCachedStatistics(cacheKey);
+      if (cached) {
+        console.log('📊 Using cached admin statistics');
+        return { 
+          data: { 
+            success: true, 
+            data: cached, 
+            fromCache: true,
+            cachedAt: new Date().toISOString()
+          } 
+        };
+      }
+    }
+
+    try {
+      const response = await adminStatisticsMethods.getAdminStatistics(params);
+      
+      if (response.data.success && useCache) {
+        adminStatisticsMethods.cacheStatistics(cacheKey, response.data.data, ttl);
+      }
+      
+      return response;
+    } catch (error) {
+      console.error('Failed to fetch admin statistics:', error);
+      throw error;
+    }
+  },
+
+  // Statistics validation
+  validateStatisticsResponse: (response) => {
+    const errors = [];
+    
+    if (!response || !response.data) {
+      errors.push('Invalid response structure');
+      return { isValid: false, errors };
+    }
+
+    const data = response.data.data;
+    if (!data) {
+      errors.push('No data in response');
+      return { isValid: false, errors };
+    }
+
+    // Validate overview
+    if (!data.overview) {
+      errors.push('Missing overview data');
+    } else {
+      const requiredOverviewFields = ['total_admins', 'active_admins', 'total_requests_handled', 'avg_response_time'];
+      requiredOverviewFields.forEach(field => {
+        if (typeof data.overview[field] === 'undefined') {
+          errors.push(`Missing overview field: ${field}`);
+        }
+      });
+    }
+
+    // Validate detailed admins
+    if (!data.detailed_admins || !Array.isArray(data.detailed_admins)) {
+      errors.push('Missing or invalid detailed_admins array');
+    } else {
+      data.detailed_admins.forEach((admin, index) => {
+        const requiredFields = ['admin_id', 'username', 'full_name', 'department'];
+        requiredFields.forEach(field => {
+          if (!admin[field]) {
+            errors.push(`Admin ${index}: missing ${field}`);
+          }
+        });
+
+        // Validate numeric fields
+        const numericFields = ['total_requests', 'completed_requests', 'performance_score'];
+        numericFields.forEach(field => {
+          if (admin[field] && typeof admin[field] !== 'number') {
+            errors.push(`Admin ${index}: ${field} should be numeric`);
+          }
+        });
+      });
+    }
+
+    return {
+      isValid: errors.length === 0,
+      errors,
+      warnings: []
+    };
   },
 
   // Export admin statistics
@@ -696,30 +823,305 @@ const adminStatisticsMethods = {
     };
   },
 
-  // Generate statistics summary
+
+   // Generate performance report
+  generatePerformanceReport: (statistics) => {
+    const summary = adminStatisticsMethods.generateStatisticsSummary(statistics);
+    const insights = adminStatisticsMethods.generatePerformanceInsights(statistics);
+    
+    return {
+      report_meta: {
+        generated_at: new Date().toISOString(),
+        report_type: 'admin_performance_analysis',
+        period: summary.summary.period_info,
+        version: '1.0'
+      },
+      executive_summary: summary,
+      insights_and_recommendations: insights,
+      detailed_data: {
+        admin_count: statistics.detailed_admins?.length || 0,
+        department_breakdown: statistics.department_breakdown || [],
+        top_performers: statistics.top_performers || {}
+      },
+      appendix: {
+        methodology: 'Performance scores calculated based on completion rate, response time, and request volume',
+        data_sources: 'Admin responses, request status updates, and system timestamps',
+        limitations: 'Data reflects selected time period only and may not represent long-term trends'
+      }
+    };
+  },
+
+
+
+  // Advanced filtering and sorting
+  filterAndSortAdmins: (admins, filters = {}, sortConfig = {}) => {
+    if (!admins || !Array.isArray(admins)) return [];
+
+    let filteredAdmins = [...admins];
+
+    // Apply filters
+    if (filters.department) {
+      filteredAdmins = filteredAdmins.filter(admin => 
+        admin.department && admin.department.toLowerCase().includes(filters.department.toLowerCase())
+      );
+    }
+
+    if (filters.minPerformance !== undefined) {
+      filteredAdmins = filteredAdmins.filter(admin => 
+        (admin.performance_score || 0) >= filters.minPerformance
+      );
+    }
+
+    if (filters.maxPerformance !== undefined) {
+      filteredAdmins = filteredAdmins.filter(admin => 
+        (admin.performance_score || 0) <= filters.maxPerformance
+      );
+    }
+
+    if (filters.minRequests !== undefined) {
+      filteredAdmins = filteredAdmins.filter(admin => 
+        (admin.total_requests || 0) >= filters.minRequests
+      );
+    }
+
+    if (filters.hasActivity !== undefined) {
+      filteredAdmins = filteredAdmins.filter(admin => 
+        filters.hasActivity ? (admin.total_requests || 0) > 0 : (admin.total_requests || 0) === 0
+      );
+    }
+
+    // Apply sorting
+    const { sortBy = 'performance_score', sortOrder = 'desc' } = sortConfig;
+    
+    filteredAdmins.sort((a, b) => {
+      const aValue = a[sortBy] || 0;
+      const bValue = b[sortBy] || 0;
+      
+      if (sortOrder === 'desc') {
+        return bValue - aValue;
+      }
+      return aValue - bValue;
+    });
+
+    return filteredAdmins;
+  },
+
+
+
+
+    // Statistics summary generator
   generateStatisticsSummary: (statistics) => {
     if (!statistics || !statistics.detailed_admins) {
-      return { total: 0, summary: 'No data available' };
+      return { 
+        status: 'error',
+        message: 'No data available',
+        summary: {}
+      };
     }
 
     const admins = statistics.detailed_admins;
-    const total = admins.length;
-    const totalRequests = admins.reduce((sum, admin) => sum + (admin.total_requests || 0), 0);
-    const avgPerformance = total > 0 ? 
-      Math.round(admins.reduce((sum, admin) => sum + (admin.performance_score || 0), 0) / total) : 0;
+    const overview = statistics.overview;
+    
+    const summary = {
+      period_info: {
+        start_date: statistics.meta?.start_date,
+        end_date: statistics.meta?.end_date,
+        period_days: statistics.meta?.period || 30,
+        department: statistics.meta?.department || 'ALL'
+      },
+      admin_summary: {
+        total_admins: admins.length,
+        active_admins: overview?.active_admins || 0,
+        admins_with_activity: admins.filter(a => (a.total_requests || 0) > 0).length,
+        top_performer: admins.reduce((best, current) => 
+          (current.performance_score || 0) > (best.performance_score || 0) ? current : best, 
+          admins[0] || {}
+        )
+      },
+      performance_metrics: {
+        total_requests: admins.reduce((sum, admin) => sum + (admin.total_requests || 0), 0),
+        total_completed: admins.reduce((sum, admin) => sum + (admin.completed_requests || 0), 0),
+        total_rejected: admins.reduce((sum, admin) => sum + (admin.rejected_requests || 0), 0),
+        avg_performance_score: admins.length > 0 ? 
+          Math.round(admins.reduce((sum, admin) => sum + (admin.performance_score || 0), 0) / admins.length) : 0,
+        avg_response_time: overview?.avg_response_time || 0
+      },
+      distribution: {
+        high_performers: admins.filter(a => (a.performance_score || 0) >= 80).length,
+        medium_performers: admins.filter(a => (a.performance_score || 0) >= 60 && (a.performance_score || 0) < 80).length,
+        low_performers: admins.filter(a => (a.performance_score || 0) < 60).length
+      }
+    };
 
-    const topPerformer = admins.reduce((best, current) => 
-      (current.performance_score || 0) > (best.performance_score || 0) ? current : best
-    , admins[0]);
+    // Calculate completion rate
+    summary.performance_metrics.completion_rate = summary.performance_metrics.total_requests > 0 ?
+      Math.round((summary.performance_metrics.total_completed / summary.performance_metrics.total_requests) * 100) : 0;
 
     return {
-      total_admins: total,
-      total_requests: totalRequests,
-      avg_performance: avgPerformance,
-      top_performer: topPerformer,
-      summary: `${total} admins handled ${totalRequests} requests with ${avgPerformance}% average performance`
+      status: 'success',
+      message: `Analysis for ${summary.admin_summary.total_admins} admins over ${summary.period_info.period_days} days`,
+      summary
     };
   },
+
+
+  
+// Performance insights generator
+  generatePerformanceInsights: (statistics) => {
+    const insights = [];
+    const recommendations = [];
+    
+    if (!statistics || !statistics.detailed_admins) {
+      return { insights: [], recommendations: [] };
+    }
+
+    const summary = adminStatisticsMethods.generateStatisticsSummary(statistics);
+    const metrics = summary.summary.performance_metrics;
+    const distribution = summary.summary.distribution;
+    const adminSummary = summary.summary.admin_summary;
+
+    // Performance distribution insights
+    const totalAdmins = adminSummary.total_admins;
+    const highPerformerPercentage = totalAdmins > 0 ? Math.round((distribution.high_performers / totalAdmins) * 100) : 0;
+    const lowPerformerPercentage = totalAdmins > 0 ? Math.round((distribution.low_performers / totalAdmins) * 100) : 0;
+
+    if (highPerformerPercentage >= 70) {
+      insights.push({
+        type: 'positive',
+        icon: '🎉',
+        title: 'Excellent Team Performance',
+        message: `${highPerformerPercentage}% of admins are high performers (80%+ score)`,
+        priority: 'info'
+      });
+    } else if (lowPerformerPercentage >= 30) {
+      insights.push({
+        type: 'warning',
+        icon: '⚠️',
+        title: 'Performance Concerns',
+        message: `${lowPerformerPercentage}% of admins need performance improvement`,
+        priority: 'high'
+      });
+      recommendations.push({
+        type: 'training',
+        priority: 'high',
+        action: 'Provide additional training and support for underperforming admins',
+        impact: 'Improve overall team efficiency and service quality',
+        estimated_effort: 'Medium'
+      });
+    }
+
+    // Workload insights
+    const avgRequestsPerAdmin = totalAdmins > 0 ? Math.round(metrics.total_requests / totalAdmins) : 0;
+    if (avgRequestsPerAdmin > 100) {
+      insights.push({
+        type: 'warning',
+        icon: '📈',
+        title: 'High Workload Detected',
+        message: `Average ${avgRequestsPerAdmin} requests per admin - risk of burnout`,
+        priority: 'medium'
+      });
+      recommendations.push({
+        type: 'resource',
+        priority: 'medium',
+        action: 'Consider workload redistribution or hiring additional staff',
+        impact: 'Prevent admin burnout and maintain service quality',
+        estimated_effort: 'High'
+      });
+    } else if (avgRequestsPerAdmin < 10) {
+      insights.push({
+        type: 'info',
+        icon: '📉',
+        title: 'Low Activity Period',
+        message: `Average ${avgRequestsPerAdmin} requests per admin - consider cross-training`,
+        priority: 'low'
+      });
+    }
+
+    // Response time insights
+    if (metrics.avg_response_time > 48) {
+      insights.push({
+        type: 'negative',
+        icon: '🐌',
+        title: 'Slow Response Times',
+        message: `Average response time is ${Math.round(metrics.avg_response_time)} hours`,
+        priority: 'high'
+      });
+      recommendations.push({
+        type: 'process',
+        priority: 'high',
+        action: 'Implement response time targets and monitoring dashboard',
+        impact: 'Improve student satisfaction and service quality',
+        estimated_effort: 'Medium'
+      });
+    } else if (metrics.avg_response_time < 4) {
+      insights.push({
+        type: 'positive',
+        icon: '⚡',
+        title: 'Excellent Response Times',
+        message: `Average response time is only ${Math.round(metrics.avg_response_time)} hours`,
+        priority: 'info'
+      });
+    }
+
+    // Completion rate insights
+    if (metrics.completion_rate >= 90) {
+      insights.push({
+        type: 'positive',
+        icon: '✅',
+        title: 'High Success Rate',
+        message: `${metrics.completion_rate}% of requests are successfully completed`,
+        priority: 'info'
+      });
+    } else if (metrics.completion_rate < 70) {
+      insights.push({
+        type: 'warning',
+        icon: '📉',
+        title: 'Low Completion Rate',
+        message: `Only ${metrics.completion_rate}% of requests are completed`,
+        priority: 'high'
+      });
+      recommendations.push({
+        type: 'process',
+        priority: 'high',
+        action: 'Investigate root causes of incomplete requests and improve processes',
+        impact: 'Increase service delivery success rate',
+        estimated_effort: 'Medium'
+      });
+    }
+
+    // Team balance insights
+    const activeAdminPercentage = adminSummary.total_admins > 0 ? 
+      Math.round((adminSummary.admins_with_activity / adminSummary.total_admins) * 100) : 0;
+    
+    if (activeAdminPercentage < 80) {
+      insights.push({
+        type: 'info',
+        icon: '👥',
+        title: 'Uneven Workload Distribution',
+        message: `Only ${activeAdminPercentage}% of admins handled requests in this period`,
+        priority: 'medium'
+      });
+      recommendations.push({
+        type: 'management',
+        priority: 'medium',
+        action: 'Review workload distribution and consider rotating responsibilities',
+        impact: 'Better utilize team capacity and develop skills',
+        estimated_effort: 'Low'
+      });
+    }
+
+    return { 
+      insights: insights.sort((a, b) => {
+        const priorityOrder = { 'high': 3, 'medium': 2, 'low': 1, 'info': 0 };
+        return priorityOrder[b.priority] - priorityOrder[a.priority];
+      }), 
+      recommendations: recommendations.sort((a, b) => {
+        const priorityOrder = { 'high': 3, 'medium': 2, 'low': 1 };
+        return priorityOrder[b.priority] - priorityOrder[a.priority];
+      })
+    };
+  },
+
 
   // Data transformation helpers
   transformStatisticsForChart: (statistics) => {
@@ -783,21 +1185,26 @@ const adminStatisticsMethods = {
   },
 
   // Export helpers
-  generateCSVFromStatistics: (statistics) => {
-    if (!statistics || !statistics.detailed_admins) return '';
+  // Export helpers with better formatting
+  exportStatisticsToCSV: (statistics, includeHeaders = true) => {
+    if (!statistics || !statistics.detailed_admins) {
+      throw new Error('No statistics data available for export');
+    }
 
     const headers = [
-      'Admin ID', 'Username', 'Full Name', 'Department', 'Total Requests',
-      'Completed Requests', 'Pending Requests', 'Informed Requests', 
+      'Admin ID', 'Username', 'Full Name', 'Email', 'Department', 'Is Super Admin',
+      'Total Requests', 'Completed Requests', 'Pending Requests', 'Informed Requests',
       'Rejected Requests', 'Total Responses', 'Avg Response Time (hours)',
-      'Performance Score (%)', 'Last Activity'
+      'Performance Score (%)', 'Work Time (minutes)', 'Last Activity'
     ];
 
     const rows = statistics.detailed_admins.map(admin => [
-      admin.admin_id,
-      admin.username,
-      admin.full_name,
-      admin.department,
+      admin.admin_id || '',
+      admin.username || '',
+      admin.full_name || '',
+      admin.email || '',
+      admin.department || '',
+      admin.is_super_admin ? 'Yes' : 'No',
       admin.total_requests || 0,
       admin.completed_requests || 0,
       admin.pending_requests || 0,
@@ -806,14 +1213,22 @@ const adminStatisticsMethods = {
       admin.total_responses || 0,
       admin.avg_response_time || 0,
       admin.performance_score || 0,
-      admin.last_activity ? new Date(admin.last_activity).toLocaleDateString() : 'Never'
+      admin.total_work_time || 0,
+      admin.last_activity ? new Date(admin.last_activity).toISOString() : 'Never'
     ]);
 
-    return [headers, ...rows]
-      .map(row => row.map(field => `"${field}"`).join(','))
+    const csvContent = [];
+    
+    if (includeHeaders) {
+      csvContent.push(headers);
+    }
+    
+    csvContent.push(...rows);
+
+    return csvContent
+      .map(row => row.map(field => `"${String(field).replace(/"/g, '""')}"`).join(','))
       .join('\n');
   },
-
   // Caching helpers for statistics
   cacheStatistics: (key, data, expiry = 300000) => { // 5 minutes default
     try {

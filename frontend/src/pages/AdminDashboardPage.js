@@ -491,9 +491,21 @@ const handleRejectRequest = async (rejectionReason) => {
       tabs.push({ key: 'requests', label: '📋 Manage Requests', icon: '' });
     }
     
+
+
     if (canManageSettings()) {
       tabs.push({ key: 'settings', label: '⚙️ Settings', icon: '' });
     }
+
+    // STATISTICS TAB - Department Admin ve Super Admin için
+  if ((isDepartmentAdmin() || isSuperAdmin()) && canViewAnalytics()) {
+    tabs.push({ 
+      key: 'statistics', 
+      label: '📈 Performance Stats', 
+      icon: '',
+     
+    });
+  }
     
     // RBAC Management Tabs (Super Admin only)
     if (isSuperAdmin()) {
@@ -1472,33 +1484,36 @@ const handleRejectRequest = async (rejectionReason) => {
       >
         <div className="container-fluid">
           <ul className="nav nav-tabs border-0 pt-3" style={{ 
-            borderBottom: `2px solid ${isDark ? '#333333' : '#e5e7eb'}` 
-          }}>
-            {getVisibleTabs().map((tab) => (
-              <li key={tab.key} className="nav-item">
-                <button
-                  className={`nav-link border-0 px-4 py-3 fw-semibold ${
-                    activeTab === tab.key 
-                      ? 'text-danger border-bottom border-danger border-3' 
-                      : isDark ? 'text-light' : 'text-muted'
-                  }`}
-                  onClick={() => setActiveTab(tab.key)}
-                  style={{
-                    backgroundColor: activeTab === tab.key 
-                      ? 'rgba(220, 38, 38, 0.1)' 
-                      : 'transparent',
-                    borderRadius: '8px 8px 0 0',
-                    transition: 'all 0.3s ease'
-                  }}
-                >
-                  {tab.icon} {tab.label}
-                  {tab.key === 'requests' && requests.length > 0 && (
-                    <span className="badge bg-danger ms-2">{requests.length}</span>
-                  )}
-                </button>
-              </li>
-            ))}
-          </ul>
+  borderBottom: `2px solid ${isDark ? '#333333' : '#e5e7eb'}` 
+}}>
+  {getVisibleTabs().map((tab) => (
+    <li key={tab.key} className="nav-item">
+      <button
+        className={`nav-link border-0 px-4 py-3 fw-semibold position-relative ${
+          activeTab === tab.key 
+            ? 'text-danger border-bottom border-danger border-3' 
+            : isDark ? 'text-light' : 'text-muted'
+        }`}
+        onClick={() => setActiveTab(tab.key)}
+        style={{
+          backgroundColor: activeTab === tab.key 
+            ? 'rgba(220, 38, 38, 0.1)' 
+            : 'transparent',
+          borderRadius: '8px 8px 0 0',
+          transition: 'all 0.3s ease'
+        }}
+      >
+        {tab.icon} {tab.label}
+        {tab.key === 'requests' && requests.length > 0 && (
+          <span className="badge bg-danger ms-2">{requests.length}</span>
+        )}
+        {tab.badge && (
+          <span className="badge bg-success ms-2 text-xs">{tab.badge}</span>
+        )}
+      </button>
+    </li>
+  ))}
+</ul>
         </div>
       </div>
 
