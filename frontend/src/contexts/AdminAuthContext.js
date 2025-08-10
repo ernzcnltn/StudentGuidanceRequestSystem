@@ -1,5 +1,4 @@
-// frontend/src/contexts/AdminAuthContext.js - FIXED VERSION
-
+// frontend/src/contexts/AdminAuthContext.js - RBAC Enhanced
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { apiService, checkTokenValidity } from '../services/api';
 
@@ -59,10 +58,10 @@ export const AdminAuthProvider = ({ children }) => {
    return roles.some(role => role.role_name === roleName);
  }, [admin?.is_super_admin, roles]);
 
- // Departman erişim kontrolü - FIXED
+ // Departman erişim kontrolü - UPDATED
  const canAccessDepartment = useCallback((department) => {
    // Pure super admin ise her departmana erişebilir
-   if (admin?.is_super_admin && (!admin?.department || admin?.department === null)) {
+   if (admin?.is_super_admin && !admin?.department) {
      return true;
    }
    // Diğer durumda sadece kendi departmanına erişebilir
@@ -252,22 +251,17 @@ export const AdminAuthProvider = ({ children }) => {
    return () => window.removeEventListener('focus', handleFocus);
  }, [admin, logout]);
 
- // RBAC helper fonksiyonları - FIXED
+ // RBAC helper fonksiyonları - UPDATED
  const rbacHelpers = {
-   // FIXED: Pure vs Department Super Admin ayrımı
+   // YENİ FONKSİYONLAR: Pure vs Department Super Admin ayrımı
    isPureSuperAdmin: () => {
-     // Süper admin ama aynı zamanda belirli bir departmanı yok (sistem yöneticisi)
-     return admin?.is_super_admin === true && (!admin?.department || admin?.department === null);
+     // Süper admin ama aynı zamanda belirli bir departmanı yok
+     return admin?.is_super_admin && !admin?.department;
    },
    
    isDepartmentSuperAdmin: () => {
-     // Süper admin ama aynı zamanda belirli bir departmanı da var
-     return admin?.is_super_admin === true && admin?.department && admin?.department !== null;
-   },
-
-   // FIXED: Department admin kontrolü - super admin olmayan departman yöneticisi
-   isDepartmentAdmin: () => {
-     return hasRole('department_admin') || rbacHelpers.isDepartmentSuperAdmin();
+     // Süper admin ama aynı zamanda departmanı da var
+     return admin?.is_super_admin && admin?.department;
    },
 
    // Quick permission checks
@@ -279,13 +273,14 @@ export const AdminAuthProvider = ({ children }) => {
    canManageSettings: () => hasPermission('settings', 'update'),
    canManageRequestTypes: () => hasPermission('settings', 'manage_request_types'),
    
-   // Role checks - FIXED
-   isSuperAdmin: () => admin?.is_super_admin === true,
+   // Role checks
+   isSuperAdmin: () => admin?.is_super_admin || hasRole('super_admin'),
+   isDepartmentAdmin: () => hasRole('department_admin'),
    isDepartmentStaff: () => hasRole('department_staff'),
    isReadOnly: () => hasRole('read_only_admin'),
    isTrainee: () => hasRole('trainee_admin'),
    
-   // Department checks - FIXED
+   // Department checks - UPDATED
    canAccessAllDepartments: () => rbacHelpers.isPureSuperAdmin(), // Sadece pure super admin
    
    getAccessibleDepartments: () => {
@@ -302,23 +297,6 @@ export const AdminAuthProvider = ({ children }) => {
    },
    hasAllPermissions: (permissionList) => {
      return permissionList.every(({ resource, action }) => hasPermission(resource, action));
-   },
-
-   // FIXED: Statistics access check
-   canViewStatistics: () => {
-     // Department admin veya super admin statistics görebilir
-     return rbacHelpers.isDepartmentAdmin() || rbacHelpers.isSuperAdmin();
-   },
-
-   // FIXED: Department filtering for statistics
-   getStatisticsFilter: () => {
-     if (rbacHelpers.isPureSuperAdmin()) {
-       // Pure super admin tüm departmanları görebilir
-       return null; // No filter
-     } else {
-       // Department admin/super admin sadece kendi departmanını görebilir
-       return admin?.department || null;
-     }
    }
  };
 
@@ -343,7 +321,7 @@ export const AdminAuthProvider = ({ children }) => {
    hasRole,
    canAccessDepartment,
    
-   // RBAC Helpers - FIXED
+   // RBAC Helpers
    ...rbacHelpers,
    
    // Raw RBAC data for debugging
