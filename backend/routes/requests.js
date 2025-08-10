@@ -7,6 +7,7 @@ const { upload, handleUploadError } = require('../middleware/upload');
 const jwt = require('jsonwebtoken');
 const path = require('path');
 const fs = require('fs');
+const { handleNewRequestAssignment } = require('./adminAuth'); // Import from adminAuth
 
 // Student auth middleware
 const authenticateStudent = async (req, res, next) => {
@@ -333,6 +334,340 @@ router.post('/:id/upload', upload.array('files', 3), handleUploadError, async (r
     });
   }
 });
+
+
+// POST /api/requests - Create new request with auto-assignment
+router.post('/requests', authenticateStudent, async (req, res) => {
+  try {
+    const { type_id, content, priority = 'Medium' } = req.body;
+    const studentId = req.student.student_id;
+
+    console.log('📝 Creating new request with auto-assignment:', {
+      studentId,
+      type_id,
+      priority,
+      contentLength: content?.length || 0
+    });
+
+    // Validation
+    if (!type_id || !content) {
+      return res.status(400).json({
+        success: false,
+        error: 'Request type and content are required'
+      });
+    }
+
+    if (content.trim().length < 10) {
+      return res.status(400).json({
+        success: false,
+        error: 'Content must be at least 10 characters long'
+      });
+    }
+
+    // Get request type info for assignment
+    const [requestType] = await pool.execute(
+      'SELECT type_id, type_name, category, is_disabled FROM request_types WHERE type_id = ?',
+      [type_id]
+    );
+
+    if (requestType.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid request type'
+      });
+    }
+
+    if (requestType[0].is_disabled) {
+      return res.status(400).json({
+        success: false,
+        error: 'This request type is currently disabled'
+      });
+    }
+
+    const category = requestType[0].category;
+
+    // Check if student has pending requests limit
+    const [pendingCount] = await pool.execute(`
+      SELECT COUNT(*) as pending_requests 
+      FROM guidance_requests 
+      WHERE student_id = ? AND status = 'Pending'
+    `, [studentId]);
+
+    if (pendingCount[0].pending_requests >= 5) {
+      return res.status(400).json({
+        success: false,
+        error: 'You have reached the maximum limit of 5 pending requests'
+      });
+    }
+
+    // Create the request
+    const [result] = await pool.execute(`
+      INSERT INTO guidance_requests (
+        student_id, 
+        type_id, 
+        content, 
+        priority, 
+        status, 
+        submitted_at
+      ) VALUES (?, ?, ?, ?, 'Pending', NOW())
+    `, [studentId, type_id, content.trim(), priority]);
+
+    const requestId = result.insertId;
+
+    console.log(`✅ Request created with ID: ${requestId}`);
+
+    // AUTO-ASSIGNMENT LOGIC
+    console.log(`🤖 Starting auto-assignment for request ${requestId} to ${category} department`);
+    
+    try {
+      const assignmentResult = await handleNewRequestAssignment(requestId);
+      
+      let assignmentInfo = {
+        auto_assignment_attempted: true,
+        assignment_successful: assignmentResult?.success || false
+      };
+
+      if (assignmentResult?.success) {
+        assignmentInfo.assigned_to = assignmentResult.assignedTo.full_name;
+        assignmentInfo.admin_workload = assignmentResult.workload;
+        console.log(`✅ Request ${requestId} auto-assigned to ${assignmentResult.assignedTo.full_name}`);
+      } else {
+        assignmentInfo.assignment_error = assignmentResult?.reason || assignmentResult?.error;
+        console.log(`⚠️ Auto-assignment failed for request ${requestId}: ${assignmentInfo.assignment_error}`);
+      }
+
+      // Return success response with assignment info
+      res.status(201).json({
+        success: true,
+        message: 'Request submitted successfully',
+        data: {
+          request_id: requestId,
+          type_name: requestType[0].type_name,
+          category: category,
+          priority: priority,
+          status: 'Pending',
+          submitted_at: new Date().toISOString(),
+          assignment_info: assignmentInfo
+        }
+      });
+
+    } catch (assignmentError) {
+      console.error('❌ Auto-assignment error (non-critical):', assignmentError);
+      
+      // Request created successfully, assignment failed (non-critical)
+      res.status(201).json({
+        success: true,
+        message: 'Request submitted successfully',
+        data: {
+          request_id: requestId,
+          type_name: requestType[0].type_name,
+          category: category,
+          priority: priority,
+          status: 'Pending',
+          submitted_at: new Date().toISOString(),
+          assignment_info: {
+            auto_assignment_attempted: true,
+            assignment_successful: false,
+            assignment_error: 'Auto-assignment failed but request was created'
+          }
+        }
+      });
+    }
+
+  } catch (error) {
+    console.error('❌ Request creation error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to create request'
+    });
+  }
+});
+
+// GET /api/requests/student/me - Student's own requests with assignment info
+router.get('/requests/student/me', authenticateStudent, async (req, res) => {
+  try {
+    const studentId = req.student.student_id;
+    const { status, limit = 50 } = req.query;
+
+    console.log('📋 Fetching student requests with assignment info:', { studentId, status, limit });
+
+    let statusCondition = '';
+    const params = [studentId];
+
+    if (status && status !== 'all') {
+      statusCondition = ' AND gr.status = ?';
+      params.push(status);
+    }
+
+    const [requests] = await pool.execute(`
+      SELECT 
+        gr.request_id,
+        gr.content,
+        gr.status,
+        gr.priority,
+        gr.submitted_at,
+        gr.updated_at,
+        gr.resolved_at,
+        gr.assigned_admin_id,
+        gr.assigned_at,
+        gr.assignment_method,
+        
+        rt.type_name,
+        rt.category,
+        rt.description_en,
+        
+        au.full_name as assigned_admin_name,
+        au.email as assigned_admin_email,
+        
+        COUNT(a.attachment_id) as attachment_count,
+        COUNT(ar.response_id) as response_count,
+        
+        MAX(ar.created_at) as last_response_at
+        
+      FROM guidance_requests gr
+      JOIN request_types rt ON gr.type_id = rt.type_id
+      LEFT JOIN admin_users au ON gr.assigned_admin_id = au.admin_id
+      LEFT JOIN attachments a ON gr.request_id = a.request_id
+      LEFT JOIN admin_responses ar ON gr.request_id = ar.request_id
+      WHERE gr.student_id = ? ${statusCondition}
+      GROUP BY gr.request_id
+      ORDER BY gr.submitted_at DESC
+      LIMIT ?
+    `, [...params, parseInt(limit)]);
+
+    // Add assignment status for each request
+    const enhancedRequests = requests.map(request => ({
+      ...request,
+      has_assignment: !!request.assigned_admin_id,
+      assignment_delay_hours: request.assigned_at ? 
+        Math.round((new Date(request.assigned_at) - new Date(request.submitted_at)) / (1000 * 60 * 60)) : null,
+      is_auto_assigned: request.assignment_method === 'auto',
+      time_since_submission: Math.round((new Date() - new Date(request.submitted_at)) / (1000 * 60 * 60)),
+      time_since_last_update: request.updated_at ? 
+        Math.round((new Date() - new Date(request.updated_at)) / (1000 * 60 * 60)) : null
+    }));
+
+    console.log(`✅ Retrieved ${enhancedRequests.length} requests for student ${studentId}`);
+
+    res.json({
+      success: true,
+      data: enhancedRequests,
+      meta: {
+        total_requests: enhancedRequests.length,
+        student_id: studentId,
+        filter_status: status || 'all',
+        assignment_stats: {
+          assigned: enhancedRequests.filter(r => r.has_assignment).length,
+          unassigned: enhancedRequests.filter(r => !r.has_assignment).length,
+          auto_assigned: enhancedRequests.filter(r => r.is_auto_assigned).length
+        }
+      }
+    });
+
+  } catch (error) {
+    console.error('❌ Get student requests error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch requests'
+    });
+  }
+});
+
+// POST /api/requests/:requestId/priority - Student can update priority of unassigned requests
+router.put('/requests/:requestId/priority', authenticateStudent, async (req, res) => {
+  try {
+    const { requestId } = req.params;
+    const { priority } = req.body;
+    const studentId = req.student.student_id;
+
+    const validPriorities = ['Low', 'Medium', 'High', 'Urgent'];
+    if (!validPriorities.includes(priority)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid priority. Must be: Low, Medium, High, or Urgent'
+      });
+    }
+
+    // Check if request belongs to student and is not yet handled
+    const [request] = await pool.execute(`
+      SELECT 
+        gr.request_id, 
+        gr.status, 
+        gr.assigned_admin_id,
+        gr.priority as current_priority
+      FROM guidance_requests gr
+      WHERE gr.request_id = ? AND gr.student_id = ?
+    `, [requestId, studentId]);
+
+    if (request.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: 'Request not found'
+      });
+    }
+
+    const requestData = request[0];
+
+    // Students can only change priority of pending requests
+    if (requestData.status !== 'Pending') {
+      return res.status(400).json({
+        success: false,
+        error: 'Can only change priority of pending requests'
+      });
+    }
+
+    // If request is assigned and priority is being increased, notify admin
+    const priorityValues = { 'Low': 1, 'Medium': 2, 'High': 3, 'Urgent': 4 };
+    const isIncreasingPriority = priorityValues[priority] > priorityValues[requestData.current_priority];
+
+    const [result] = await pool.execute(`
+      UPDATE guidance_requests 
+      SET priority = ?, updated_at = NOW()
+      WHERE request_id = ?
+    `, [priority, requestId]);
+
+    if (result.affectedRows === 0) {
+      return res.status(500).json({
+        success: false,
+        error: 'Failed to update priority'
+      });
+    }
+
+    // If assigned and priority increased, could trigger notification to admin
+    let notificationSent = false;
+    if (requestData.assigned_admin_id && isIncreasingPriority) {
+      try {
+        // Add notification logic here if needed
+        console.log(`📢 Priority increased for assigned request ${requestId} - notify admin ${requestData.assigned_admin_id}`);
+        notificationSent = true;
+      } catch (notificationError) {
+        console.error('Failed to send priority notification:', notificationError);
+      }
+    }
+
+    res.json({
+      success: true,
+      message: `Priority updated to ${priority}`,
+      data: {
+        request_id: requestId,
+        old_priority: requestData.current_priority,
+        new_priority: priority,
+        notification_sent: notificationSent,
+        is_assigned: !!requestData.assigned_admin_id
+      }
+    });
+
+  } catch (error) {
+    console.error('❌ Update request priority error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to update request priority'
+    });
+  }
+});
+
+
+
 
 // GET /api/requests/:id/attachments - Request'e ait dosyaları listele
 router.get('/:id/attachments', async (req, res) => {
