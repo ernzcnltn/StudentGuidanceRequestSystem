@@ -2,7 +2,15 @@
 export const translations = {
   tr: {
 
+
+
 maxFileSizeStudent: 'Maksimum dosya boyutu: 2MB',
+
+
+'Monday-Friday, 08:30-17:30 (TRNC Time)': 'Pazartesi-Cuma, 08:30-17:30 (KKTC Saati)',
+'Working hours:':'Mesai Saatleri:',
+'requests can only be made during business hours.': 'Talepler sadece mesai saatleri içinde oluşturulabilir.',
+
 
 'logoutConfirmation': 'Çıkış Onayı',
 'logoutConfirmationMessage': 'Çıkış yapmak istediğinizden emin misiniz?',
@@ -416,6 +424,12 @@ adminLogin: 'Akademik Personel Girişi',
 
   en: {
 
+
+  'Monday-Friday, 08:30-17:30 (TRNC Time)': 'Monday-Friday, 08:30-17:30 (TRNC Time)',
+'Working hours:': 'Working hours:',
+'Requests can only be made during business hours.': 'Requests can only be made during business hours.',
+
+
     'logoutConfirmation': 'Logout Confirmation',
     'logoutConfirmationMessage': 'Are you sure you want to log out?',
    'rejected': 'Rejected',
@@ -826,6 +840,14 @@ sendResponse: 'Send Response',
   },
 ar: {
 
+
+
+  'Monday-Friday, 08:30-17:30 (TRNC Time)': 'الاثنين-الجمعة، 08:30-17:30 (بتوقيت شمال قبرص)',
+'Working hours:': 'ساعات العمل:',
+'Requests can only be made during business hours.': 'يمكن تقديم الطلبات فقط خلال ساعات العمل.',
+
+
+
   'logoutConfirmation': 'تأكيد تسجيل الخروج',
   'logoutConfirmationMessage': 'هل أنت متأكد أنك تريد تسجيل الخروج؟',
   'rejected': 'مرفوض',
@@ -1202,6 +1224,12 @@ ar: {
 
 ru: {
 
+
+  'Monday-Friday, 08:30-17:30 (TRNC Time)': 'Понедельник–пятница, 08:30–17:30 (время СТРК)',
+'Working hours:': 'Рабочие часы:',
+'Requests can only be made during business hours.': 'Запросы можно отправлять только в рабочее время.',
+
+
   'logoutConfirmation': 'Подтверждение выхода',
   'logoutConfirmationMessage': 'Вы уверены, что хотите выйти?',
   'rejected': 'Отклонено',
@@ -1576,6 +1604,14 @@ requestTypes: {
 
 },
 fr: {
+
+  'Monday-Friday, 08:30-17:30 (TRNC Time)': 'Lundi-vendredi, 08h30-17h30 (heure de RTCN)',
+'Working hours:': 'Heures de travail :',
+'Requests can only be made during business hours.': 'Les demandes ne peuvent être effectuées que pendant les heures de bureau.',
+
+
+
+
 
   'logoutConfirmation': 'Confirmation de déconnexion',
   'logoutConfirmationMessage': 'Êtes-vous sûr de vouloir vous déconnecter ?',

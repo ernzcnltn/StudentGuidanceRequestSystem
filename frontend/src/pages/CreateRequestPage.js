@@ -4,6 +4,8 @@ import { apiService } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
 import { useTranslation } from '../hooks/useTranslation'; // YENİ EKLENEN
+import WorkingHoursNotice, { useWorkingHours, WorkingHoursModal } from '../components/WorkingHoursNotice'; // YENİ EKLENEN
+
 
 const CreateRequestPage = () => {
   const navigate = useNavigate();
@@ -11,6 +13,9 @@ const CreateRequestPage = () => {
   const { showSuccess, showError, showWarning, showInfo } = useToast();
   const { t, translateRequestType } = useTranslation();
   
+const { status: workingHoursStatus, isWithinWorkingHours, canCreateRequest } = useWorkingHours();
+  
+
   const [requestTypes, setRequestTypes] = useState({});
   const [formData, setFormData] = useState({
     student_id: user?.student_id || 1,
@@ -24,6 +29,10 @@ const CreateRequestPage = () => {
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
   const [files, setFiles] = useState([]);
+
+ const [showWorkingHoursModal, setShowWorkingHoursModal] = useState(false);
+  const [workingHoursChecked, setWorkingHoursChecked] = useState(false);
+
 
   useEffect(() => {
     const fetchRequestTypes = async () => {
@@ -47,6 +56,16 @@ const CreateRequestPage = () => {
   if (fileType.includes('csv') || fileType.includes('excel')) return '📊';
   return '📎';
 };
+
+
+  useEffect(() => {
+    if (workingHoursStatus && !workingHoursStatus.isAllowed && !workingHoursChecked) {
+      setShowWorkingHoursModal(true);
+      setWorkingHoursChecked(true);
+    }
+  }, [workingHoursStatus, workingHoursChecked]);
+
+
 
   useEffect(() => {
     if (user) {
@@ -171,7 +190,12 @@ const CreateRequestPage = () => {
   return;
 }
 
-
+// ⭐ YENİ: Mesai saatleri son kontrol
+    if (!canCreateRequest) {
+      showError('Request\'ler sadece mesai saatleri içinde oluşturulabilir (Pazartesi-Cuma 08:30-17:30)');
+      setShowWorkingHoursModal(true);
+      return;
+    }
 
     // Required document kontrolü
     if (selectedType?.is_document_required && files.length === 0) {
@@ -230,6 +254,23 @@ const CreateRequestPage = () => {
       }, 2000);
       
     } catch (error) {
+
+console.error('❌ Request creation error:', error);
+      
+      // ⭐ YENİ: Working hours specific error handling
+      if (error.response?.status === 423 && error.response?.data?.errorCode === 'OUTSIDE_WORKING_HOURS') {
+        const errorData = error.response.data;
+        showError('❌ Mesai dışı: Request\'ler sadece Pazartesi-Cuma 08:30-17:30 saatleri arasında oluşturulabilir (KKTC Saati)');
+        
+        // Show detailed working hours info
+        if (errorData.guidance?.nextOpening) {
+          showInfo(`📅 ${errorData.guidance.nextOpening}`);
+        }
+        
+        setShowWorkingHoursModal(true);
+        return;
+      }
+
       const errorMessage = error.response?.data?.error || t('requestFailed');
 showError(`❌ ${errorMessage}`);
       setError(errorMessage);
@@ -261,7 +302,19 @@ showError(`❌ ${errorMessage}`);
         <div className="card">
           <div className="card-body">
             <form onSubmit={handleSubmit}>
-
+ {/* ⭐ YENİ: Working hours status in form */}
+              {!canCreateRequest && (
+                <div className="alert alert-warning mb-4">
+                 
+                  <p className="mb-2">
+                  
+                  </p>
+                  <p className="mb-0">
+                    <strong>{t('Working hours:')}</strong> {t('Monday-Friday, 08:30-17:30 (TRNC Time)')}
+                  </p>
+                </div>
+              )}
+              
 
             
               {/* Important Notes */}

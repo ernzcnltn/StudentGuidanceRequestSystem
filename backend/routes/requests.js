@@ -433,7 +433,7 @@ router.post('/requests', authenticateStudent, async (req, res) => {
         console.log(`✅ Request ${requestId} auto-assigned to ${assignmentResult.assignedTo.full_name}`);
       } else {
         assignmentInfo.assignment_error = assignmentResult?.reason || assignmentResult?.error;
-        console.log(`⚠️ Auto-assignment failed for request ${requestId}: ${assignmentInfo.assignment_error}`);
+        console.log(` Auto-assignment failed for request ${requestId}: ${assignmentInfo.assignment_error}`);
       }
 
       // Return success response with assignment info

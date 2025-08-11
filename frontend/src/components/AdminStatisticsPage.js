@@ -71,7 +71,7 @@ const AdminStatisticsPage = () => {
         if (response.data.fromCache) {
           showInfo('Data loaded from cache - refresh for latest data');
         } else {
-          showSuccess('Statistics loaded successfully');
+        
         }
         
         console.log('✅ Statistics loaded:', response.data.data);
@@ -762,23 +762,8 @@ const AdminStatisticsPage = () => {
                   </div>
                   <div className="col-12">
                     <div className="d-flex gap-2">
-                      <button 
-                        className="btn btn-outline-secondary btn-sm flex-fill"
-                        onClick={() => loadStatistics(true)}
-                        disabled={refreshing}
-                      >
-                        {refreshing ? (
-                          <span className="spinner-border spinner-border-sm"></span>
-                        ) : (
-                          '🔄'
-                        )}
-                      </button>
-                      <button
-                        className={`btn btn-sm flex-fill ${autoRefresh ? 'btn-success' : 'btn-outline-success'}`}
-                        onClick={() => setAutoRefresh(!autoRefresh)}
-                      >
-                        {autoRefresh ? '⏹️ Stop' : '▶️ Auto'}
-                      </button>
+                     
+                      
                     </div>
                   </div>
                 </div>
@@ -1119,18 +1104,8 @@ const AdminStatisticsPage = () => {
               '🔄 Refresh'
             )}
           </button>
-          <button 
-            className="btn btn-outline-success btn-sm"
-            onClick={() => showInfo('Export functionality coming soon!')}
-          >
-            📊 Export
-          </button>
-          <button
-            className={`btn btn-sm ${autoRefresh ? 'btn-success' : 'btn-outline-success'}`}
-            onClick={() => setAutoRefresh(!autoRefresh)}
-          >
-            {autoRefresh ? '⏹️ Stop Auto' : '▶️ Auto Refresh'}
-          </button>
+         
+          
         </div>
       </div>
 
@@ -1236,13 +1211,7 @@ const AdminStatisticsPage = () => {
           </button>
         </li>
         <li className="nav-item">
-          <button
-            className={`nav-link ${activeTab === 'trends' ? 'active' : ''}`}
-            onClick={() => setActiveTab('trends')}
-          >
-            📈 Trends
-            <span className="badge bg-warning text-dark ms-1">Soon</span>
-          </button>
+        
         </li>
       </ul>
 

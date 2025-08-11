@@ -255,12 +255,7 @@ const getSelectedPermissionsSummary = () => {
             >
               🔄 Refresh
             </button>
-            <button 
-              className="btn btn-outline-info"
-              onClick={() => showInfo('Export roles feature')}
-            >
-              📊 Export
-            </button>
+           
           </div>
         </div>
       </div>

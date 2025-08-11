@@ -99,7 +99,7 @@ INSERT INTO request_types (category, type_name, description_en, is_document_requ
 ('Academic', 'Grade Appeals', 'Formal appeals for grade reviews and corrections', TRUE),
 ('Academic', 'Transcript Requests', 'Official and unofficial transcript requests', FALSE),
 ('Academic', 'Academic Probation Support', 'Guidance for students on academic probation', FALSE),
-('Academic', 'Course Withdrawal', 'Requests for course or semester withdrawal', TRUE),
+('Academic', 'Course Withdrawal', 'Requests for course or semester withdrawal', FALSE),
 ('Academic', 'Credit Transfer Evaluation', 'Evaluation of transfer credits from other institutions', TRUE),
 ('Academic', 'Graduation Requirements Check', 'Verification of graduation requirements completion', FALSE),
 
