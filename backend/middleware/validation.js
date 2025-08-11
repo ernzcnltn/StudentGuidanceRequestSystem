@@ -1,8 +1,8 @@
-// backend/middleware/validation.js - UPDATED with Working Hours Integration
+// backend/middleware/validation.js - FIXED 24-hour limit implementation
 const { pool } = require('../config/database');
 const { workingHoursUtils } = require('./workingHours');
 
-// Request oluşturma validasyonu - MESAİ SAATİ KONTROLÜ EKLENDİ
+// Request oluşturma validasyonu - 24 SAATLİK LİMİT DÜZELTİLDİ
 const validateCreateRequest = async (req, res, next) => {
   try {
     const { student_id, type_id, content, priority = 'Medium' } = req.body;
@@ -23,7 +23,7 @@ const validateCreateRequest = async (req, res, next) => {
       });
     }
     
-    // ⭐ YENİ: Mesai saati kontrolü - validateCreateRequest içinde de kontrol
+    // ⭐ YENİ: Mesai saati kontrolü - önce bu kontrol yapılıyor
     const workingHoursCheck = workingHoursUtils.isWithinWorkingHours();
     if (!workingHoursCheck.isAllowed) {
       const nextWorkingTime = workingHoursUtils.getNextWorkingTime();
@@ -84,7 +84,7 @@ const validateCreateRequest = async (req, res, next) => {
     
     // Student exists check
     const [students] = await pool.execute(
-      'SELECT student_id, name, email FROM students WHERE student_id = ? AND is_active = TRUE',
+      'SELECT student_id, name, email FROM students WHERE student_id = ?',
       [student_id]
     );
     
@@ -115,6 +115,51 @@ const validateCreateRequest = async (req, res, next) => {
       });
     }
     
+    // ⭐ FIXED: 24 saat limit kontrolü - Mesai saatleri dahilinde günde en fazla 1 request
+    console.log('🕐 Checking 24-hour limit for student:', student_id);
+    
+    const [recentRequests] = await pool.execute(`
+      SELECT 
+        COUNT(*) as recent_count,
+        MAX(submitted_at) as last_request_time
+      FROM guidance_requests 
+      WHERE student_id = ? AND submitted_at >= NOW() - INTERVAL 24 HOUR
+    `, [student_id]);
+    
+    const recentCount = recentRequests[0].recent_count;
+    const lastRequestTime = recentRequests[0].last_request_time;
+    
+    console.log('📊 24-hour check result:', {
+      studentId: student_id,
+      recentCount: recentCount,
+      lastRequestTime: lastRequestTime,
+      limit: 1
+    });
+    
+    if (recentCount >= 1) {
+      const lastRequestDate = new Date(lastRequestTime);
+      const nextAllowedTime = new Date(lastRequestDate.getTime() + 24 * 60 * 60 * 1000);
+      const hoursLeft = Math.ceil((nextAllowedTime - new Date()) / (1000 * 60 * 60));
+      
+      return res.status(429).json({
+        success: false,
+        error: 'You can only submit 1 request per 24 hours during working hours',
+        errorCode: 'DAILY_LIMIT_EXCEEDED',
+        details: {
+          current_24h_count: recentCount,
+          max_daily_allowed: 1,
+          last_request_time: lastRequestTime,
+          next_allowed_time: nextAllowedTime.toISOString(),
+          hours_remaining: hoursLeft
+        },
+        guidance: {
+          message: `You submitted a request ${hoursLeft} hours ago`,
+          wait_time: `Please wait ${hoursLeft} more hours before submitting another request`,
+          next_available: `Next request available: ${nextAllowedTime.toLocaleString('tr-TR')}`
+        }
+      });
+    }
+    
     // Check pending requests limit (prevent spam)
     const [pendingRequests] = await pool.execute(
       'SELECT COUNT(*) as pending_count FROM guidance_requests WHERE student_id = ? AND status = "Pending"',
@@ -130,37 +175,23 @@ const validateCreateRequest = async (req, res, next) => {
       });
     }
     
-    // ⭐ YENİ: 24 saat limit kontrolü - Mesai saatleri içinde günde en fazla 3 request
-    const [recentRequests] = await pool.execute(`
-      SELECT COUNT(*) as recent_count 
-      FROM guidance_requests 
-      WHERE student_id = ? AND submitted_at >= DATE_SUB(NOW(), INTERVAL 24 HOUR)
-    `, [student_id]);
-    
-    if (recentRequests[0].recent_count >= 3) {
-      return res.status(429).json({
-        success: false,
-        error: 'You can only submit 3 requests per day during working hours',
-        current_daily_count: recentRequests[0].recent_count,
-        max_daily_allowed: 3,
-        reset_time: 'Tomorrow at 08:30'
-      });
-    }
-    
     // Add validation success info to request
     req.validationInfo = {
       checkedAt: new Date().toISOString(),
       student: students[0],
       requestType: requestTypes[0],
       workingHours: workingHoursCheck,
-      dailyRequestCount: recentRequests[0].recent_count,
-      pendingRequestCount: pendingRequests[0].pending_count
+      recent24hCount: recentCount,
+      pendingRequestCount: pendingRequests[0].pending_count,
+      nextAllowedTime: recentCount > 0 ? 
+        new Date(new Date(lastRequestTime).getTime() + 24 * 60 * 60 * 1000) : 
+        new Date()
     };
     
     console.log('✅ Request validation passed:', {
       studentId: student_id,
       requestType: requestTypes[0].type_name,
-      dailyCount: recentRequests[0].recent_count,
+      recent24hCount: recentCount,
       pendingCount: pendingRequests[0].pending_count
     });
     
@@ -172,6 +203,129 @@ const validateCreateRequest = async (req, res, next) => {
       error: 'Validation failed',
       details: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
     });
+  }
+};
+
+// ⭐ YENİ: Rate limiting validation - saatlik kontrol
+const validateRateLimit = async (req, res, next) => {
+  try {
+    const { student_id } = req.body;
+    
+    if (!student_id) {
+      return next(); // Skip if no student_id (will be caught by other validation)
+    }
+    
+    console.log('⏰ Checking hourly rate limit for student:', student_id);
+    
+    // Check requests in last hour
+    const [hourlyRequests] = await pool.execute(`
+      SELECT 
+        COUNT(*) as hourly_count,
+        MAX(submitted_at) as last_request_time
+      FROM guidance_requests 
+      WHERE student_id = ? AND submitted_at >= NOW() - INTERVAL 1 HOUR
+    `, [student_id]);
+    
+    const hourlyCount = hourlyRequests[0].hourly_count;
+    
+    console.log('📊 Hourly rate limit check:', {
+      studentId: student_id,
+      hourlyCount: hourlyCount,
+      limit: 1 // Changed from 2 to 1 for stricter control
+    });
+    
+    if (hourlyCount >= 1) { // Saatte 1 request limiti
+      const lastRequestTime = new Date(hourlyRequests[0].last_request_time);
+      const nextAllowedTime = new Date(lastRequestTime.getTime() + 60 * 60 * 1000);
+      const minutesLeft = Math.ceil((nextAllowedTime - new Date()) / (1000 * 60));
+      
+      return res.status(429).json({
+        success: false,
+        error: 'Rate limit exceeded: Maximum 1 request per hour',
+        errorCode: 'HOURLY_RATE_LIMIT_EXCEEDED',
+        details: {
+          current_hourly_count: hourlyCount,
+          max_hourly_allowed: 1,
+          last_request_time: lastRequestTime.toISOString(),
+          next_allowed_time: nextAllowedTime.toISOString(),
+          minutes_remaining: minutesLeft
+        },
+        guidance: {
+          message: `You submitted a request ${Math.floor((new Date() - lastRequestTime) / (1000 * 60))} minutes ago`,
+          wait_time: `Please wait ${minutesLeft} more minutes`,
+          retry_after: `${minutesLeft} minutes`
+        }
+      });
+    }
+    
+    req.rateLimitInfo = {
+      checkedAt: new Date().toISOString(),
+      hourlyCount: hourlyCount,
+      maxHourlyAllowed: 1
+    };
+    
+    next();
+  } catch (error) {
+    console.error('❌ Rate limit validation error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Rate limit validation failed'
+    });
+  }
+};
+
+// ⭐ IMPROVED: Debugging helper for request limits
+const debugStudentLimits = async (studentId) => {
+  try {
+    console.group(`🔍 Debug Limits for Student ${studentId}`);
+    
+    // Check 24-hour requests
+    const [day24Requests] = await pool.execute(`
+      SELECT 
+        request_id, 
+        submitted_at, 
+        status,
+        TIMESTAMPDIFF(HOUR, submitted_at, NOW()) as hours_ago
+      FROM guidance_requests 
+      WHERE student_id = ? AND submitted_at >= NOW() - INTERVAL 24 HOUR
+      ORDER BY submitted_at DESC
+    `, [studentId]);
+    
+    console.log('📅 Last 24 hours:', day24Requests);
+    
+    // Check hourly requests
+    const [hourlyRequests] = await pool.execute(`
+      SELECT 
+        request_id, 
+        submitted_at, 
+        status,
+        TIMESTAMPDIFF(MINUTE, submitted_at, NOW()) as minutes_ago
+      FROM guidance_requests 
+      WHERE student_id = ? AND submitted_at >= NOW() - INTERVAL 1 HOUR
+      ORDER BY submitted_at DESC
+    `, [studentId]);
+    
+    console.log('⏰ Last hour:', hourlyRequests);
+    
+    // Check pending requests
+    const [pendingRequests] = await pool.execute(`
+      SELECT COUNT(*) as pending_count 
+      FROM guidance_requests 
+      WHERE student_id = ? AND status = 'Pending'
+    `, [studentId]);
+    
+    console.log('⏳ Pending requests:', pendingRequests[0]);
+    
+    console.groupEnd();
+    
+    return {
+      last24h: day24Requests,
+      lastHour: hourlyRequests,
+      pending: pendingRequests[0]
+    };
+  } catch (error) {
+    console.error('❌ Debug limits error:', error);
+    return null;
   }
 };
 
@@ -226,7 +380,7 @@ const validateIdParam = (req, res, next) => {
   next();
 };
 
-// ⭐ YENİ: Request type validation
+// Request type validation
 const validateRequestType = async (req, res, next) => {
   try {
     const { type_id } = req.body;
@@ -268,7 +422,7 @@ const validateRequestType = async (req, res, next) => {
   }
 };
 
-// ⭐ YENİ: File validation for request creation
+// File validation for request creation
 const validateRequestFiles = (req, res, next) => {
   const files = req.files;
   const requestType = req.requestType;
@@ -334,70 +488,29 @@ const validateRequestFiles = (req, res, next) => {
   next();
 };
 
-// ⭐ YENİ: Working hours validation wrapper (for explicit use)
+// Working hours validation wrapper (for explicit use)
 const validateWorkingHoursOnly = (req, res, next) => {
   const { validateWorkingHours } = require('./workingHours');
   return validateWorkingHours(req, res, next);
 };
 
-// ⭐ YENİ: Rate limiting validation
-const validateRateLimit = async (req, res, next) => {
-  try {
-    const { student_id } = req.body;
-    
-    if (!student_id) {
-      return next(); // Skip if no student_id (will be caught by other validation)
-    }
-    
-    // Check requests in last hour
-    const [hourlyRequests] = await pool.execute(`
-      SELECT COUNT(*) as hourly_count 
-      FROM guidance_requests 
-      WHERE student_id = ? AND submitted_at >= DATE_SUB(NOW(), INTERVAL 1 HOUR)
-    `, [student_id]);
-    
-    if (hourlyRequests[0].hourly_count >= 2) {
-      return res.status(429).json({
-        success: false,
-        error: 'Rate limit exceeded: Maximum 2 requests per hour',
-        errorCode: 'RATE_LIMIT_EXCEEDED',
-        current_hourly_count: hourlyRequests[0].hourly_count,
-        max_hourly_allowed: 2,
-        retry_after: '1 hour'
-      });
-    }
-    
-    req.rateLimitInfo = {
-      checkedAt: new Date().toISOString(),
-      hourlyCount: hourlyRequests[0].hourly_count,
-      maxHourlyAllowed: 2
-    };
-    
-    next();
-  } catch (error) {
-    console.error('Rate limit validation error:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Rate limit validation failed'
-    });
-  }
-};
-
-// ⭐ YENİ: Combined validation for request creation
+// ⭐ UPDATED: Complete validation with proper order
 const validateCreateRequestComplete = async (req, res, next) => {
   console.log('🔍 Starting complete request validation...');
   
-  // Chain multiple validations
   try {
-    // 1. Working hours check
-    await new Promise((resolve, reject) => {
-      validateWorkingHoursOnly(req, res, (err) => {
-        if (err) reject(err);
-        else resolve();
+    // 1. Working hours check (first - most restrictive)
+    const workingHoursCheck = workingHoursUtils.isWithinWorkingHours();
+    if (!workingHoursCheck.isAllowed) {
+      return res.status(423).json({
+        success: false,
+        error: 'Requests can only be created during working hours',
+        errorCode: 'OUTSIDE_WORKING_HOURS',
+        details: workingHoursCheck
       });
-    });
+    }
     
-    // 2. Rate limiting check
+    // 2. Rate limiting check (hourly)
     await new Promise((resolve, reject) => {
       validateRateLimit(req, res, (err) => {
         if (err) reject(err);
@@ -405,7 +518,7 @@ const validateCreateRequestComplete = async (req, res, next) => {
       });
     });
     
-    // 3. Basic validation
+    // 3. Main validation (includes 24-hour check)
     await new Promise((resolve, reject) => {
       validateCreateRequest(req, res, (err) => {
         if (err) reject(err);
@@ -430,5 +543,6 @@ module.exports = {
   validateRequestFiles,
   validateWorkingHoursOnly,
   validateRateLimit,
-  validateCreateRequestComplete
+  validateCreateRequestComplete,
+  debugStudentLimits // Export debug function
 };
