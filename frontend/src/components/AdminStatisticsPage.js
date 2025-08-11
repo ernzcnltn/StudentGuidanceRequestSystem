@@ -1,3 +1,6 @@
+// ===== FIXED FRONTEND STATISTICS COMPONENT =====
+// frontend/src/components/AdminStatisticsPage.js - Updated with assignment-based tracking
+
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useAdminAuth } from '../contexts/AdminAuthContext';
 import { useTheme } from '../contexts/ThemeContext';
@@ -9,6 +12,9 @@ const AdminStatisticsPage = () => {
   const { isDark } = useTheme();
   const { showSuccess, showError, showInfo } = useToast();
   
+  const [unassignedRequests, setUnassignedRequests] = useState([]);
+  const [loadingUnassigned, setLoadingUnassigned] = useState(false);
+
   const [loading, setLoading] = useState(true);
   const [statistics, setStatistics] = useState(null);
   const [selectedPeriod, setSelectedPeriod] = useState('30');
@@ -18,35 +24,15 @@ const AdminStatisticsPage = () => {
   const [sortOrder, setSortOrder] = useState('desc');
   const [refreshing, setRefreshing] = useState(false);
   const [lastRefresh, setLastRefresh] = useState(null);
-  const [autoRefresh, setAutoRefresh] = useState(false);
+  const [viewMode, setViewMode] = useState('cards');
   const [filterConfig, setFilterConfig] = useState({
     minPerformance: 0,
     maxPerformance: 100,
     hasActivity: null,
     minRequests: 0
   });
-  const [viewMode, setViewMode] = useState('cards'); // cards, table, compact
 
-  // Department options for super admin
-  const departmentOptions = useMemo(() => [
-    { value: '', label: 'All Departments' },
-    { value: 'Accounting', label: 'Accounting' },
-    { value: 'Academic', label: 'Academic' },
-    { value: 'Student Affairs', label: 'Student Affairs' },
-    { value: 'Dormitory', label: 'Dormitory' },
-    { value: 'Campus Services', label: 'Campus Services' }
-  ], []);
-
-  // Period options with descriptions
-  const periodOptions = useMemo(() => [
-    { value: '7', label: 'Last 7 days', description: 'Recent weekly performance' },
-    { value: '30', label: 'Last 30 days', description: 'Monthly overview' },
-    { value: '90', label: 'Last 3 months', description: 'Quarterly analysis' },
-    { value: '180', label: 'Last 6 months', description: 'Semester performance' },
-    { value: '365', label: 'Last year', description: 'Annual overview' }
-  ], []);
-
-  // Load statistics with enhanced error handling
+  // FIXED: Load statistics with assignment-based tracking
   const loadStatistics = useCallback(async (showRefreshLoader = false) => {
     try {
       if (showRefreshLoader) {
@@ -60,7 +46,7 @@ const AdminStatisticsPage = () => {
         department: isSuperAdmin() ? selectedDepartment : department
       };
 
-      console.log('📊 Loading statistics with params:', params);
+      console.log('📊 FIXED: Loading assignment-based statistics with params:', params);
 
       const response = await apiService.getAdminStatistics(params);
       
@@ -68,24 +54,27 @@ const AdminStatisticsPage = () => {
         setStatistics(response.data.data);
         setLastRefresh(new Date());
         
-        if (response.data.fromCache) {
-          showInfo('Data loaded from cache - refresh for latest data');
+        // ENHANCED: Check if data is assignment-based
+        if (response.data.version === '2.0_fixed') {
+          showSuccess('✅ Assignment-based statistics loaded successfully');
         } else {
-        
+          showInfo('📊 Statistics loaded - switch to assignment-based tracking recommended');
         }
         
-        console.log('✅ Statistics loaded:', response.data.data);
+        console.log('✅ FIXED Statistics loaded:', {
+          version: response.data.version,
+          adminCount: response.data.data.detailed_admins?.length,
+          assignmentRate: response.data.data.overview?.assignment_rate
+        });
       } else {
         throw new Error(response.data.error || 'Failed to load statistics');
       }
     } catch (error) {
-      console.error('❌ Error loading admin statistics:', error);
+      console.error('❌ Error loading FIXED admin statistics:', error);
       
       let errorMessage = 'Failed to load admin statistics';
       if (error.response?.status === 403) {
         errorMessage = 'Access denied: Insufficient permissions to view statistics';
-      } else if (error.response?.status === 404) {
-        errorMessage = 'Statistics endpoint not found';
       } else if (error.response?.data?.error) {
         errorMessage = error.response.data.error;
       }
@@ -98,58 +87,144 @@ const AdminStatisticsPage = () => {
     }
   }, [selectedPeriod, selectedDepartment, isSuperAdmin, department, showError, showInfo, showSuccess]);
 
-  // Auto refresh functionality
-  useEffect(() => {
-    let intervalId;
-    if (autoRefresh && !loading) {
-      intervalId = setInterval(() => {
-        loadStatistics(true);
-      }, 5 * 60 * 1000); // 5 minutes
+
+  // Load unassigned requests
+// MEVCUT loadUnassignedRequests fonksiyonunu bununla değiştir:
+const loadUnassignedRequests = useCallback(async () => {
+  try {
+    setLoadingUnassigned(true);
+    
+    // Direct database query ile unassigned'ları al
+    const response = await apiService.getAdminRequests({ 
+      department: isSuperAdmin() ? selectedDepartment : department,
+      include_unassigned: true // Yeni parametre ekle
+    });
+    
+    if (response.data.success) {
+      // Sadece gerçekten unassigned olanları filtrele
+      const unassigned = response.data.data.filter(request => 
+        !request.assigned_admin_id || request.assigned_admin_id === null
+      );
+      
+      console.log('📋 Unassigned requests loaded:', {
+        total_requests: response.data.data.length,
+        unassigned_count: unassigned.length,
+        unassigned_ids: unassigned.map(r => r.request_id)
+      });
+      
+      setUnassignedRequests(unassigned);
     }
-    return () => {
-      if (intervalId) clearInterval(intervalId);
-    };
-  }, [autoRefresh, loading, loadStatistics]);
+  } catch (error) {
+    console.error('Error loading unassigned requests:', error);
+    showError('Failed to load unassigned requests');
+    setUnassignedRequests([]); // Clear on error
+  } finally {
+    setLoadingUnassigned(false);
+  }
+}, [selectedDepartment, isSuperAdmin, department, showError]);
+  // Auto-assign all function
+ const handleAutoAssignAll = async () => {
+  try {
+    showInfo('🤖 Starting auto-assignment...');
+    
+    const response = await apiService.autoAssignAllRequests({
+      department_filter: isSuperAdmin() ? selectedDepartment : department
+    });
+    
+    if (response.data.success) {
+      const successCount = response.data.data.successful_assignments || 0;
+      const totalProcessed = response.data.data.total_processed || 0;
+      
+      if (successCount > 0) {
+        showSuccess(`✅ ${successCount} requests auto-assigned successfully!`);
+      } else if (totalProcessed === 0) {
+        showInfo('ℹ️ No unassigned requests found');
+      } else {
+        showInfo(`ℹ️ All ${totalProcessed} requests were already assigned`);
+      }
+      
+      // ZORUNLU REFRESH'LER:
+      // 1. Ana statistics'leri yenile
+      await loadStatistics(true);
+      
+      // 2. Eğer unassigned sekmesindeyse, o listeyi de yenile
+      if (activeTab === 'unassigned') {
+        await loadUnassignedRequests();
+      }
+      
+      // 3. Sekme badge'lerini güncellemek için state'i force update et
+      setRefreshing(false); // Force re-render
+      
+    } else {
+      showError('Failed to auto-assign requests: ' + (response.data.error || 'Unknown error'));
+    }
+  } catch (error) {
+    console.error('Auto-assign error:', error);
+    showError('Failed to auto-assign requests: ' + (error.response?.data?.error || error.message));
+  }
+};
+
+
 
   // Load statistics on parameter change
   useEffect(() => {
     loadStatistics();
   }, [loadStatistics]);
 
-  // Enhanced card style
+  // ENHANCED: Card style with data version indicator
   const cardStyle = useMemo(() => ({
     backgroundColor: isDark ? '#1a1a1a' : '#ffffff',
     borderColor: isDark ? '#333333' : '#dee2e6',
     color: isDark ? '#ffffff' : '#000000',
-    boxShadow: isDark ? '0 2px 8px rgba(0,0,0,0.3)' : '0 2px 8px rgba(0,0,0,0.1)'
-  }), [isDark]);
+    boxShadow: isDark ? '0 2px 8px rgba(0,0,0,0.3)' : '0 2px 8px rgba(0,0,0,0.1)',
+    borderLeft: statistics?.meta?.data_version === '2.0_assignment_based' ? 
+      '4px solid #28a745' : '4px solid #ffc107'
+  }), [isDark, statistics]);
 
-  // Performance helper functions
-  const getPerformanceColor = useCallback((performance) => {
-    if (performance >= 90) return 'text-success';
-    if (performance >= 80) return 'text-primary';
-    if (performance >= 70) return 'text-warning';
-    if (performance >= 50) return 'text-info';
-    return 'text-danger';
-  }, []);
+  // ENHANCED: Calculate department summary with assignment metrics
+  const departmentSummary = useMemo(() => {
+    if (!statistics?.detailed_admins) return null;
+    
+    const admins = statistics.detailed_admins;
+    const overview = statistics.overview;
+    const assignmentAnalytics = statistics.assignment_analytics;
+    
+    // FIXED: Use assignment-based calculations
+    const totalRequests = overview?.total_requests || 0;
+    const totalCompleted = overview?.total_completed || 0;
+    const totalPending = overview?.total_pending || 0;
+    const totalRejected = overview?.total_rejected || 0;
+    const assignedRequests = assignmentAnalytics?.assigned_requests || 0;
+    const unassignedRequests = assignmentAnalytics?.unassigned_requests || 0;
+    
+    const avgPerformance = admins.length > 0 ? 
+      Math.round(admins.reduce((sum, admin) => sum + (admin.performance_score || 0), 0) / admins.length) : 0;
+    
+    const avgResponseTime = overview?.avg_response_time_hours || 0;
+    const activeAdmins = admins.filter(admin => admin.has_assignments).length;
+    
+    return {
+      total_admins: admins.length,
+      active_admins: activeAdmins,
+      total_requests: totalRequests,
+      assigned_requests: assignedRequests,
+      unassigned_requests: unassignedRequests,
+      total_completed: totalCompleted,
+      total_pending: totalPending,
+      total_rejected: totalRejected,
+      completion_rate: overview?.completion_rate || 0,
+      assignment_rate: assignmentAnalytics?.assignment_rate || 0,
+      avg_performance: avgPerformance,
+      avg_response_time: avgResponseTime,
+      utilization_rate: overview?.utilization_rate || 0,
+      
+      // ENHANCED: Assignment-specific metrics
+      auto_assignment_rate: assignmentAnalytics?.auto_assignment_rate || 0,
+      avg_assignment_delay: assignmentAnalytics?.avg_assignment_delay_hours || 0
+    };
+  }, [statistics]);
 
-  const getPerformanceIcon = useCallback((performance) => {
-    if (performance >= 90) return '🏆';
-    if (performance >= 80) return '⭐';
-    if (performance >= 70) return '📈';
-    if (performance >= 50) return '📊';
-    return '📉';
-  }, []);
-
-  const getPerformanceBadgeClass = useCallback((performance) => {
-    if (performance >= 90) return 'bg-success';
-    if (performance >= 80) return 'bg-primary';
-    if (performance >= 70) return 'bg-warning text-dark';
-    if (performance >= 50) return 'bg-info';
-    return 'bg-danger';
-  }, []);
-
-  // Advanced filtering and sorting
+  // ENHANCED: Filtered and sorted admins with assignment awareness
   const filteredAndSortedAdmins = useMemo(() => {
     if (!statistics?.detailed_admins) return [];
     
@@ -166,7 +241,7 @@ const AdminStatisticsPage = () => {
       }
       
       if (filterConfig.hasActivity !== null) {
-        const hasActivity = requests > 0;
+        const hasActivity = admin.has_assignments;
         if (hasActivity !== filterConfig.hasActivity) {
           return false;
         }
@@ -189,40 +264,6 @@ const AdminStatisticsPage = () => {
     return filtered;
   }, [statistics, filterConfig, sortBy, sortOrder]);
 
-  // Calculate enhanced department summary
-  const departmentSummary = useMemo(() => {
-    if (!statistics?.detailed_admins) return null;
-    
-    const admins = statistics.detailed_admins;
-    const totalRequests = admins.reduce((sum, admin) => sum + (admin.total_requests || 0), 0);
-    const totalCompleted = admins.reduce((sum, admin) => sum + (admin.completed_requests || 0), 0);
-    const totalPending = admins.reduce((sum, admin) => sum + (admin.pending_requests || 0), 0);
-    const totalRejected = admins.reduce((sum, admin) => sum + (admin.rejected_requests || 0), 0);
-    const totalResponses = admins.reduce((sum, admin) => sum + (admin.total_responses || 0), 0);
-    
-    const avgPerformance = admins.length > 0 ? 
-      Math.round(admins.reduce((sum, admin) => sum + (admin.performance_score || 0), 0) / admins.length) : 0;
-    
-    const avgResponseTime = admins.length > 0 ?
-      Math.round(admins.reduce((sum, admin) => sum + (admin.avg_response_time || 0), 0) / admins.length * 10) / 10 : 0;
-    
-    const activeAdmins = admins.filter(admin => (admin.total_requests || 0) > 0).length;
-    
-    return {
-      total_admins: admins.length,
-      active_admins: activeAdmins,
-      total_requests: totalRequests,
-      total_completed: totalCompleted,
-      total_pending: totalPending,
-      total_rejected: totalRejected,
-      total_responses: totalResponses,
-      completion_rate: totalRequests > 0 ? Math.round((totalCompleted / totalRequests) * 100) : 0,
-      avg_performance: avgPerformance,
-      avg_response_time: avgResponseTime,
-      utilization_rate: admins.length > 0 ? Math.round((activeAdmins / admins.length) * 100) : 0
-    };
-  }, [statistics]);
-
   // Format duration helper
   const formatDuration = useCallback((hours) => {
     if (!hours || hours === 0) return '0h';
@@ -240,6 +281,23 @@ const AdminStatisticsPage = () => {
     return `${days}d ${remainingHours}h`;
   }, []);
 
+  // Performance helpers
+  const getPerformanceColor = useCallback((performance) => {
+    if (performance >= 90) return 'text-success';
+    if (performance >= 80) return 'text-primary';
+    if (performance >= 70) return 'text-warning';
+    if (performance >= 50) return 'text-info';
+    return 'text-danger';
+  }, []);
+
+  const getPerformanceBadgeClass = useCallback((performance) => {
+    if (performance >= 90) return 'bg-success';
+    if (performance >= 80) return 'bg-primary';
+    if (performance >= 70) return 'bg-warning text-dark';
+    if (performance >= 50) return 'bg-info';
+    return 'bg-danger';
+  }, []);
+
   // Render loading state
   if (loading) {
     return (
@@ -248,41 +306,25 @@ const AdminStatisticsPage = () => {
           <span className="visually-hidden">Loading...</span>
         </div>
         <h5 className={`mt-3 ${isDark ? 'text-light' : 'text-dark'}`}>
-          📊 Loading Admin Performance Statistics
+          📊 Loading Assignment-Based Performance Statistics
         </h5>
         <p className={isDark ? 'text-light' : 'text-muted'}>
-          Analyzing performance data and generating insights...
+          Analyzing admin assignments and performance data...
         </p>
         <div className="progress mt-3" style={{ width: '300px', margin: '0 auto' }}>
-          <div className="progress-bar progress-bar-striped progress-bar-animated" style={{ width: '100%' }}></div>
+          <div className="progress-bar progress-bar-striped progress-bar-animated bg-success" style={{ width: '100%' }}></div>
         </div>
       </div>
     );
   }
 
-  // Access control
-  if (!isDepartmentAdmin() && !isSuperAdmin()) {
-    return (
-      <div className="alert alert-warning border-0 shadow-sm">
-        <div className="d-flex align-items-center">
-          <div className="me-3" style={{ fontSize: '3rem' }}>🔒</div>
-          <div>
-            <h5 className="alert-heading mb-2">Access Denied</h5>
-            <p className="mb-2">Admin Statistics is only available for Department Admins and Super Administrators.</p>
-            <small className="text-muted">Contact your system administrator if you believe this is an error.</small>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // Render overview tab
+  // ENHANCED: Overview with assignment analytics
   const renderOverview = () => {
     if (!statistics) return <div className="text-center text-muted py-5">No data available</div>;
 
     return (
       <div>
-        {/* Enhanced Department Summary */}
+        {/* ENHANCED: Department Summary with Assignment Metrics */}
         {departmentSummary && (
           <div className="row mb-4">
             <div className="col-12">
@@ -292,9 +334,12 @@ const AdminStatisticsPage = () => {
                     <div>
                       <h5 className="mb-0">
                         📊 {isSuperAdmin() && selectedDepartment ? selectedDepartment : department} Performance Dashboard
+                        {statistics?.meta?.data_version === '2.0_assignment_based' && (
+                          <span className="badge bg-success ms-2">Assignment-Based ✓</span>
+                        )}
                       </h5>
                       <small className="opacity-75">
-                        {periodOptions.find(p => p.value === selectedPeriod)?.description}
+                        Assignment tracking with workload distribution analysis
                       </small>
                     </div>
                     <div className="d-flex align-items-center">
@@ -311,7 +356,8 @@ const AdminStatisticsPage = () => {
                   </div>
                 </div>
                 <div className="card-body">
-                  <div className="row text-center">
+                  {/* ENHANCED: Assignment-Based Metrics Row */}
+                  <div className="row text-center mb-3">
                     <div className="col-md-2">
                       <div className="h3 text-primary mb-1">{departmentSummary.total_admins}</div>
                       <small className={isDark ? 'text-light' : 'text-muted'}>Total Admins</small>
@@ -326,7 +372,7 @@ const AdminStatisticsPage = () => {
                       <small className={isDark ? 'text-light' : 'text-muted'}>Total Requests</small>
                       <div className="mt-1">
                         <small className="text-info">
-                          {Math.round(departmentSummary.total_requests / Math.max(departmentSummary.active_admins, 1))} avg per admin
+                          {departmentSummary.assigned_requests} assigned ({departmentSummary.assignment_rate}%)
                         </small>
                       </div>
                     </div>
@@ -348,12 +394,11 @@ const AdminStatisticsPage = () => {
                       </div>
                     </div>
                     <div className="col-md-2">
-                      <div className="h3 text-danger mb-1">{departmentSummary.total_rejected}</div>
-                      <small className={isDark ? 'text-light' : 'text-muted'}>Rejected</small>
+                      <div className="h3 text-danger mb-1">{departmentSummary.unassigned_requests}</div>
+                      <small className={isDark ? 'text-light' : 'text-muted'}>Unassigned</small>
                       <div className="mt-1">
-                        <small className="text-danger">
-                          {departmentSummary.total_requests > 0 ? 
-                            Math.round((departmentSummary.total_rejected / departmentSummary.total_requests) * 100) : 0}%
+                        <small className={departmentSummary.unassigned_requests > 0 ? 'text-danger' : 'text-success'}>
+                          {100 - departmentSummary.assignment_rate}% unassigned
                         </small>
                       </div>
                     </div>
@@ -373,9 +418,60 @@ const AdminStatisticsPage = () => {
                     </div>
                   </div>
                   
-                  {/* Performance Progress Bars */}
+                  {/* ENHANCED: Assignment Analytics Section */}
+                  {statistics.assignment_analytics && (
+                    <div className="row mb-3">
+                      <div className="col-12">
+                        <h6 className={`${isDark ? 'text-light' : 'text-dark'} mb-2`}>
+                          📋 Assignment Analytics
+                        </h6>
+                        <div className="row text-center">
+                          <div className="col-md-3">
+                            <div className="badge bg-info p-2 w-100">
+                              <div className="h6 mb-1">{statistics.assignment_analytics.auto_assignment_rate}%</div>
+                              <small>Auto-Assigned</small>
+                            </div>
+                          </div>
+                          <div className="col-md-3">
+                            <div className="badge bg-secondary p-2 w-100">
+                              <div className="h6 mb-1">{100 - statistics.assignment_analytics.auto_assignment_rate}%</div>
+                              <small>Manual-Assigned</small>
+                            </div>
+                          </div>
+                          <div className="col-md-3">
+                            <div className="badge bg-warning text-dark p-2 w-100">
+                              <div className="h6 mb-1">{formatDuration(statistics.assignment_analytics.avg_assignment_delay_hours || 0)}</div>
+                              <small>Avg Assignment Delay</small>
+                            </div>
+                          </div>
+                          <div className="col-md-3">
+                            <div className="badge bg-primary p-2 w-100">
+                              <div className="h6 mb-1">{statistics.assignment_analytics.admins_receiving_assignments || 0}</div>
+                              <small>Admins with Assignments</small>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* ENHANCED: Performance Progress Bars with Assignment Metrics */}
                   <div className="row mt-4">
-                    <div className="col-md-4">
+                    <div className="col-md-3">
+                      <div className="d-flex justify-content-between align-items-center mb-1">
+                        <small className={isDark ? 'text-light' : 'text-muted'}>Assignment Rate</small>
+                        <small className={departmentSummary.assignment_rate >= 90 ? 'text-success' : 
+                          departmentSummary.assignment_rate >= 70 ? 'text-warning' : 'text-danger'}>
+                          <strong>{departmentSummary.assignment_rate}%</strong>
+                        </small>
+                      </div>
+                      <div className="progress" style={{ height: '8px' }}>
+                        <div className={`progress-bar ${departmentSummary.assignment_rate >= 90 ? 'bg-success' : 
+                          departmentSummary.assignment_rate >= 70 ? 'bg-warning' : 'bg-danger'}`} 
+                             style={{ width: `${departmentSummary.assignment_rate}%` }}></div>
+                      </div>
+                    </div>
+                    <div className="col-md-3">
                       <div className="d-flex justify-content-between align-items-center mb-1">
                         <small className={isDark ? 'text-light' : 'text-muted'}>Completion Rate</small>
                         <small className="text-success"><strong>{departmentSummary.completion_rate}%</strong></small>
@@ -384,7 +480,7 @@ const AdminStatisticsPage = () => {
                         <div className="progress-bar bg-success" style={{ width: `${departmentSummary.completion_rate}%` }}></div>
                       </div>
                     </div>
-                    <div className="col-md-4">
+                    <div className="col-md-3">
                       <div className="d-flex justify-content-between align-items-center mb-1">
                         <small className={isDark ? 'text-light' : 'text-muted'}>Team Utilization</small>
                         <small className="text-primary"><strong>{departmentSummary.utilization_rate}%</strong></small>
@@ -393,7 +489,7 @@ const AdminStatisticsPage = () => {
                         <div className="progress-bar bg-primary" style={{ width: `${departmentSummary.utilization_rate}%` }}></div>
                       </div>
                     </div>
-                    <div className="col-md-4">
+                    <div className="col-md-3">
                       <div className="d-flex justify-content-between align-items-center mb-1">
                         <small className={isDark ? 'text-light' : 'text-muted'}>Performance Score</small>
                         <small className={getPerformanceColor(departmentSummary.avg_performance)}>
@@ -412,48 +508,53 @@ const AdminStatisticsPage = () => {
           </div>
         )}
 
-        {/* Performance Distribution Chart */}
-        {statistics.detailed_admins && statistics.detailed_admins.length > 0 && (
+        {/* ENHANCED: Workload Distribution Chart */}
+        {statistics.workload_distribution && statistics.workload_distribution.length > 0 && (
           <div className="row mb-4">
             <div className="col-md-8">
               <div className="card border-0 shadow-sm" style={cardStyle}>
                 <div className="card-header border-0">
-                  <h6 className="mb-0">📈 Performance Distribution</h6>
+                  <h6 className="mb-0">⚖️ Workload Distribution</h6>
                 </div>
                 <div className="card-body">
                   {(() => {
-                    const performance = statistics.detailed_admins.map(a => a.performance_score || 0);
-                    const excellent = performance.filter(p => p >= 90).length;
-                    const good = performance.filter(p => p >= 70 && p < 90).length;
-                    const average = performance.filter(p => p >= 50 && p < 70).length;
-                    const poor = performance.filter(p => p < 50).length;
-                    const total = performance.length;
+                    const workload = statistics.workload_distribution;
+                    const high = workload.filter(w => w.workload_category === 'High').length;
+                    const medium = workload.filter(w => w.workload_category === 'Medium').length;
+                    const low = workload.filter(w => w.workload_category === 'Low').length;
+                    const inactive = workload.filter(w => w.workload_category === 'Inactive').length;
+                    const total = workload.length;
                     
                     return (
                       <div>
                         <div className="row text-center mb-3">
                           <div className="col-3">
-                            <div className="h4 text-success">{excellent}</div>
-                            <small className="text-success">Excellent (90%+)</small>
+                            <div className="h4 text-danger">{high}</div>
+                            <small className="text-danger">High Load (50+)</small>
                           </div>
                           <div className="col-3">
-                            <div className="h4 text-primary">{good}</div>
-                            <small className="text-primary">Good (70-89%)</small>
+                            <div className="h4 text-warning">{medium}</div>
+                            <small className="text-warning">Medium Load (20-49)</small>
                           </div>
                           <div className="col-3">
-                            <div className="h4 text-warning">{average}</div>
-                            <small className="text-warning">Average (50-69%)</small>
+                            <div className="h4 text-success">{low}</div>
+                            <small className="text-success">Low Load (1-19)</small>
                           </div>
                           <div className="col-3">
-                            <div className="h4 text-danger">{poor}</div>
-                            <small className="text-danger">Needs Work (&lt;50%)</small>
+                            <div className="h4 text-secondary">{inactive}</div>
+                            <small className="text-secondary">Inactive (0)</small>
                           </div>
                         </div>
                         <div className="progress" style={{ height: '20px' }}>
-                          <div className="progress-bar bg-success" style={{ width: `${(excellent/total)*100}%` }}></div>
-                          <div className="progress-bar bg-primary" style={{ width: `${(good/total)*100}%` }}></div>
-                          <div className="progress-bar bg-warning" style={{ width: `${(average/total)*100}%` }}></div>
-                          <div className="progress-bar bg-danger" style={{ width: `${(poor/total)*100}%` }}></div>
+                          <div className="progress-bar bg-danger" style={{ width: `${(high/total)*100}%` }}></div>
+                          <div className="progress-bar bg-warning" style={{ width: `${(medium/total)*100}%` }}></div>
+                          <div className="progress-bar bg-success" style={{ width: `${(low/total)*100}%` }}></div>
+                          <div className="progress-bar bg-secondary" style={{ width: `${(inactive/total)*100}%` }}></div>
+                        </div>
+                        <div className="mt-3">
+                          <small className={isDark ? 'text-light' : 'text-muted'}>
+                            Balance Score: {high === 0 && medium > 0 ? 'Good' : high > medium ? 'Unbalanced' : 'Balanced'}
+                          </small>
                         </div>
                       </div>
                     );
@@ -464,10 +565,11 @@ const AdminStatisticsPage = () => {
             <div className="col-md-4">
               <div className="card border-0 shadow-sm" style={cardStyle}>
                 <div className="card-header border-0">
-                  <h6 className="mb-0">🏆 Top Performers</h6>
+                  <h6 className="mb-0">🏆 Top Performers (Assignment-Based)</h6>
                 </div>
                 <div className="card-body">
                   {statistics.detailed_admins
+                    .filter(admin => admin.has_assignments)
                     .sort((a, b) => (b.performance_score || 0) - (a.performance_score || 0))
                     .slice(0, 5)
                     .map((admin, index) => (
@@ -483,13 +585,15 @@ const AdminStatisticsPage = () => {
                             </small>
                             <br />
                             <small className={isDark ? 'text-light' : 'text-muted'}>
-                              {admin.total_requests || 0} requests
+                              {admin.total_requests || 0} assigned
                             </small>
                           </div>
                         </div>
-                        <span className={`badge ${getPerformanceBadgeClass(admin.performance_score || 0)}`}>
-                          {admin.performance_score || 0}%
-                        </span>
+                        <div>
+                          <span className={`badge ${getPerformanceBadgeClass(admin.performance_score || 0)}`}>
+                            {admin.performance_score || 0}%
+                          </span>
+                        </div>
                       </div>
                     ))}
                 </div>
@@ -498,16 +602,35 @@ const AdminStatisticsPage = () => {
           </div>
         )}
 
-        {/* Quick Insights */}
+        {/* ENHANCED: Assignment Insights */}
         {departmentSummary && (
           <div className="row">
+            <div className="col-md-4 mb-3">
+              <div className={`alert ${departmentSummary.assignment_rate >= 90 ? 'alert-success' : 
+                departmentSummary.assignment_rate >= 70 ? 'alert-warning' : 'alert-danger'} border-0`}>
+                <div className="d-flex align-items-center">
+                  <div className="me-3" style={{ fontSize: '2rem' }}>
+                    {departmentSummary.assignment_rate >= 90 ? '📋' : 
+                     departmentSummary.assignment_rate >= 70 ? '⚠️' : '🚨'}
+                  </div>
+                  <div>
+                    <h6 className="mb-1">Assignment Coverage</h6>
+                    <p className="mb-0">
+                      {departmentSummary.assignment_rate >= 90 ? 'Excellent assignment coverage!' : 
+                       departmentSummary.assignment_rate >= 70 ? 'Good assignment rate with some gaps' : 
+                       'Poor assignment coverage - many unassigned requests'}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
             <div className="col-md-4 mb-3">
               <div className={`alert ${departmentSummary.avg_performance >= 80 ? 'alert-success' : 
                 departmentSummary.avg_performance >= 60 ? 'alert-warning' : 'alert-danger'} border-0`}>
                 <div className="d-flex align-items-center">
                   <div className="me-3" style={{ fontSize: '2rem' }}>
                     {departmentSummary.avg_performance >= 80 ? '🎉' : 
-                     departmentSummary.avg_performance >= 60 ? '⚠️' : '📉'}
+                     departmentSummary.avg_performance >= 60 ? '📊' : '📉'}
                   </div>
                   <div>
                     <h6 className="mb-1">Team Performance</h6>
@@ -515,25 +638,6 @@ const AdminStatisticsPage = () => {
                       {departmentSummary.avg_performance >= 80 ? 'Excellent team performance!' : 
                        departmentSummary.avg_performance >= 60 ? 'Good performance with room for improvement' : 
                        'Performance needs attention'}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-            <div className="col-md-4 mb-3">
-              <div className={`alert ${departmentSummary.avg_response_time <= 4 ? 'alert-success' : 
-                departmentSummary.avg_response_time <= 24 ? 'alert-warning' : 'alert-danger'} border-0`}>
-                <div className="d-flex align-items-center">
-                  <div className="me-3" style={{ fontSize: '2rem' }}>
-                    {departmentSummary.avg_response_time <= 4 ? '⚡' : 
-                     departmentSummary.avg_response_time <= 24 ? '🕐' : '🐌'}
-                  </div>
-                  <div>
-                    <h6 className="mb-1">Response Time</h6>
-                    <p className="mb-0">
-                      {departmentSummary.avg_response_time <= 4 ? 'Lightning fast responses!' : 
-                       departmentSummary.avg_response_time <= 24 ? 'Good response times' : 
-                       'Response times need improvement'}
                     </p>
                   </div>
                 </div>
@@ -564,255 +668,85 @@ const AdminStatisticsPage = () => {
     );
   };
 
-  // Render detailed stats with advanced filtering
-  const renderDetailedStats = () => {
-    if (!statistics?.detailed_admins || statistics.detailed_admins.length === 0) {
+
+   const renderUnassignedRequests = () => {
+    if (loadingUnassigned) {
       return (
         <div className="text-center py-5">
-          <div className="text-muted">
-            <div style={{ fontSize: '4rem' }}>📊</div>
-            <h5 className="mt-3">No Admin Data Available</h5>
-            <p>No admin activity found for the selected period and department.</p>
-            <button 
-              className="btn btn-outline-primary"
-              onClick={() => loadStatistics(true)}
-              disabled={refreshing}
-            >
-              {refreshing ? (
-                <>
-                  <span className="spinner-border spinner-border-sm me-1"></span>
-                  Refreshing...
-                </>
-              ) : (
-                '🔄 Refresh Data'
-              )}
-            </button>
+          <div className="spinner-border text-warning" role="status">
+            <span className="visually-hidden">Loading unassigned requests...</span>
           </div>
+          <p className="mt-2">Loading unassigned requests...</p>
+        </div>
+      );
+    }
+
+    if (unassignedRequests.length === 0) {
+      return (
+        <div className="text-center py-5">
+          <div style={{ fontSize: '4rem' }}>✅</div>
+          <h5 className="mt-3">All Requests Assigned!</h5>
+          <p>There are no unassigned requests in the system.</p>
         </div>
       );
     }
 
     return (
       <div>
-        {/* Enhanced Filtering and Controls */}
         <div className="row mb-4">
-          <div className="col-md-8">
-            <div className="card border-0 shadow-sm" style={cardStyle}>
-              <div className="card-header border-0">
-                <h6 className="mb-0">🔍 Filters & Sorting</h6>
-              </div>
-              <div className="card-body">
-                <div className="row">
-                  <div className="col-md-3">
-                    <label className={`form-label small ${isDark ? 'text-light' : 'text-dark'}`}>
-                      Sort by:
-                    </label>
-                    <select
-                      className="form-select form-select-sm"
-                      value={sortBy}
-                      onChange={(e) => setSortBy(e.target.value)}
-                      style={{
-                        backgroundColor: isDark ? '#2d2d2d' : '#ffffff',
-                        borderColor: isDark ? '#444444' : '#ced4da',
-                        color: isDark ? '#ffffff' : '#000000'
-                      }}
-                    >
-                      <option value="performance_score">Performance Score</option>
-                      <option value="total_requests">Total Requests</option>
-                      <option value="completed_requests">Completed Requests</option>
-                      <option value="avg_response_time">Response Time</option>
-                      <option value="total_responses">Total Responses</option>
-                      <option value="rejected_requests">Rejected Requests</option>
-                    </select>
-                  </div>
-                  <div className="col-md-2">
-                    <label className={`form-label small ${isDark ? 'text-light' : 'text-dark'}`}>
-                      Order:
-                    </label>
-                    <select
-                      className="form-select form-select-sm"
-                      value={sortOrder}
-                      onChange={(e) => setSortOrder(e.target.value)}
-                      style={{
-                        backgroundColor: isDark ? '#2d2d2d' : '#ffffff',
-                        borderColor: isDark ? '#444444' : '#ced4da',
-                        color: isDark ? '#ffffff' : '#000000'
-                      }}
-                    >
-                      <option value="desc">High to Low</option>
-                      <option value="asc">Low to High</option>
-                    </select>
-                  </div>
-                  <div className="col-md-3">
-                    <label className={`form-label small ${isDark ? 'text-light' : 'text-dark'}`}>
-                      Performance Range:
-                    </label>
-                    <div className="d-flex gap-1">
-                      <input
-                        type="number"
-                        className="form-control form-control-sm"
-                        placeholder="Min"
-                        value={filterConfig.minPerformance}
-                        onChange={(e) => setFilterConfig(prev => ({
-                          ...prev, 
-                          minPerformance: parseInt(e.target.value) || 0
-                        }))}
-                        style={{
-                          backgroundColor: isDark ? '#2d2d2d' : '#ffffff',
-                          borderColor: isDark ? '#444444' : '#ced4da',
-                          color: isDark ? '#ffffff' : '#000000'
-                        }}
-                      />
-                      <input
-                        type="number"
-                        className="form-control form-control-sm"
-                        placeholder="Max"
-                        value={filterConfig.maxPerformance}
-                        onChange={(e) => setFilterConfig(prev => ({
-                          ...prev, 
-                          maxPerformance: parseInt(e.target.value) || 100
-                        }))}
-                        style={{
-                          backgroundColor: isDark ? '#2d2d2d' : '#ffffff',
-                          borderColor: isDark ? '#444444' : '#ced4da',
-                          color: isDark ? '#ffffff' : '#000000'
-                        }}
-                      />
-                    </div>
-                  </div>
-                  <div className="col-md-2">
-                    <label className={`form-label small ${isDark ? 'text-light' : 'text-dark'}`}>
-                      Min Requests:
-                    </label>
-                    <input
-                      type="number"
-                      className="form-control form-control-sm"
-                      value={filterConfig.minRequests}
-                      onChange={(e) => setFilterConfig(prev => ({
-                        ...prev, 
-                        minRequests: parseInt(e.target.value) || 0
-                      }))}
-                      style={{
-                        backgroundColor: isDark ? '#2d2d2d' : '#ffffff',
-                        borderColor: isDark ? '#444444' : '#ced4da',
-                        color: isDark ? '#ffffff' : '#000000'
-                      }}
-                    />
-                  </div>
-                  <div className="col-md-2">
-                    <label className={`form-label small ${isDark ? 'text-light' : 'text-dark'}`}>
-                      Activity:
-                    </label>
-                    <select
-                      className="form-select form-select-sm"
-                      value={filterConfig.hasActivity === null ? 'all' : filterConfig.hasActivity ? 'active' : 'inactive'}
-                      onChange={(e) => setFilterConfig(prev => ({
-                        ...prev,
-                        hasActivity: e.target.value === 'all' ? null : e.target.value === 'active'
-                      }))}
-                      style={{
-                        backgroundColor: isDark ? '#2d2d2d' : '#ffffff',
-                        borderColor: isDark ? '#444444' : '#ced4da',
-                        color: isDark ? '#ffffff' : '#000000'
-                      }}
-                    >
-                      <option value="all">All</option>
-                      <option value="active">Active Only</option>
-                      <option value="inactive">Inactive Only</option>
-                    </select>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-          <div className="col-md-4">
-            <div className="card border-0 shadow-sm" style={cardStyle}>
-              <div className="card-header border-0">
-                <h6 className="mb-0">⚙️ View Options</h6>
-              </div>
-              <div className="card-body">
-                <div className="row">
-                  <div className="col-12 mb-2">
-                    <label className={`form-label small ${isDark ? 'text-light' : 'text-dark'}`}>
-                      View Mode:
-                    </label>
-                    <div className="btn-group w-100" role="group">
-                      <button
-                        type="button"
-                        className={`btn btn-sm ${viewMode === 'cards' ? 'btn-primary' : 'btn-outline-primary'}`}
-                        onClick={() => setViewMode('cards')}
-                      >
-                        📋 Cards
-                      </button>
-                      <button
-                        type="button"
-                        className={`btn btn-sm ${viewMode === 'table' ? 'btn-primary' : 'btn-outline-primary'}`}
-                        onClick={() => setViewMode('table')}
-                      >
-                        📊 Table
-                      </button>
-                      <button
-                        type="button"
-                        className={`btn btn-sm ${viewMode === 'compact' ? 'btn-primary' : 'btn-outline-primary'}`}
-                        onClick={() => setViewMode('compact')}
-                      >
-                        📝 Compact
-                      </button>
-                    </div>
-                  </div>
-                  <div className="col-12">
-                    <div className="d-flex gap-2">
-                     
-                      
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Results Summary */}
-        <div className="row mb-3">
           <div className="col-12">
-            <div className={`alert alert-info border-0 ${isDark ? 'bg-dark' : ''}`}>
+            <div className="alert alert-warning border-0">
               <div className="d-flex justify-content-between align-items-center">
-                <span>
-                  📊 Showing <strong>{filteredAndSortedAdmins.length}</strong> of <strong>{statistics.detailed_admins.length}</strong> admins
-                  {filterConfig.minPerformance > 0 || filterConfig.maxPerformance < 100 || 
-                   filterConfig.minRequests > 0 || filterConfig.hasActivity !== null ? (
-                    <span className="ms-2">
-                      <small className="badge bg-secondary">Filtered</small>
-                    </span>
-                  ) : null}
-                </span>
-                {filteredAndSortedAdmins.length !== statistics.detailed_admins.length && (
-                  <button
-                    className="btn btn-sm btn-outline-secondary"
-                    onClick={() => setFilterConfig({
-                      minPerformance: 0,
-                      maxPerformance: 100,
-                      hasActivity: null,
-                      minRequests: 0
-                    })}
-                  >
-                    Clear Filters
-                  </button>
-                )}
+                <div>
+                  <h6 className="mb-1">⚠️ Unassigned Requests ({unassignedRequests.length})</h6>
+                  <p className="mb-0">These requests need to be assigned to admins for processing.</p>
+                </div>
+                <button 
+                  className="btn btn-warning"
+                  onClick={handleAutoAssignAll}
+                >
+                  🤖 Auto-Assign All
+                </button>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Render based on view mode */}
-        {viewMode === 'cards' && renderAdminCards()}
-        {viewMode === 'table' && renderAdminTable()}
-        {viewMode === 'compact' && renderAdminCompact()}
+        <div className="row">
+          {unassignedRequests.map(request => (
+            <div key={request.request_id} className="col-md-6 col-lg-4 mb-3">
+              <div className="card border-warning">
+                <div className="card-header bg-warning text-dark">
+                  <div className="d-flex justify-content-between align-items-center">
+                    <strong>Request #{request.request_id}</strong>
+                    <span className={`badge bg-secondary`}>
+                      {request.status}
+                    </span>
+                  </div>
+                </div>
+                <div className="card-body">
+                  <h6 className="card-title">{request.type_name}</h6>
+                  <p className="card-text">
+                    <small><strong>Student:</strong> {request.student_name}</small><br />
+                    <small><strong>Department:</strong> {request.category}</small><br />
+                    <small><strong>Submitted:</strong> {new Date(request.submitted_at).toLocaleDateString()}</small>
+                  </p>
+                  <p className="card-text">
+                    {request.content.length > 100 ? 
+                      request.content.substring(0, 100) + '...' : 
+                      request.content
+                    }
+                  </p>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
     );
   };
 
-  // Render admin cards view
+  // ENHANCED: Admin cards with assignment tracking
   const renderAdminCards = () => (
     <div className="row">
       {filteredAndSortedAdmins.map((admin, index) => (
@@ -833,17 +767,17 @@ const AdminStatisticsPage = () => {
               </div>
               <div>
                 <span className={`badge ${getPerformanceBadgeClass(admin.performance_score || 0)}`}>
-                  {getPerformanceIcon(admin.performance_score || 0)} {admin.performance_score || 0}%
+                  {admin.performance_score || 0}%
                 </span>
               </div>
             </div>
             
             <div className="card-body">
-              {/* Key Metrics Row */}
+              {/* ENHANCED: Key Metrics with Assignment Focus */}
               <div className="row mb-3 text-center">
                 <div className="col-4">
                   <div className="h5 text-primary mb-1">{admin.total_requests || 0}</div>
-                  <small className={isDark ? 'text-light' : 'text-muted'}>Requests</small>
+                  <small className={isDark ? 'text-light' : 'text-muted'}>Assigned</small>
                 </div>
                 <div className="col-4">
                   <div className="h5 text-success mb-1">{admin.completed_requests || 0}</div>
@@ -855,21 +789,23 @@ const AdminStatisticsPage = () => {
                 </div>
               </div>
 
-              {/* Performance Progress */}
-              <div className="mb-3">
-                <div className="d-flex justify-content-between align-items-center mb-2">
-                  <small className={isDark ? 'text-light' : 'text-muted'}>Performance</small>
-                  <small className={getPerformanceColor(admin.performance_score || 0)}>
-                    <strong>{admin.performance_score || 0}%</strong>
-                  </small>
+              {/* Assignment Analytics */}
+              {admin.has_assignments && (
+                <div className="mb-3">
+                  <div className="d-flex justify-content-between align-items-center mb-2">
+                    <small className={isDark ? 'text-light' : 'text-muted'}>Assignment Efficiency</small>
+                    <small className={getPerformanceColor(admin.efficiency_score || 0)}>
+                      <strong>{admin.efficiency_score || 0}%</strong>
+                    </small>
+                  </div>
+                  <div className="progress" style={{ height: '6px' }}>
+                    <div 
+                      className={`progress-bar ${getPerformanceBadgeClass(admin.efficiency_score || 0)}`}
+                      style={{ width: `${Math.min(admin.efficiency_score || 0, 100)}%` }}
+                    ></div>
+                  </div>
                 </div>
-                <div className="progress" style={{ height: '8px' }}>
-                  <div 
-                    className={`progress-bar ${getPerformanceBadgeClass(admin.performance_score || 0)}`}
-                    style={{ width: `${Math.min(admin.performance_score || 0, 100)}%` }}
-                  ></div>
-                </div>
-              </div>
+              )}
 
               {/* Status Breakdown */}
               <div className="row mb-3">
@@ -893,21 +829,32 @@ const AdminStatisticsPage = () => {
                 </div>
                 <div className="col-3 text-center">
                   <div className="badge bg-secondary mb-1 d-block">
-                    {formatDuration(admin.avg_response_time || 0)}
+                    {formatDuration(admin.avg_response_time_hours || 0)}
                   </div>
                   <small className={isDark ? 'text-light' : 'text-muted'}>Avg Time</small>
                 </div>
               </div>
 
-              {/* Activity Status */}
+              {/* Assignment Status */}
               <div className="border-top pt-2">
-                {admin.last_activity ? (
-                  <small className={isDark ? 'text-light' : 'text-muted'}>
-                    Last activity: {new Date(admin.last_activity).toLocaleDateString()}
-                  </small>
+                {admin.has_assignments ? (
+                  <div>
+                    <small className={isDark ? 'text-light' : 'text-muted'}>
+                      Workload: <span className={`badge badge-sm ${
+                        admin.workload_category === 'High' ? 'bg-danger' :
+                        admin.workload_category === 'Medium' ? 'bg-warning text-dark' :
+                        admin.workload_category === 'Low' ? 'bg-success' : 'bg-secondary'
+                      }`}>{admin.workload_category}</span>
+                    </small>
+                    {admin.last_assignment && (
+                      <small className="d-block text-muted">
+                        Last assignment: {new Date(admin.last_assignment).toLocaleDateString()}
+                      </small>
+                    )}
+                  </div>
                 ) : (
                   <small className="text-warning">
-                    ⚠️ No activity in selected period
+                    ⚠️ No assignments in selected period
                   </small>
                 )}
               </div>
@@ -918,169 +865,92 @@ const AdminStatisticsPage = () => {
     </div>
   );
 
-  // Render admin table view
-  const renderAdminTable = () => (
-    <div className="card border-0 shadow-sm" style={cardStyle}>
-      <div className="table-responsive">
-        <table className="table table-hover mb-0">
-          <thead className={isDark ? 'table-dark' : 'table-light'}>
-            <tr>
-              <th>#</th>
-              <th>Admin</th>
-              <th>Department</th>
-              <th>Requests</th>
-              <th>Completed</th>
-              <th>Performance</th>
-              <th>Avg Response</th>
-              <th>Last Activity</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filteredAndSortedAdmins.map((admin, index) => (
-              <tr key={admin.admin_id}>
-                <td>
-                  <span className="badge bg-secondary">#{index + 1}</span>
-                </td>
-                <td>
-                  <div>
-                    <strong>{admin.full_name}</strong>
-                    {admin.is_super_admin && (
-                      <span className="badge bg-danger ms-2 small">Super</span>
-                    )}
-                    <br />
-                    <small className="text-muted">{admin.username}</small>
-                  </div>
-                </td>
-                <td>{admin.department}</td>
-                <td>
-                  <span className="badge bg-primary">{admin.total_requests || 0}</span>
-                </td>
-                <td>
-                  <span className="badge bg-success">{admin.completed_requests || 0}</span>
-                </td>
-                <td>
-                  <span className={`badge ${getPerformanceBadgeClass(admin.performance_score || 0)}`}>
-                    {admin.performance_score || 0}%
-                  </span>
-                </td>
-                <td>
-                  <span className={`badge ${
-                    (admin.avg_response_time || 0) <= 4 ? 'bg-success' : 
-                    (admin.avg_response_time || 0) <= 24 ? 'bg-warning text-dark' : 'bg-danger'
-                  }`}>
-                    {formatDuration(admin.avg_response_time || 0)}
-                  </span>
-                </td>
-                <td>
-                  {admin.last_activity ? (
-                    <small>{new Date(admin.last_activity).toLocaleDateString()}</small>
-                  ) : (
-                    <small className="text-muted">No activity</small>
-                  )}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  );
-
-  // Render admin compact view
-  const renderAdminCompact = () => (
-    <div className="card border-0 shadow-sm" style={cardStyle}>
-      <div className="card-body">
-        {filteredAndSortedAdmins.map((admin, index) => (
-          <div key={admin.admin_id} className="d-flex justify-content-between align-items-center py-2 border-bottom">
-            <div className="d-flex align-items-center">
-              <span className="badge bg-secondary me-3">#{index + 1}</span>
-              <div>
-                <strong className={isDark ? 'text-light' : 'text-dark'}>
-                  {admin.full_name}
-                  {admin.is_super_admin && (
-                    <span className="badge bg-danger ms-2 small">Super</span>
-                  )}
-                </strong>
-                <br />
-                <small className={isDark ? 'text-light' : 'text-muted'}>
-                  {admin.department} • {admin.total_requests || 0} requests
-                </small>
-              </div>
-            </div>
-            <div className="d-flex align-items-center gap-2">
-              <span className="badge bg-success">{admin.completed_requests || 0}</span>
-              <span className={`badge ${getPerformanceBadgeClass(admin.performance_score || 0)}`}>
-                {admin.performance_score || 0}%
-              </span>
-              <span className="badge bg-info">{formatDuration(admin.avg_response_time || 0)}</span>
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-
-  // Render trends tab
-  const renderTrends = () => {
-    if (!statistics?.trends) {
+  // ENHANCED: Detailed stats tab
+  const renderDetailedStats = () => {
+    if (!statistics?.detailed_admins || statistics.detailed_admins.length === 0) {
       return (
         <div className="text-center py-5">
           <div className="text-muted">
-            <div style={{ fontSize: '4rem' }}>📈</div>
-            <h5 className="mt-3">Trend Analysis Coming Soon</h5>
-            <p>Historical trend data and predictive analytics will be available in the next update.</p>
-            <div className="row mt-4">
-              <div className="col-md-4">
-                <div className="card border-0 shadow-sm" style={cardStyle}>
-                  <div className="card-body text-center">
-                    <div style={{ fontSize: '3rem' }}>📊</div>
-                    <h6 className="mt-2">Performance Trends</h6>
-                    <p className="small text-muted">Track performance changes over time</p>
-                  </div>
-                </div>
-              </div>
-              <div className="col-md-4">
-                <div className="card border-0 shadow-sm" style={cardStyle}>
-                  <div className="card-body text-center">
-                    <div style={{ fontSize: '3rem' }}>📈</div>
-                    <h6 className="mt-2">Workload Analysis</h6>
-                    <p className="small text-muted">Analyze request volume patterns</p>
-                  </div>
-                </div>
-              </div>
-              <div className="col-md-4">
-                <div className="card border-0 shadow-sm" style={cardStyle}>
-                  <div className="card-body text-center">
-                    <div style={{ fontSize: '3rem' }}>🔮</div>
-                    <h6 className="mt-2">Predictive Insights</h6>
-                    <p className="small text-muted">AI-powered performance predictions</p>
-                  </div>
-                </div>
-              </div>
-            </div>
+            <div style={{ fontSize: '4rem' }}>📊</div>
+            <h5 className="mt-3">No Assignment Data Available</h5>
+            <p>No admin assignments found for the selected period and department.</p>
+            <button 
+              className="btn btn-outline-primary"
+              onClick={() => loadStatistics(true)}
+              disabled={refreshing}
+            >
+              {refreshing ? (
+                <>
+                  <span className="spinner-border spinner-border-sm me-1"></span>
+                  Refreshing...
+                </>
+              ) : (
+                '🔄 Refresh Data'
+              )}
+            </button>
           </div>
         </div>
       );
     }
 
-    return <div>Trends data available but not implemented yet</div>;
+    return (
+      <div>
+        {/* Results Summary with Assignment Info */}
+        <div className="row mb-3">
+          <div className="col-12">
+            <div className={`alert alert-info border-0 ${isDark ? 'bg-dark' : ''}`}>
+              <div className="d-flex justify-content-between align-items-center">
+                <span>
+                  📊 Showing <strong>{filteredAndSortedAdmins.length}</strong> of <strong>{statistics.detailed_admins.length}</strong> admins
+                  • <strong>{filteredAndSortedAdmins.filter(a => a.has_assignments).length}</strong> with assignments
+                  {statistics?.meta?.data_version === '2.0_assignment_based' && (
+                    <span className="ms-2">
+                      <small className="badge bg-success">Assignment-Based ✓</small>
+                    </span>
+                  )}
+                </span>
+                {filteredAndSortedAdmins.length !== statistics.detailed_admins.length && (
+                  <button
+                    className="btn btn-sm btn-outline-secondary"
+                    onClick={() => setFilterConfig({
+                      minPerformance: 0,
+                      maxPerformance: 100,
+                      hasActivity: null,
+                      minRequests: 0
+                    })}
+                  >
+                    Clear Filters
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Render based on view mode */}
+        {viewMode === 'cards' && renderAdminCards()}
+        {/* Add table and compact views here if needed */}
+      </div>
+    );
   };
 
   return (
     <div>
-      {/* Enhanced Header */}
+      {/* ENHANCED: Header with Assignment Tracking Indicator */}
       <div className="d-flex justify-content-between align-items-center mb-4">
         <div>
           <h3 className={`${isDark ? 'text-light' : 'text-dark'} d-flex align-items-center`}>
             📊 Admin Performance Analytics
             {refreshing && <span className="spinner-border spinner-border-sm ms-2"></span>}
-            {autoRefresh && <span className="badge bg-success ms-2">Auto</span>}
+            {statistics?.meta?.data_version === '2.0_assignment_based' && (
+              <span className="badge bg-success ms-2">Assignment-Based ✓</span>
+            )}
           </h3>
           <p className={isDark ? 'text-light' : 'text-muted'}>
             {isSuperAdmin() 
               ? (selectedDepartment ? `${selectedDepartment} Department` : 'System-wide') 
               : department
-            } performance insights and analytics
+            } performance insights with assignment tracking
             {statistics?.meta && (
               <span className="ms-2">
                 • {new Date(statistics.meta.start_date).toLocaleDateString()} - {new Date(statistics.meta.end_date).toLocaleDateString()}
@@ -1104,14 +974,12 @@ const AdminStatisticsPage = () => {
               '🔄 Refresh'
             )}
           </button>
-         
-          
         </div>
       </div>
 
-      {/* Enhanced Filters */}
+      {/* Period and Department Filters */}
       <div className="row mb-4">
-        <div className="col-md-4">
+        <div className="col-md-6">
           <label className={`form-label ${isDark ? 'text-light' : 'text-dark'}`}>
             Time Period:
           </label>
@@ -1125,19 +993,15 @@ const AdminStatisticsPage = () => {
               color: isDark ? '#ffffff' : '#000000'
             }}
           >
-            {periodOptions.map(option => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
+            <option value="7">Last 7 days</option>
+            <option value="30">Last 30 days</option>
+            <option value="90">Last 3 months</option>
+            <option value="180">Last 6 months</option>
           </select>
-          <small className={isDark ? 'text-light' : 'text-muted'}>
-            {periodOptions.find(p => p.value === selectedPeriod)?.description}
-          </small>
         </div>
 
         {isSuperAdmin() && (
-          <div className="col-md-4">
+          <div className="col-md-6">
             <label className={`form-label ${isDark ? 'text-light' : 'text-dark'}`}>
               Department:
             </label>
@@ -1151,39 +1015,19 @@ const AdminStatisticsPage = () => {
                 color: isDark ? '#ffffff' : '#000000'
               }}
             >
-              {departmentOptions.map(option => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
+              <option value="">All Departments</option>
+              <option value="Accounting">Accounting</option>
+              <option value="Academic">Academic</option>
+              <option value="Student Affairs">Student Affairs</option>
+              <option value="Dormitory">Dormitory</option>
+              <option value="Campus Services">Campus Services</option>
             </select>
           </div>
         )}
-
-        <div className="col-md-4">
-          <label className={`form-label ${isDark ? 'text-light' : 'text-dark'}`}>
-            System Status:
-          </label>
-          <div className={`form-control d-flex align-items-center ${isDark ? 'bg-dark text-light' : 'bg-light'}`}>
-            {statistics ? (
-              <span className="text-success">✅ Data loaded</span>
-            ) : (
-              <span className="text-warning">⚠️ No data</span>
-            )}
-            {statistics?.meta?.fromCache && (
-              <small className="text-info ms-2">(cached)</small>
-            )}
-            {lastRefresh && (
-              <small className="ms-auto text-muted">
-                {lastRefresh.toLocaleTimeString()}
-              </small>
-            )}
-          </div>
-        </div>
       </div>
 
-      {/* Enhanced Navigation Tabs */}
-      <ul className="nav nav-pills mb-4">
+      {/* Navigation Tabs */}
+       <ul className="nav nav-pills mb-4">
         <li className="nav-item">
           <button
             className={`nav-link ${activeTab === 'overview' ? 'active' : ''}`}
@@ -1202,16 +1046,29 @@ const AdminStatisticsPage = () => {
             className={`nav-link ${activeTab === 'detailed' ? 'active' : ''}`}
             onClick={() => setActiveTab('detailed')}
           >
-            👥 Detailed Analysis
+            👥 Assignment Analysis
             {statistics?.detailed_admins && (
               <span className="badge bg-light text-dark ms-1">
-                {filteredAndSortedAdmins.length}
+                {filteredAndSortedAdmins.filter(a => a.has_assignments).length}
               </span>
             )}
           </button>
         </li>
         <li className="nav-item">
-        
+          <button
+            className={`nav-link ${activeTab === 'unassigned' ? 'active' : ''}`}
+            onClick={() => {
+              setActiveTab('unassigned');
+              loadUnassignedRequests();
+            }}
+          >
+            ⚠️ Unassigned
+            {statistics?.assignment_analytics?.unassigned_requests > 0 && (
+              <span className="badge bg-warning text-dark ms-1">
+                {statistics.assignment_analytics.unassigned_requests}
+              </span>
+            )}
+          </button>
         </li>
       </ul>
 
@@ -1219,8 +1076,30 @@ const AdminStatisticsPage = () => {
       <div className="tab-content">
         {activeTab === 'overview' && renderOverview()}
         {activeTab === 'detailed' && renderDetailedStats()}
-        {activeTab === 'trends' && renderTrends()}
+        {activeTab === 'unassigned' && renderUnassignedRequests()}
       </div>
+
+      {/* Data Version Footer */}
+      {statistics?.meta && (
+        <div className="row mt-4">
+          <div className="col-12">
+            <div className={`alert ${statistics.meta.data_version === '2.0_assignment_based' ? 'alert-success' : 'alert-warning'} border-0`}>
+              <div className="d-flex justify-content-between align-items-center">
+                <small>
+                  <strong>Data Version:</strong> {statistics.meta.data_version || 'legacy'} 
+                  {statistics.meta.data_version === '2.0_assignment_based' ? 
+                    ' ✅ Assignment-based tracking active' : 
+                    ' ⚠️ Legacy response-based tracking'
+                  }
+                </small>
+                <small className="text-muted">
+                  Generated: {new Date(statistics.meta.generated_at).toLocaleString()}
+                </small>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Error State */}
       {!loading && !statistics && (

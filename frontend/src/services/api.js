@@ -1646,6 +1646,9 @@ getAdminRejectionDetails: (requestId) => {
 },
 
 
+
+
+
 rejectRequest: (requestId, rejectionData) => {
   console.log('🚫 Rejecting request:', { requestId, hasReason: !!rejectionData.rejection_reason });
   
@@ -2096,6 +2099,24 @@ getRequestStatusBadge: (status) => {
       return results;
     }
   },
+
+   // YENİ: Unassigned requests methods (bunları ekle)
+  getUnassignedRequests: (params = {}) => {
+    console.log('📋 Fetching unassigned requests...');
+    return adminApi.get('/admin-auth/requests/unassigned', { params });
+  },
+  
+  autoAssignAllRequests: (params = {}) => {
+    console.log('🤖 Auto-assigning all unassigned requests...');
+    return adminApi.post('/admin-auth/requests/auto-assign-all', params);
+  },
+  
+  autoAssignSingleRequest: (requestId) => {
+    console.log('🤖 Auto-assigning single request:', requestId);
+    return adminApi.post(`/admin-auth/requests/${requestId}/auto-assign`);
+  }
+
+
 };
 
 
