@@ -2071,6 +2071,44 @@ async function getFixedDepartmentBreakdownStatistics(startDate, endDate) {
   return enhancedDepartments;
 }
 
+function generateUnassignedRecommendations(departmentBreakdown, overallStats) {
+  const recommendations = [];
+
+  // High unassignment rate
+  if (overallStats.assignment_rate < 70) {
+    recommendations.push({
+      type: 'critical',
+      title: 'Low Assignment Rate',
+      message: `Only ${overallStats.assignment_rate}% of requests are assigned`,
+      action: 'Run bulk fix for unassigned requests'
+    });
+  }
+
+  // Departments without admins
+  const deptsWithoutAdmins = departmentBreakdown.filter(dept => dept.available_admins === 0);
+  if (deptsWithoutAdmins.length > 0) {
+    recommendations.push({
+      type: 'critical',
+      title: 'Departments Without Admins',
+      message: `${deptsWithoutAdmins.length} departments have no active admins`,
+      action: 'Assign admins to these departments: ' + deptsWithoutAdmins.map(d => d.department).join(', ')
+    });
+  }
+
+  // High unassigned count in specific departments
+  const problematicDepts = departmentBreakdown.filter(dept => dept.unassigned_requests > 10);
+  if (problematicDepts.length > 0) {
+    recommendations.push({
+      type: 'warning',
+      title: 'High Unassigned Requests',
+      message: `${problematicDepts.length} departments have >10 unassigned requests`,
+      action: 'Review workload distribution in: ' + problematicDepts.map(d => d.department).join(', ')
+    });
+  }
+
+  return recommendations;
+}
+
 async function getTopPerformersStatistics(detailedAdmins) {
   console.log('📊 Calculating top performers...');
   
@@ -6541,6 +6579,334 @@ router.post('/requests/:requestId/auto-assign-single',
       res.status(500).json({
         success: false,
         error: 'Failed to auto-assign request'
+      });
+    }
+  }
+);
+
+
+
+// GET /api/admin-auth/unassigned-requests-analysis - Analyze unassigned requests
+router.get('/unassigned-requests-analysis', 
+  authenticateAdmin, 
+  requireAnyPermission([
+    { resource: 'requests', action: 'view' },
+    { resource: 'analytics', action: 'view_system' }
+  ]),
+  async (req, res) => {
+    try {
+      console.log('🔍 Analyzing unassigned requests...');
+
+      // 1. Overall statistics
+      const [overallStats] = await pool.execute(`
+        SELECT 
+          COUNT(*) as total_requests,
+          COUNT(assigned_admin_id) as assigned_requests,
+          COUNT(*) - COUNT(assigned_admin_id) as unassigned_requests,
+          ROUND((COUNT(assigned_admin_id) * 100.0 / COUNT(*)), 2) as assignment_rate
+        FROM guidance_requests
+        WHERE submitted_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)
+      `);
+
+      // 2. Department breakdown
+      const [departmentBreakdown] = await pool.execute(`
+        SELECT 
+          rt.category as department,
+          COUNT(gr.request_id) as total_requests,
+          COUNT(gr.assigned_admin_id) as assigned_requests,
+          COUNT(gr.request_id) - COUNT(gr.assigned_admin_id) as unassigned_requests,
+          COUNT(DISTINCT au.admin_id) as available_admins
+        FROM request_types rt
+        LEFT JOIN guidance_requests gr ON rt.type_id = gr.type_id 
+          AND gr.submitted_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)
+        LEFT JOIN admin_users au ON rt.category = au.department AND au.is_active = TRUE
+        GROUP BY rt.category
+        HAVING total_requests > 0
+        ORDER BY unassigned_requests DESC
+      `);
+
+      // 3. Recent unassigned requests
+      const [recentUnassigned] = await pool.execute(`
+        SELECT 
+          gr.request_id,
+          rt.category,
+          gr.status,
+          gr.submitted_at,
+          CASE WHEN ar.admin_id IS NOT NULL THEN 'Has Response' ELSE 'No Response' END as response_status,
+          ar.admin_id as response_admin_id
+        FROM guidance_requests gr
+        JOIN request_types rt ON gr.type_id = rt.type_id
+        LEFT JOIN admin_responses ar ON gr.request_id = ar.request_id
+        WHERE gr.assigned_admin_id IS NULL
+          AND gr.submitted_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)
+        ORDER BY gr.submitted_at DESC
+        LIMIT 50
+      `);
+
+      // 4. Assignment method analysis
+      const [assignmentMethods] = await pool.execute(`
+        SELECT 
+          assignment_method,
+          COUNT(*) as count,
+          ROUND((COUNT(*) * 100.0 / SUM(COUNT(*)) OVER()), 2) as percentage
+        FROM guidance_requests
+        WHERE assigned_admin_id IS NOT NULL 
+          AND submitted_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)
+        GROUP BY assignment_method
+      `);
+
+      res.json({
+        success: true,
+        data: {
+          overall_statistics: overallStats[0],
+          department_breakdown: departmentBreakdown,
+          recent_unassigned: recentUnassigned,
+          assignment_methods: assignmentMethods,
+          analysis: {
+            critical_departments: departmentBreakdown.filter(dept => dept.unassigned_requests > 5),
+            departments_without_admins: departmentBreakdown.filter(dept => dept.available_admins === 0),
+            recommendations: generateUnassignedRecommendations(departmentBreakdown, overallStats[0])
+          }
+        }
+      });
+
+    } catch (error) {
+      console.error('❌ Unassigned analysis error:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to analyze unassigned requests'
+      });
+    }
+  }
+);
+
+// POST /api/admin-auth/fix-unassigned-requests - Bulk fix unassigned requests
+router.post('/fix-unassigned-requests', 
+  authenticateAdmin, 
+  requireRole(['super_admin']),
+  async (req, res) => {
+    try {
+      console.log('🔧 Starting bulk fix for unassigned requests...');
+      
+      // 1. Get all unassigned requests
+      const [unassignedRequests] = await pool.execute(`
+        SELECT 
+          gr.request_id,
+          rt.category,
+          gr.status,
+          gr.submitted_at,
+          CASE WHEN ar.admin_id IS NOT NULL THEN ar.admin_id ELSE NULL END as response_admin
+        FROM guidance_requests gr
+        JOIN request_types rt ON gr.type_id = rt.type_id
+        LEFT JOIN admin_responses ar ON gr.request_id = ar.request_id
+        WHERE gr.assigned_admin_id IS NULL
+        ORDER BY gr.submitted_at DESC
+      `);
+
+      console.log(`Found ${unassignedRequests.length} unassigned requests`);
+
+      let fixed = 0;
+      let errors = 0;
+      const results = [];
+
+      for (const request of unassignedRequests) {
+        try {
+          let assignedAdminId = null;
+          let assignmentMethod = 'auto';
+
+          // Strategy 1: If there's a response, assign to that admin
+          if (request.response_admin) {
+            assignedAdminId = request.response_admin;
+            assignmentMethod = 'manual';
+            console.log(`📝 Assigning request ${request.request_id} to response admin ${assignedAdminId}`);
+          } else {
+            // Strategy 2: Auto-assign to least loaded admin in department
+            const [availableAdmins] = await pool.execute(`
+              SELECT 
+                au.admin_id,
+                au.full_name,
+                COUNT(gr.request_id) as current_workload
+              FROM admin_users au
+              LEFT JOIN guidance_requests gr ON au.admin_id = gr.assigned_admin_id 
+                AND gr.status IN ('Pending', 'Informed')
+              WHERE au.department = ? AND au.is_active = TRUE
+              GROUP BY au.admin_id, au.full_name
+              ORDER BY current_workload ASC, RAND()
+              LIMIT 1
+            `, [request.category]);
+
+            if (availableAdmins.length > 0) {
+              assignedAdminId = availableAdmins[0].admin_id;
+              console.log(`🤖 Auto-assigning request ${request.request_id} to ${availableAdmins[0].full_name}`);
+            }
+          }
+
+          if (assignedAdminId) {
+            // Update the request
+            const [updateResult] = await pool.execute(`
+              UPDATE guidance_requests 
+              SET 
+                assigned_admin_id = ?,
+                assigned_at = NOW(),
+                assignment_method = ?
+              WHERE request_id = ?
+            `, [assignedAdminId, assignmentMethod, request.request_id]);
+
+            if (updateResult.affectedRows > 0) {
+              fixed++;
+              results.push({
+                request_id: request.request_id,
+                status: 'success',
+                assigned_to: assignedAdminId,
+                method: assignmentMethod
+              });
+            }
+          } else {
+            errors++;
+            results.push({
+              request_id: request.request_id,
+              status: 'failed',
+              reason: `No available admin in ${request.category} department`
+            });
+          }
+        } catch (error) {
+          console.error(`Error fixing request ${request.request_id}:`, error);
+          errors++;
+          results.push({
+            request_id: request.request_id,
+            status: 'error',
+            error: error.message
+          });
+        }
+      }
+
+      console.log(`✅ Bulk fix completed: ${fixed} fixed, ${errors} failed`);
+
+      res.json({
+        success: true,
+        message: `Bulk fix completed: ${fixed} requests fixed, ${errors} failed`,
+        data: {
+          total_processed: unassignedRequests.length,
+          successfully_fixed: fixed,
+          failed: errors,
+          results: results
+        }
+      });
+
+    } catch (error) {
+      console.error('❌ Bulk fix error:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to fix unassigned requests',
+        details: error.message
+      });
+    }
+  }
+);
+
+
+
+// POST /api/admin-auth/auto-assign-by-department - Auto-assign by department
+router.post('/auto-assign-by-department', 
+  authenticateAdmin, 
+  requireAnyPermission([
+    { resource: 'requests', action: 'assign' },
+    { resource: 'requests', action: 'manage' }
+  ]),
+  async (req, res) => {
+    try {
+      const { department } = req.body;
+      const assignerId = req.admin.admin_id;
+
+      if (!department) {
+        return res.status(400).json({
+          success: false,
+          error: 'Department is required'
+        });
+      }
+
+      // Get unassigned requests for this department
+      const [unassignedRequests] = await pool.execute(`
+        SELECT gr.request_id, rt.category
+        FROM guidance_requests gr
+        JOIN request_types rt ON gr.type_id = rt.type_id
+        WHERE gr.assigned_admin_id IS NULL
+          AND rt.category = ?
+          AND gr.status IN ('Pending', 'Informed')
+        ORDER BY gr.submitted_at ASC
+      `, [department]);
+
+      let successCount = 0;
+      const results = [];
+
+      for (const request of unassignedRequests) {
+        try {
+          // Find least loaded admin in department
+          const [availableAdmins] = await pool.execute(`
+            SELECT 
+              au.admin_id,
+              au.full_name,
+              COUNT(gr.request_id) as current_workload
+            FROM admin_users au
+            LEFT JOIN guidance_requests gr ON au.admin_id = gr.assigned_admin_id 
+              AND gr.status IN ('Pending', 'Informed')
+            WHERE au.department = ? AND au.is_active = TRUE
+            GROUP BY au.admin_id, au.full_name
+            ORDER BY current_workload ASC, RAND()
+            LIMIT 1
+          `, [department]);
+
+          if (availableAdmins.length > 0) {
+            const selectedAdmin = availableAdmins[0];
+
+            await pool.execute(`
+              UPDATE guidance_requests 
+              SET 
+                assigned_admin_id = ?,
+                assigned_at = NOW(),
+                assignment_method = 'auto',
+                handled_by = ?
+              WHERE request_id = ?
+            `, [selectedAdmin.admin_id, assignerId, request.request_id]);
+
+            successCount++;
+            results.push({
+              request_id: request.request_id,
+              status: 'success',
+              assigned_to: selectedAdmin.full_name
+            });
+          } else {
+            results.push({
+              request_id: request.request_id,
+              status: 'failed',
+              reason: 'No available admins'
+            });
+          }
+        } catch (error) {
+          results.push({
+            request_id: request.request_id,
+            status: 'error',
+            error: error.message
+          });
+        }
+      }
+
+      res.json({
+        success: true,
+        message: `${successCount} requests auto-assigned in ${department} department`,
+        data: {
+          department,
+          total_processed: unassignedRequests.length,
+          successful_assignments: successCount,
+          results
+        }
+      });
+
+    } catch (error) {
+      console.error('❌ Department auto-assign error:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to auto-assign requests by department'
       });
     }
   }

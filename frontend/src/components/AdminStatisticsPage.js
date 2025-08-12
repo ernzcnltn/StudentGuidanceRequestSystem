@@ -33,7 +33,7 @@ const AdminStatisticsPage = () => {
   });
 
   // FIXED: Load statistics with assignment-based tracking
-  const loadStatistics = useCallback(async (showRefreshLoader = false) => {
+ const loadStatistics = useCallback(async (showRefreshLoader = false) => {
     try {
       if (showRefreshLoader) {
         setRefreshing(true);
@@ -46,7 +46,7 @@ const AdminStatisticsPage = () => {
         department: isSuperAdmin() ? selectedDepartment : department
       };
 
-      console.log('📊 FIXED: Loading assignment-based statistics with params:', params);
+      console.log('📊 Loading assignment-based statistics with params:', params);
 
       const response = await apiService.getAdminStatistics(params);
       
@@ -54,23 +54,20 @@ const AdminStatisticsPage = () => {
         setStatistics(response.data.data);
         setLastRefresh(new Date());
         
-        // ENHANCED: Check if data is assignment-based
-        if (response.data.version === '2.0_fixed') {
-          showSuccess('✅ Assignment-based statistics loaded successfully');
-        } else {
-          showInfo('📊 Statistics loaded - switch to assignment-based tracking recommended');
-        }
+        // Check if data is assignment-based
+       
         
-        console.log('✅ FIXED Statistics loaded:', {
-          version: response.data.version,
+        console.log('✅ Assignment-based statistics loaded:', {
+          version: response.data.version || '2.0_assignment_based',
           adminCount: response.data.data.detailed_admins?.length,
-          assignmentRate: response.data.data.overview?.assignment_rate
+          assignmentRate: response.data.data.overview?.assignment_rate,
+          dataSource: response.data.data.meta?.data_source
         });
       } else {
         throw new Error(response.data.error || 'Failed to load statistics');
       }
     } catch (error) {
-      console.error('❌ Error loading FIXED admin statistics:', error);
+      console.error('❌ Error loading assignment-based admin statistics:', error);
       
       let errorMessage = 'Failed to load admin statistics';
       if (error.response?.status === 403) {
@@ -86,7 +83,6 @@ const AdminStatisticsPage = () => {
       setRefreshing(false);
     }
   }, [selectedPeriod, selectedDepartment, isSuperAdmin, department, showError, showInfo, showSuccess]);
-
 
   // Load unassigned requests
 // MEVCUT loadUnassignedRequests fonksiyonunu bununla değiştir:
@@ -306,7 +302,7 @@ const loadUnassignedRequests = useCallback(async () => {
           <span className="visually-hidden">Loading...</span>
         </div>
         <h5 className={`mt-3 ${isDark ? 'text-light' : 'text-dark'}`}>
-          📊 Loading Assignment-Based Performance Statistics
+          
         </h5>
         <p className={isDark ? 'text-light' : 'text-muted'}>
           Analyzing admin assignments and performance data...
@@ -333,7 +329,7 @@ const loadUnassignedRequests = useCallback(async () => {
                   <div className="d-flex justify-content-between align-items-center">
                     <div>
                       <h5 className="mb-0">
-                        📊 {isSuperAdmin() && selectedDepartment ? selectedDepartment : department} Performance Dashboard
+                         {isSuperAdmin() && selectedDepartment ? selectedDepartment : department} Performance Dashboard
                         {statistics?.meta?.data_version === '2.0_assignment_based' && (
                           <span className="badge bg-success ms-2">Assignment-Based ✓</span>
                         )}
@@ -418,42 +414,7 @@ const loadUnassignedRequests = useCallback(async () => {
                     </div>
                   </div>
                   
-                  {/* ENHANCED: Assignment Analytics Section */}
-                  {statistics.assignment_analytics && (
-                    <div className="row mb-3">
-                      <div className="col-12">
-                        <h6 className={`${isDark ? 'text-light' : 'text-dark'} mb-2`}>
-                          📋 Assignment Analytics
-                        </h6>
-                        <div className="row text-center">
-                          <div className="col-md-3">
-                            <div className="badge bg-info p-2 w-100">
-                              <div className="h6 mb-1">{statistics.assignment_analytics.auto_assignment_rate}%</div>
-                              <small>Auto-Assigned</small>
-                            </div>
-                          </div>
-                          <div className="col-md-3">
-                            <div className="badge bg-secondary p-2 w-100">
-                              <div className="h6 mb-1">{100 - statistics.assignment_analytics.auto_assignment_rate}%</div>
-                              <small>Manual-Assigned</small>
-                            </div>
-                          </div>
-                          <div className="col-md-3">
-                            <div className="badge bg-warning text-dark p-2 w-100">
-                              <div className="h6 mb-1">{formatDuration(statistics.assignment_analytics.avg_assignment_delay_hours || 0)}</div>
-                              <small>Avg Assignment Delay</small>
-                            </div>
-                          </div>
-                          <div className="col-md-3">
-                            <div className="badge bg-primary p-2 w-100">
-                              <div className="h6 mb-1">{statistics.assignment_analytics.admins_receiving_assignments || 0}</div>
-                              <small>Admins with Assignments</small>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  )}
+                  
                   
                   {/* ENHANCED: Performance Progress Bars with Assignment Metrics */}
                   <div className="row mt-4">
@@ -514,7 +475,7 @@ const loadUnassignedRequests = useCallback(async () => {
             <div className="col-md-8">
               <div className="card border-0 shadow-sm" style={cardStyle}>
                 <div className="card-header border-0">
-                  <h6 className="mb-0">⚖️ Workload Distribution</h6>
+                  <h6 className="mb-0"> Workload Distribution</h6>
                 </div>
                 <div className="card-body">
                   {(() => {
@@ -565,7 +526,7 @@ const loadUnassignedRequests = useCallback(async () => {
             <div className="col-md-4">
               <div className="card border-0 shadow-sm" style={cardStyle}>
                 <div className="card-header border-0">
-                  <h6 className="mb-0">🏆 Top Performers (Assignment-Based)</h6>
+                  <h6 className="mb-0"> Top Performers</h6>
                 </div>
                 <div className="card-body">
                   {statistics.detailed_admins
@@ -602,68 +563,7 @@ const loadUnassignedRequests = useCallback(async () => {
           </div>
         )}
 
-        {/* ENHANCED: Assignment Insights */}
-        {departmentSummary && (
-          <div className="row">
-            <div className="col-md-4 mb-3">
-              <div className={`alert ${departmentSummary.assignment_rate >= 90 ? 'alert-success' : 
-                departmentSummary.assignment_rate >= 70 ? 'alert-warning' : 'alert-danger'} border-0`}>
-                <div className="d-flex align-items-center">
-                  <div className="me-3" style={{ fontSize: '2rem' }}>
-                    {departmentSummary.assignment_rate >= 90 ? '📋' : 
-                     departmentSummary.assignment_rate >= 70 ? '⚠️' : '🚨'}
-                  </div>
-                  <div>
-                    <h6 className="mb-1">Assignment Coverage</h6>
-                    <p className="mb-0">
-                      {departmentSummary.assignment_rate >= 90 ? 'Excellent assignment coverage!' : 
-                       departmentSummary.assignment_rate >= 70 ? 'Good assignment rate with some gaps' : 
-                       'Poor assignment coverage - many unassigned requests'}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-            <div className="col-md-4 mb-3">
-              <div className={`alert ${departmentSummary.avg_performance >= 80 ? 'alert-success' : 
-                departmentSummary.avg_performance >= 60 ? 'alert-warning' : 'alert-danger'} border-0`}>
-                <div className="d-flex align-items-center">
-                  <div className="me-3" style={{ fontSize: '2rem' }}>
-                    {departmentSummary.avg_performance >= 80 ? '🎉' : 
-                     departmentSummary.avg_performance >= 60 ? '📊' : '📉'}
-                  </div>
-                  <div>
-                    <h6 className="mb-1">Team Performance</h6>
-                    <p className="mb-0">
-                      {departmentSummary.avg_performance >= 80 ? 'Excellent team performance!' : 
-                       departmentSummary.avg_performance >= 60 ? 'Good performance with room for improvement' : 
-                       'Performance needs attention'}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-            <div className="col-md-4 mb-3">
-              <div className={`alert ${departmentSummary.utilization_rate >= 80 ? 'alert-success' : 
-                departmentSummary.utilization_rate >= 60 ? 'alert-warning' : 'alert-info'} border-0`}>
-                <div className="d-flex align-items-center">
-                  <div className="me-3" style={{ fontSize: '2rem' }}>
-                    {departmentSummary.utilization_rate >= 80 ? '💪' : 
-                     departmentSummary.utilization_rate >= 60 ? '📊' : '😴'}
-                  </div>
-                  <div>
-                    <h6 className="mb-1">Team Utilization</h6>
-                    <p className="mb-0">
-                      {departmentSummary.utilization_rate >= 80 ? 'High team engagement!' : 
-                       departmentSummary.utilization_rate >= 60 ? 'Good team participation' : 
-                       'Low activity period'}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
+        
       </div>
     );
   };
@@ -1033,7 +933,7 @@ const loadUnassignedRequests = useCallback(async () => {
             className={`nav-link ${activeTab === 'overview' ? 'active' : ''}`}
             onClick={() => setActiveTab('overview')}
           >
-            📊 Overview
+             Overview
             {departmentSummary && (
               <span className="badge bg-light text-dark ms-1">
                 {departmentSummary.total_admins}
@@ -1046,7 +946,7 @@ const loadUnassignedRequests = useCallback(async () => {
             className={`nav-link ${activeTab === 'detailed' ? 'active' : ''}`}
             onClick={() => setActiveTab('detailed')}
           >
-            👥 Assignment Analysis
+             Assignment Analysis
             {statistics?.detailed_admins && (
               <span className="badge bg-light text-dark ms-1">
                 {filteredAndSortedAdmins.filter(a => a.has_assignments).length}

@@ -607,7 +607,7 @@ const rbacHelpers = {
 // ===== ADMIN STATISTICS METHODS =====
 const adminStatisticsMethods = {
    // Get admin performance statistics (Assignment-based)
-   getAdminStatistics: async (params = {}) => {
+  getAdminStatistics: async (params = {}) => {
     try {
       console.log('📊 Fetching assignment-based admin statistics with params:', params);
       
@@ -651,6 +651,8 @@ const adminStatisticsMethods = {
       throw error;
     }
   },
+
+
    // Cached statistics with TTL
   getAdminStatisticsWithCache: async (params = {}, useCache = true, ttl = 300000) => {
     const cacheKey = `admin_stats_${JSON.stringify(params)}`;
