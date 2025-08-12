@@ -164,7 +164,7 @@ router.get('/dashboard',
         targetDepartment: department
       });
 
-      // FIXED: Assignment-based request counts
+      // FIXED: Direct query without views - Request counts by status
       let statusQuery = `
         SELECT 
           COALESCE(gr.status, 'unknown') as status,
@@ -187,7 +187,7 @@ router.get('/dashboard',
       const [statusCounts] = await pool.execute(statusQuery, params);
       console.log('📊 Status counts result:', statusCounts);
       
-      // FIXED: Assignment statistics
+      // FIXED: Assignment statistics (without admin_performance_view)
       let assignmentQuery = `
         SELECT 
           COUNT(*) as total_requests,
@@ -208,30 +208,54 @@ router.get('/dashboard',
       const [assignmentStats] = await pool.execute(assignmentQuery, assignmentParams);
       console.log('📊 Assignment stats result:', assignmentStats);
 
-      // FIXED: Admin performance summary (assignment-based)
+      // FIXED: Admin performance summary (direct query)
       let performanceQuery = `
         SELECT 
           COUNT(DISTINCT au.admin_id) as total_active_admins,
-          AVG(
+          ROUND(AVG(
             CASE 
-              WHEN total_assigned > 0 THEN (completed_requests * 100.0 / total_assigned)
+              WHEN assigned_count.total > 0 THEN 
+                (assigned_count.completed * 100.0 / assigned_count.total)
               ELSE 0
             END
-          ) as avg_completion_rate,
-          AVG(avg_response_time_hours) as avg_response_time
-        FROM admin_performance_view au
+          ), 1) as avg_completion_rate,
+          ROUND(AVG(response_time.avg_hours), 2) as avg_response_time
+        FROM admin_users au
+        LEFT JOIN (
+          SELECT 
+            gr.assigned_admin_id,
+            COUNT(*) as total,
+            COUNT(CASE WHEN gr.status = 'Completed' THEN 1 END) as completed
+          FROM guidance_requests gr
+          ${!isPureSuperAdmin && department ? 
+            'JOIN request_types rt ON gr.type_id = rt.type_id WHERE rt.category = ?' : ''}
+          GROUP BY gr.assigned_admin_id
+        ) assigned_count ON au.admin_id = assigned_count.assigned_admin_id
+        LEFT JOIN (
+          SELECT 
+            ar.admin_id,
+            AVG(TIMESTAMPDIFF(HOUR, gr.submitted_at, ar.created_at)) as avg_hours
+          FROM admin_responses ar
+          JOIN guidance_requests gr ON ar.request_id = gr.request_id
+          ${!isPureSuperAdmin && department ? 
+            'JOIN request_types rt ON gr.type_id = rt.type_id WHERE rt.category = ?' : ''}
+          GROUP BY ar.admin_id
+        ) response_time ON au.admin_id = response_time.admin_id
+        WHERE au.is_active = TRUE
+        ${!isPureSuperAdmin && department ? 'AND au.department = ?' : ''}
       `;
       
       const performanceParams = [];
       if (!isPureSuperAdmin && department) {
-        performanceQuery += ' WHERE au.department = ?';
-        performanceParams.push(department);
+        performanceParams.push(department); // for guidance_requests join
+        performanceParams.push(department); // for admin_responses join  
+        performanceParams.push(department); // for admin_users filter
       }
       
       const [performanceStats] = await pool.execute(performanceQuery, performanceParams);
       console.log('📊 Performance stats result:', performanceStats);
       
-      // Format response with CORRECT assignment-based data
+      // Format response with CORRECT data
       const totals = {
         pending: 0,
         informed: 0,
@@ -275,7 +299,8 @@ router.get('/dashboard',
           department: req.admin.department,
           is_super_admin: req.admin.is_super_admin
         },
-        data_source: 'assignment_based' // Indicate this is the fixed version
+        data_source: 'direct_queries_no_views', // Indicate this uses direct queries
+        version: '3.0_no_views'
       };
       
       console.log('✅ FIXED Dashboard response prepared:', {
@@ -288,8 +313,8 @@ router.get('/dashboard',
       res.json({
         success: true,
         data: responseData,
-        message: 'Dashboard data loaded successfully (Assignment-based)',
-        version: '2.0_fixed'
+        message: 'Dashboard data loaded successfully (Direct Queries)',
+        version: '3.0_no_views'
       });
       
     } catch (error) {
@@ -304,12 +329,16 @@ router.get('/dashboard',
       res.status(500).json({
         success: false,
         error: 'Failed to fetch dashboard data',
-        message: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
+        message: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error',
+        debug: process.env.NODE_ENV === 'development' ? {
+          sqlError: error.sqlMessage,
+          admin: req.admin?.username,
+          department: req.admin?.department
+        } : undefined
       });
     }
   }
 );
-
 
 // GET /api/admin-auth/rbac/roles - Get all roles 
 router.get('/rbac/roles', 
@@ -1119,44 +1148,67 @@ router.get('/requests',
     try {
       const department = req.admin.department;
       const isPureSuperAdmin = req.admin.is_super_admin && !req.admin.department;
-      const { status } = req.query;
-  const { include_unassigned } = req.query; // Bu parametreyi ekle
+      const { status, include_unassigned } = req.query;
+      
+      console.log('📋 FIXED: Fetching admin requests:', {
+        adminId: req.admin.admin_id,
+        username: req.admin.username,
+        department: isPureSuperAdmin ? 'ALL' : department,
+        isPureSuperAdmin,
+        requestedStatus: status
+      });
      
+      // FIXED: Ensure all necessary columns are selected
       let query = `
         SELECT 
           gr.request_id,
           gr.student_id,
-           gr.assigned_admin_id,  // BU KOLONU MUTLAKA EKLE
-          gr.assigned_at,        // BU KOLONU DA EKLE
+          gr.assigned_admin_id,  -- ⭐ THIS IS CRITICAL
+          gr.assigned_at,        -- ⭐ THIS IS CRITICAL
+          gr.assignment_method,  -- ⭐ THIS IS CRITICAL
           gr.content,
           gr.status,
           COALESCE(gr.priority, 'Medium') as priority,
           gr.submitted_at,
           gr.updated_at,
           gr.resolved_at,
+          gr.rejected_at,
+          gr.rejection_reason,
           rt.type_name,
           rt.category,
           s.name as student_name,
           s.student_number,
           s.email as student_email,
-          COUNT(a.attachment_id) as attachment_count
+          COUNT(a.attachment_id) as attachment_count,
+          
+          -- ⭐ ASSIGNED ADMIN INFO
+          assigned_admin.full_name as assigned_admin_name,
+          assigned_admin.username as assigned_admin_username
         FROM guidance_requests gr
         JOIN request_types rt ON gr.type_id = rt.type_id
         JOIN students s ON gr.student_id = s.student_id
         LEFT JOIN attachments a ON gr.request_id = a.request_id
+        LEFT JOIN admin_users assigned_admin ON gr.assigned_admin_id = assigned_admin.admin_id
       `;
 
       const params = [];
       const conditions = [];
 
+      // FIXED: Department filtering for non-super admins
       if (!isPureSuperAdmin && department) {
         conditions.push('rt.category = ?');
         params.push(department);
       }
 
-      if (status) {
+      // FIXED: Status filtering
+      if (status && status !== 'all') {
         conditions.push('gr.status = ?');
         params.push(status);
+      }
+
+      // FIXED: Include unassigned filter if requested
+      if (include_unassigned === 'true') {
+        // Don't add any assignment filters - show all including unassigned
       }
 
       if (conditions.length > 0) {
@@ -1176,8 +1228,22 @@ router.get('/requests',
           gr.submitted_at DESC
       `;
 
+      console.log('📋 FIXED: Executing query:', query.substring(0, 200) + '...');
+      console.log('📋 FIXED: Query params:', params);
+
       const [requests] = await pool.execute(query, params);
       
+      console.log('📋 FIXED: Query results:', {
+        totalFound: requests.length,
+        sampleRequest: requests[0] ? {
+          id: requests[0].request_id,
+          status: requests[0].status,
+          hasAssignedAdmin: !!requests[0].assigned_admin_id,
+          assignedTo: requests[0].assigned_admin_name
+        } : 'No requests found'
+      });
+      
+      // FIXED: Enhanced response with debugging info
       res.json({
         success: true,
         data: requests,
@@ -1185,20 +1251,44 @@ router.get('/requests',
           total: requests.length,
           department: isPureSuperAdmin ? 'ALL' : department,
           filter: status || 'all',
-          is_pure_super_admin: isPureSuperAdmin
+          is_pure_super_admin: isPureSuperAdmin,
+          admin_info: {
+            admin_id: req.admin.admin_id,
+            username: req.admin.username,
+            department: req.admin.department,
+            is_super_admin: req.admin.is_super_admin
+          },
+          query_debug: {
+            had_conditions: conditions.length > 0,
+            conditions: conditions,
+            params: params
+          }
         }
       });
 
     } catch (error) {
-      console.error('Get requests error:', error);
+      console.error('❌ FIXED: Get requests error:', {
+        message: error.message,
+        stack: error.stack,
+        sql: error.sql,
+        sqlMessage: error.sqlMessage,
+        admin: req.admin?.username
+      });
+      
       res.status(500).json({
         success: false,
         message: 'Failed to fetch requests',
-        error: error.message
+        error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error',
+        debug: process.env.NODE_ENV === 'development' ? {
+          admin: req.admin?.username,
+          department: req.admin?.department,
+          error_type: error.name
+        } : undefined
       });
     }
   }
 );
+
 
 // GET /api/admin-auth/request-types - Request Types (RBAC korumalı)
 router.get('/request-types', 
@@ -1270,6 +1360,8 @@ router.get('/request-types',
 // backend/routes/adminAuth.js - Enhanced Statistics Endpoints
 
 // GET /api/admin-auth/statistics/admins - Comprehensive admin statistics
+// backend/routes/adminAuth.js - Fixed statistics endpoint
+
 router.get('/statistics/admins', 
   authenticateAdmin, 
   requireAnyPermission([
@@ -1294,22 +1386,56 @@ router.get('/statistics/admins',
       const startDate = new Date();
       startDate.setDate(startDate.getDate() - parseInt(period));
 
-      // 1. FIXED OVERVIEW STATISTICS
-      const overviewData = await getFixedOverviewStatistics(targetDepartment, startDate, endDate);
-      
-      // 2. FIXED DETAILED ADMIN STATISTICS
-      const detailedAdmins = await getFixedAdminStatistics(targetDepartment, startDate, endDate);
-      
-      // 3. FIXED DEPARTMENT BREAKDOWN (Super Admin Only)
-      const departmentBreakdown = isPureSuperAdmin ? 
-        await getFixedDepartmentBreakdownStatistics(startDate, endDate) : [];
-      
-      // 4. ASSIGNMENT ANALYTICS
-      const assignmentAnalytics = await getAssignmentAnalytics(targetDepartment, startDate, endDate);
-      
-      // 5. WORKLOAD DISTRIBUTION
-      const workloadDistribution = await getWorkloadDistribution(targetDepartment);
+      // Initialize response data structure
+      let overviewData = {};
+      let detailedAdmins = [];
+      let departmentBreakdown = [];
+      let assignmentAnalytics = {};
+      let workloadDistribution = [];
 
+      try {
+        // 1. FIXED OVERVIEW STATISTICS
+        overviewData = await getFixedOverviewStatistics(targetDepartment, startDate, endDate);
+      } catch (error) {
+        console.error('⚠️ Overview statistics error (non-critical):', error.message);
+        overviewData = { error: 'Failed to load overview data' };
+      }
+
+      try {
+        // 2. FIXED DETAILED ADMIN STATISTICS
+        detailedAdmins = await getFixedAdminStatistics(targetDepartment, startDate, endDate);
+      } catch (error) {
+        console.error('⚠️ Detailed admin statistics error (non-critical):', error.message);
+        detailedAdmins = [];
+      }
+
+      try {
+        // 3. FIXED DEPARTMENT BREAKDOWN (Super Admin Only)
+        if (isPureSuperAdmin) {
+          departmentBreakdown = await getFixedDepartmentBreakdownStatistics(startDate, endDate);
+        }
+      } catch (error) {
+        console.error('⚠️ Department breakdown error (non-critical):', error.message);
+        departmentBreakdown = [];
+      }
+
+      try {
+        // 4. ASSIGNMENT ANALYTICS
+        assignmentAnalytics = await getAssignmentAnalytics(targetDepartment, startDate, endDate);
+      } catch (error) {
+        console.error('⚠️ Assignment analytics error (non-critical):', error.message);
+        assignmentAnalytics = {};
+      }
+
+      try {
+        // 5. WORKLOAD DISTRIBUTION
+        workloadDistribution = await getWorkloadDistribution(targetDepartment);
+      } catch (error) {
+        console.error('⚠️ Workload distribution error (non-critical):', error.message);
+        workloadDistribution = [];
+      }
+
+      // Build response
       const response = {
         success: true,
         data: {
@@ -1325,7 +1451,7 @@ router.get('/statistics/admins',
             department: targetDepartment || 'ALL',
             is_super_admin: isPureSuperAdmin,
             generated_at: new Date().toISOString(),
-            data_version: '2.0_assignment_based',
+            
             total_admins: detailedAdmins.length,
             active_admins: detailedAdmins.filter(a => a.has_assignments).length
           }
@@ -1438,149 +1564,194 @@ async function getFixedOverviewStatistics(targetDepartment, startDate, endDate) 
 async function getFixedAdminStatistics(targetDepartment, startDate, endDate) {
   console.log('📊 FIXED: Generating assignment-based admin statistics...');
   
-  let departmentCondition = '';
-  let params = [startDate, endDate];
-  
-  if (targetDepartment) {
-    departmentCondition = ' AND au.department = ?';
-    params.push(targetDepartment);
-  }
+  try {
+    // Build the query with proper parameter handling
+    let query = `
+      SELECT 
+        au.admin_id,
+        au.username,
+        au.full_name,
+        au.name,
+        au.email,
+        au.department,
+        au.is_super_admin,
+        au.is_active,
+        au.created_at as admin_since,
+        
+        -- ASSIGNMENT-BASED STATISTICS (FIXED)
+        COUNT(DISTINCT gr.request_id) as total_requests,
+        COUNT(DISTINCT CASE WHEN gr.status = 'Completed' THEN gr.request_id END) as completed_requests,
+        COUNT(DISTINCT CASE WHEN gr.status = 'Pending' THEN gr.request_id END) as pending_requests,
+        COUNT(DISTINCT CASE WHEN gr.status = 'Informed' THEN gr.request_id END) as informed_requests,
+        COUNT(DISTINCT CASE WHEN gr.status = 'Rejected' THEN gr.request_id END) as rejected_requests,
+        
+        -- ASSIGNMENT TRACKING
+        MIN(gr.assigned_at) as first_assignment,
+        MAX(gr.assigned_at) as last_assignment,
+        COUNT(DISTINCT CASE WHEN gr.assignment_method = 'auto' THEN gr.request_id END) as auto_assigned,
+        COUNT(DISTINCT CASE WHEN gr.assignment_method = 'manual' THEN gr.request_id END) as manual_assigned,
+        
+        -- RESPONSE STATISTICS  
+        COUNT(DISTINCT ar.response_id) as total_responses,
+        COUNT(DISTINCT CASE WHEN ar.created_at BETWEEN ? AND ? THEN ar.response_id END) as period_responses,
+        
+        -- PERFORMANCE METRICS (FIXED)
+        ROUND(
+          CASE 
+            WHEN COUNT(DISTINCT gr.request_id) > 0 THEN
+              (COUNT(DISTINCT CASE WHEN gr.status = 'Completed' THEN gr.request_id END) * 100.0 / 
+               COUNT(DISTINCT gr.request_id))
+            ELSE 0
+          END, 1
+        ) as completion_rate,
+        
+        ROUND(AVG(CASE 
+          WHEN TIMESTAMPDIFF(HOUR, gr.submitted_at, ar.created_at) IS NOT NULL 
+          THEN TIMESTAMPDIFF(HOUR, gr.submitted_at, ar.created_at)
+          ELSE NULL
+        END), 2) as avg_response_time_hours,
+        
+        -- WORKLOAD METRICS
+        aws.current_pending,
+        aws.current_informed,
+        aws.workload_score,
+        
+        -- ACTIVITY METRICS
+        MIN(ar.created_at) as first_activity,
+        MAX(ar.created_at) as last_activity
+        
+      FROM admin_users au
+      LEFT JOIN guidance_requests gr ON au.admin_id = gr.assigned_admin_id 
+        AND gr.submitted_at BETWEEN ? AND ?
+      LEFT JOIN admin_responses ar ON gr.request_id = ar.request_id AND ar.admin_id = au.admin_id
+      LEFT JOIN admin_workload_stats aws ON au.admin_id = aws.admin_id
+      WHERE au.is_active = TRUE
+    `;
 
-  // FIXED: Assignment-based admin statistics
-  const [adminStats] = await pool.execute(`
-    SELECT 
-      au.admin_id,
-      au.username,
-      au.full_name,
-      au.name,
-      au.email,
-      au.department,
-      au.is_super_admin,
-      au.is_active,
-      au.created_at as admin_since,
-      
-      -- ASSIGNMENT-BASED STATISTICS (FIXED)
-      COUNT(DISTINCT gr.request_id) as total_requests,
-      COUNT(DISTINCT CASE WHEN gr.status = 'Completed' THEN gr.request_id END) as completed_requests,
-      COUNT(DISTINCT CASE WHEN gr.status = 'Pending' THEN gr.request_id END) as pending_requests,
-      COUNT(DISTINCT CASE WHEN gr.status = 'Informed' THEN gr.request_id END) as informed_requests,
-      COUNT(DISTINCT CASE WHEN gr.status = 'Rejected' THEN gr.request_id END) as rejected_requests,
-      
-      -- ASSIGNMENT TRACKING
-      MIN(gr.assigned_at) as first_assignment,
-      MAX(gr.assigned_at) as last_assignment,
-      COUNT(DISTINCT CASE WHEN gr.assignment_method = 'auto' THEN gr.request_id END) as auto_assigned,
-      COUNT(DISTINCT CASE WHEN gr.assignment_method = 'manual' THEN gr.request_id END) as manual_assigned,
-      
-      -- RESPONSE STATISTICS  
-      COUNT(DISTINCT ar.response_id) as total_responses,
-      COUNT(DISTINCT CASE WHEN ar.created_at BETWEEN ? AND ? THEN ar.response_id END) as period_responses,
-      
-      -- PERFORMANCE METRICS (FIXED)
-      ROUND(
-        CASE 
-          WHEN COUNT(DISTINCT gr.request_id) > 0 THEN
-            (COUNT(DISTINCT CASE WHEN gr.status = 'Completed' THEN gr.request_id END) * 100.0 / 
-             COUNT(DISTINCT gr.request_id))
-          ELSE 0
-        END, 1
-      ) as completion_rate,
-      
-      ROUND(AVG(CASE 
-        WHEN TIMESTAMPDIFF(HOUR, gr.submitted_at, ar.created_at) IS NOT NULL 
-        THEN TIMESTAMPDIFF(HOUR, gr.submitted_at, ar.created_at)
-        ELSE NULL
-      END), 2) as avg_response_time_hours,
-      
-      -- WORKLOAD METRICS
-      aws.current_pending,
-      aws.current_informed,
-      aws.workload_score,
-      
-      -- ACTIVITY METRICS
-      MIN(ar.created_at) as first_activity,
-      MAX(ar.created_at) as last_activity
-      
-    FROM admin_users au
-    LEFT JOIN guidance_requests gr ON au.admin_id = gr.assigned_admin_id 
-      AND gr.submitted_at BETWEEN ? AND ?
-    LEFT JOIN admin_responses ar ON gr.request_id = ar.request_id AND ar.admin_id = au.admin_id
-    LEFT JOIN admin_workload_stats aws ON au.admin_id = aws.admin_id
-    WHERE au.is_active = TRUE ${departmentCondition}
-    GROUP BY au.admin_id, au.username, au.full_name, au.name, au.email, au.department, 
-             au.is_super_admin, au.is_active, au.created_at, aws.current_pending, 
-             aws.current_informed, aws.workload_score
-    ORDER BY total_requests DESC, au.full_name
-  `, [...params, ...params]);
+    // Build parameters array correctly
+    const params = [
+      startDate, // For period_responses CASE statement
+      endDate,   // For period_responses CASE statement
+      startDate, // For gr.submitted_at filter
+      endDate    // For gr.submitted_at filter
+    ];
 
-  // ENHANCED: Performance score calculation
-  const enhancedAdmins = adminStats.map(admin => {
-    const completionRate = admin.completion_rate || 0;
-    const totalRequests = admin.total_requests || 0;
-    const totalResponses = admin.total_responses || 0;
-    const avgResponseTime = admin.avg_response_time_hours || 0;
-
-    // IMPROVED PERFORMANCE SCORE CALCULATION
-    let performanceScore = 0;
-    
-    if (totalRequests > 0) {
-      // Completion rate: 40% weight
-      performanceScore += (completionRate * 0.4);
-      
-      // Response time: 30% weight (inverted - faster is better)
-      if (avgResponseTime > 0) {
-        const responseTimeScore = Math.max(0, 100 - (avgResponseTime * 2));
-        performanceScore += (responseTimeScore * 0.3);
-      } else {
-        performanceScore += 30; // Default good score if no response time data
-      }
-      
-      // Activity level: 20% weight
-      const activityScore = Math.min(100, totalRequests * 2); // Cap at 100
-      performanceScore += (activityScore * 0.2);
-      
-      // Response ratio: 10% weight
-      if (totalResponses > 0) {
-        const responseRatio = Math.min(100, (totalResponses / totalRequests) * 100);
-        performanceScore += (responseRatio * 0.1);
-      }
+    // Add department condition if specified
+    if (targetDepartment) {
+      query += ' AND au.department = ?';
+      params.push(targetDepartment);
     }
 
-    return {
-      ...admin,
-      performance_score: Math.round(performanceScore),
-      
-      // ADDITIONAL METRICS
-      efficiency_score: totalRequests > 0 && totalResponses > 0 ? 
-        Math.round((totalResponses / totalRequests) * 100) : 0,
-      
-      workload_category: 
-        totalRequests >= 50 ? 'High' :
-        totalRequests >= 20 ? 'Medium' :
-        totalRequests > 0 ? 'Low' : 'Inactive',
-      
-      has_assignments: totalRequests > 0,
-      has_recent_activity: (admin.period_responses || 0) > 0,
-      
-      requests_per_day: totalRequests > 0 ? 
-        Math.round((totalRequests / 30) * 10) / 10 : 0,
-      
-      assignment_period: admin.first_assignment && admin.last_assignment ? 
-        Math.ceil((new Date(admin.last_assignment) - new Date(admin.first_assignment)) / (1000 * 60 * 60 * 24)) : 0
-    };
-  });
+    // Add GROUP BY and ORDER BY
+    query += `
+      GROUP BY 
+        au.admin_id, 
+        au.username, 
+        au.full_name, 
+        au.name, 
+        au.email, 
+        au.department, 
+        au.is_super_admin, 
+        au.is_active, 
+        au.created_at, 
+        aws.current_pending, 
+        aws.current_informed, 
+        aws.workload_score
+      ORDER BY total_requests DESC, au.full_name
+    `;
 
-  console.log(`✅ FIXED: Assignment-based statistics for ${enhancedAdmins.length} admins generated`);
-  console.log('📊 FIXED Request distribution:', 
-    enhancedAdmins.slice(0, 5).map(admin => ({ 
-      name: admin.full_name, 
-      assigned_requests: admin.total_requests,
-      completion_rate: admin.completion_rate,
-      performance_score: admin.performance_score
-    }))
-  );
-  
-  return enhancedAdmins;
+    console.log('📊 Executing query with params:', {
+      paramCount: params.length,
+      startDate: startDate,
+      endDate: endDate,
+      department: targetDepartment || 'ALL'
+    });
+
+    // Execute the query
+    const [adminStats] = await pool.execute(query, params);
+
+    console.log(`✅ FIXED: Retrieved ${adminStats.length} admin records`);
+
+    // ENHANCED: Performance score calculation
+    const enhancedAdmins = adminStats.map(admin => {
+      const completionRate = admin.completion_rate || 0;
+      const totalRequests = admin.total_requests || 0;
+      const totalResponses = admin.total_responses || 0;
+      const avgResponseTime = admin.avg_response_time_hours || 0;
+
+      // IMPROVED PERFORMANCE SCORE CALCULATION
+      let performanceScore = 0;
+      
+      if (totalRequests > 0) {
+        // Completion rate: 40% weight
+        performanceScore += (completionRate * 0.4);
+        
+        // Response time: 30% weight (inverted - faster is better)
+        if (avgResponseTime > 0) {
+          const responseTimeScore = Math.max(0, 100 - (avgResponseTime * 2));
+          performanceScore += (responseTimeScore * 0.3);
+        } else {
+          performanceScore += 30; // Default good score if no response time data
+        }
+        
+        // Activity level: 20% weight
+        const activityScore = Math.min(100, totalRequests * 2); // Cap at 100
+        performanceScore += (activityScore * 0.2);
+        
+        // Response ratio: 10% weight
+        if (totalResponses > 0) {
+          const responseRatio = Math.min(100, (totalResponses / totalRequests) * 100);
+          performanceScore += (responseRatio * 0.1);
+        }
+      }
+
+      return {
+        ...admin,
+        performance_score: Math.round(performanceScore),
+        
+        // ADDITIONAL METRICS
+        efficiency_score: totalRequests > 0 && totalResponses > 0 ? 
+          Math.round((totalResponses / totalRequests) * 100) : 0,
+        
+        workload_category: 
+          totalRequests >= 50 ? 'High' :
+          totalRequests >= 20 ? 'Medium' :
+          totalRequests > 0 ? 'Low' : 'Inactive',
+        
+        has_assignments: totalRequests > 0,
+        has_recent_activity: (admin.period_responses || 0) > 0,
+        
+        requests_per_day: totalRequests > 0 ? 
+          Math.round((totalRequests / 30) * 10) / 10 : 0,
+        
+        assignment_period: admin.first_assignment && admin.last_assignment ? 
+          Math.ceil((new Date(admin.last_assignment) - new Date(admin.first_assignment)) / (1000 * 60 * 60 * 24)) : 0
+      };
+    });
+
+    console.log(`✅ FIXED: Assignment-based statistics for ${enhancedAdmins.length} admins generated`);
+    console.log('📊 FIXED Request distribution:', 
+      enhancedAdmins.slice(0, 5).map(admin => ({ 
+        name: admin.full_name, 
+        assigned_requests: admin.total_requests,
+        completion_rate: admin.completion_rate,
+        performance_score: admin.performance_score
+      }))
+    );
+    
+    return enhancedAdmins;
+
+  } catch (error) {
+    console.error('❌ FIXED Statistics error:', {
+      message: error.message,
+      sql: error.sql,
+      sqlMessage: error.sqlMessage,
+      code: error.code
+    });
+    
+    // Return empty array on error to prevent crash
+    return [];
+  }
 }
 
 async function getFixedDepartmentBreakdownStatistics(startDate, endDate) {

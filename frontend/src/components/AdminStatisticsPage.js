@@ -1055,20 +1055,7 @@ const loadUnassignedRequests = useCallback(async () => {
           </button>
         </li>
         <li className="nav-item">
-          <button
-            className={`nav-link ${activeTab === 'unassigned' ? 'active' : ''}`}
-            onClick={() => {
-              setActiveTab('unassigned');
-              loadUnassignedRequests();
-            }}
-          >
-            ⚠️ Unassigned
-            {statistics?.assignment_analytics?.unassigned_requests > 0 && (
-              <span className="badge bg-warning text-dark ms-1">
-                {statistics.assignment_analytics.unassigned_requests}
-              </span>
-            )}
-          </button>
+         
         </li>
       </ul>
 
