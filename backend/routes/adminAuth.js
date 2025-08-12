@@ -1374,7 +1374,7 @@ router.get('/statistics/admins',
       const isPureSuperAdmin = req.admin.is_super_admin && !req.admin.department;
       const targetDepartment = isPureSuperAdmin ? filterDepartment : req.admin.department;
       
-      console.log('📊 FIXED Statistics request:', { 
+      console.log('📊 Assignment-based statistics request:', { 
         period, 
         targetDepartment, 
         isPureSuperAdmin,
@@ -1386,60 +1386,28 @@ router.get('/statistics/admins',
       const startDate = new Date();
       startDate.setDate(startDate.getDate() - parseInt(period));
 
-      // Initialize response data structure
-      let overviewData = {};
-      let detailedAdmins = [];
+      // 1. Overview Statistics (Assignment-based)
+      const overview = await getAssignmentBasedOverview(targetDepartment, startDate, endDate);
+      
+      // 2. Detailed Admin Performance (Assignment-focused)
+      const detailedAdmins = await getAssignmentBasedAdminStats(targetDepartment, startDate, endDate);
+      
+      // 3. Department Breakdown (Super Admin only)
       let departmentBreakdown = [];
-      let assignmentAnalytics = {};
-      let workloadDistribution = [];
-
-      try {
-        // 1. FIXED OVERVIEW STATISTICS
-        overviewData = await getFixedOverviewStatistics(targetDepartment, startDate, endDate);
-      } catch (error) {
-        console.error('⚠️ Overview statistics error (non-critical):', error.message);
-        overviewData = { error: 'Failed to load overview data' };
+      if (isPureSuperAdmin) {
+        departmentBreakdown = await getAssignmentBasedDepartmentStats(startDate, endDate);
       }
+      
+      // 4. Assignment Analytics
+      const assignmentAnalytics = await getAssignmentAnalytics(targetDepartment, startDate, endDate);
+      
+      // 5. Workload Distribution
+      const workloadDistribution = await getCurrentWorkloadDistribution(targetDepartment);
 
-      try {
-        // 2. FIXED DETAILED ADMIN STATISTICS
-        detailedAdmins = await getFixedAdminStatistics(targetDepartment, startDate, endDate);
-      } catch (error) {
-        console.error('⚠️ Detailed admin statistics error (non-critical):', error.message);
-        detailedAdmins = [];
-      }
-
-      try {
-        // 3. FIXED DEPARTMENT BREAKDOWN (Super Admin Only)
-        if (isPureSuperAdmin) {
-          departmentBreakdown = await getFixedDepartmentBreakdownStatistics(startDate, endDate);
-        }
-      } catch (error) {
-        console.error('⚠️ Department breakdown error (non-critical):', error.message);
-        departmentBreakdown = [];
-      }
-
-      try {
-        // 4. ASSIGNMENT ANALYTICS
-        assignmentAnalytics = await getAssignmentAnalytics(targetDepartment, startDate, endDate);
-      } catch (error) {
-        console.error('⚠️ Assignment analytics error (non-critical):', error.message);
-        assignmentAnalytics = {};
-      }
-
-      try {
-        // 5. WORKLOAD DISTRIBUTION
-        workloadDistribution = await getWorkloadDistribution(targetDepartment);
-      } catch (error) {
-        console.error('⚠️ Workload distribution error (non-critical):', error.message);
-        workloadDistribution = [];
-      }
-
-      // Build response
       const response = {
         success: true,
         data: {
-          overview: overviewData,
+          overview,
           detailed_admins: detailedAdmins,
           department_breakdown: departmentBreakdown,
           assignment_analytics: assignmentAnalytics,
@@ -1451,31 +1419,31 @@ router.get('/statistics/admins',
             department: targetDepartment || 'ALL',
             is_super_admin: isPureSuperAdmin,
             generated_at: new Date().toISOString(),
-            
+            data_source: 'assignment_based_tracking',
+            version: '2.0_assignment_based',
             total_admins: detailedAdmins.length,
             active_admins: detailedAdmins.filter(a => a.has_assignments).length
           }
         },
-        message: 'FIXED Statistics loaded (Assignment-based tracking)',
-        version: '2.0_fixed'
+        message: 'Assignment-based statistics loaded successfully',
+        version: '2.0_assignment_based'
       };
 
-      console.log('✅ FIXED Statistics generated:', {
+      console.log('✅ Assignment-based statistics generated:', {
         overview: response.data.overview,
         admin_count: response.data.detailed_admins.length,
-        active_admin_count: response.data.meta.active_admins,
         assignment_rate: response.data.overview.assignment_rate
       });
 
       res.json(response);
 
     } catch (error) {
-      console.error('❌ FIXED Statistics error:', error);
+      console.error('❌ Assignment-based statistics error:', error);
       res.status(500).json({
         success: false,
-        error: 'Failed to fetch admin statistics',
+        error: 'Failed to fetch assignment-based admin statistics',
         details: process.env.NODE_ENV === 'development' ? error.message : undefined,
-        version: '2.0_fixed'
+        version: '2.0_assignment_based'
       });
     }
   }
@@ -1484,8 +1452,8 @@ router.get('/statistics/admins',
 
 // HELPER FUNCTIONS FOR STATISTICS
 
-async function getFixedOverviewStatistics(targetDepartment, startDate, endDate) {
-  console.log('📊 FIXED: Generating assignment-based overview statistics...');
+async function getAssignmentBasedOverview(targetDepartment, startDate, endDate) {
+  console.log('📊 Generating assignment-based overview statistics...');
   
   let departmentCondition = '';
   let params = [startDate, endDate];
@@ -1495,7 +1463,7 @@ async function getFixedOverviewStatistics(targetDepartment, startDate, endDate) 
     params.push(targetDepartment);
   }
 
-  // 1. ADMIN STATISTICS
+  // 1. Admin Statistics
   const [adminStats] = await pool.execute(`
     SELECT 
       COUNT(DISTINCT au.admin_id) as total_admins,
@@ -1505,7 +1473,7 @@ async function getFixedOverviewStatistics(targetDepartment, startDate, endDate) 
     ${targetDepartment ? 'AND au.department = ?' : ''}
   `, targetDepartment ? [targetDepartment] : []);
 
-  // 2. ASSIGNMENT-BASED REQUEST STATISTICS (FIXED)
+  // 2. Assignment-Based Request Statistics
   const [requestStats] = await pool.execute(`
     SELECT 
       COUNT(DISTINCT gr.request_id) as total_requests,
@@ -1520,7 +1488,7 @@ async function getFixedOverviewStatistics(targetDepartment, startDate, endDate) 
     WHERE gr.submitted_at BETWEEN ? AND ? ${departmentCondition}
   `, params);
 
-  // 3. RESPONSE STATISTICS
+  // 3. Response Statistics (Supplementary)
   const [responseStats] = await pool.execute(`
     SELECT 
       COUNT(DISTINCT ar.response_id) as total_responses,
@@ -1532,7 +1500,7 @@ async function getFixedOverviewStatistics(targetDepartment, startDate, endDate) 
     WHERE ar.created_at BETWEEN ? AND ? ${departmentCondition}
   `, params);
 
-  // FIXED: Combine statistics
+  // Combine statistics
   const overview = {
     ...adminStats[0],
     ...requestStats[0],
@@ -1541,7 +1509,7 @@ async function getFixedOverviewStatistics(targetDepartment, startDate, endDate) 
     avg_response_time_hours: responseStats[0].avg_response_time_hours || 0
   };
   
-  // FIXED: Derived metrics
+  // Calculate derived metrics
   overview.completion_rate = overview.total_requests > 0 ? 
     Math.round((overview.total_completed / overview.total_requests) * 100) : 0;
   
@@ -1557,9 +1525,295 @@ async function getFixedOverviewStatistics(targetDepartment, startDate, endDate) 
   overview.response_coverage = overview.total_requests > 0 ? 
     Math.round((overview.total_responses / overview.total_requests) * 100) : 0;
 
-  console.log('✅ FIXED Overview statistics generated:', overview);
+  console.log('✅ Assignment-based overview generated:', overview);
   return overview;
 }
+async function getCurrentWorkloadDistribution(targetDepartment) {
+  console.log('📊 Generating current workload distribution...');
+  
+  let query = `
+    SELECT 
+      au.admin_id,
+      au.full_name,
+      au.department,
+      COUNT(CASE WHEN gr.status IN ('Pending', 'Informed') THEN 1 END) as current_workload,
+      COUNT(gr.request_id) as total_assigned,
+      COUNT(CASE WHEN gr.status = 'Completed' THEN 1 END) as completed_count,
+      MAX(gr.assigned_at) as last_assignment,
+      CASE 
+        WHEN COUNT(gr.request_id) >= 50 THEN 'High'
+        WHEN COUNT(gr.request_id) >= 20 THEN 'Medium'
+        WHEN COUNT(gr.request_id) > 0 THEN 'Low'
+        ELSE 'Inactive'
+      END as workload_category
+    FROM admin_users au
+    LEFT JOIN guidance_requests gr ON au.admin_id = gr.assigned_admin_id
+    WHERE au.is_active = TRUE
+  `;
+  
+  const params = [];
+  if (targetDepartment) {
+    query += ' AND au.department = ?';
+    params.push(targetDepartment);
+  }
+  
+  query += `
+    GROUP BY au.admin_id, au.full_name, au.department
+    ORDER BY current_workload DESC, total_assigned DESC, au.full_name
+  `;
+  
+  const [workload] = await pool.execute(query, params);
+  return workload;
+}
+
+
+async function getAssignmentAnalytics(targetDepartment, startDate, endDate) {
+  console.log('📊 Generating assignment analytics...');
+  
+  let departmentCondition = '';
+  let params = [startDate, endDate];
+  
+  if (targetDepartment) {
+    departmentCondition = ' AND rt.category = ?';
+    params.push(targetDepartment);
+  }
+
+  const [analytics] = await pool.execute(`
+    SELECT 
+      COUNT(*) as total_requests,
+      COUNT(assigned_admin_id) as assigned_requests,
+      COUNT(*) - COUNT(assigned_admin_id) as unassigned_requests,
+      COUNT(DISTINCT assigned_admin_id) as admins_receiving_assignments,
+      COUNT(CASE WHEN assignment_method = 'auto' THEN 1 END) as auto_assignments,
+      COUNT(CASE WHEN assignment_method = 'manual' THEN 1 END) as manual_assignments,
+      ROUND(AVG(TIMESTAMPDIFF(HOUR, submitted_at, assigned_at)), 2) as avg_assignment_delay_hours,
+      MIN(assigned_at) as first_assignment_date,
+      MAX(assigned_at) as last_assignment_date
+    FROM guidance_requests gr
+    JOIN request_types rt ON gr.type_id = rt.type_id
+    WHERE gr.submitted_at BETWEEN ? AND ? ${departmentCondition}
+  `, params);
+
+  const result = analytics[0];
+  result.assignment_rate = result.total_requests > 0 ? 
+    Math.round((result.assigned_requests / result.total_requests) * 100) : 0;
+  
+  result.auto_assignment_rate = result.assigned_requests > 0 ? 
+    Math.round((result.auto_assignments / result.assigned_requests) * 100) : 0;
+
+  return result;
+}
+
+async function getAssignmentBasedDepartmentStats(startDate, endDate) {
+  console.log('📊 Generating assignment-based department breakdown...');
+  
+  const [departments] = await pool.execute(`
+    SELECT 
+      rt.category as department,
+      COUNT(DISTINCT au.admin_id) as admin_count,
+      COUNT(DISTINCT gr.request_id) as total_requests,
+      COUNT(DISTINCT CASE WHEN gr.status = 'Completed' THEN gr.request_id END) as completed_requests,
+      COUNT(DISTINCT CASE WHEN gr.status = 'Pending' THEN gr.request_id END) as pending_requests,
+      COUNT(DISTINCT CASE WHEN gr.status = 'Informed' THEN gr.request_id END) as informed_requests,
+      COUNT(DISTINCT CASE WHEN gr.status = 'Rejected' THEN gr.request_id END) as rejected_requests,
+      COUNT(DISTINCT ar.response_id) as total_responses,
+      COUNT(DISTINCT gr.assigned_admin_id) as admins_with_assignments,
+      COUNT(DISTINCT CASE WHEN gr.assigned_admin_id IS NULL THEN gr.request_id END) as unassigned_requests,
+      
+      ROUND(AVG(TIMESTAMPDIFF(HOUR, gr.submitted_at, ar.created_at)), 2) as avg_response_time,
+      
+      ROUND(CASE 
+        WHEN COUNT(DISTINCT gr.request_id) > 0 THEN
+          (COUNT(DISTINCT CASE WHEN gr.status = 'Completed' THEN gr.request_id END) * 100.0 / 
+           COUNT(DISTINCT gr.request_id))
+        ELSE 0
+      END, 1) as completion_rate,
+      
+      ROUND(COUNT(DISTINCT gr.request_id) * 1.0 / NULLIF(COUNT(DISTINCT au.admin_id), 0), 1) as avg_requests_per_admin
+      
+    FROM request_types rt
+    LEFT JOIN guidance_requests gr ON rt.type_id = gr.type_id 
+      AND gr.submitted_at BETWEEN ? AND ?
+    LEFT JOIN admin_responses ar ON gr.request_id = ar.request_id
+    LEFT JOIN admin_users au ON rt.category = au.department AND au.is_active = TRUE
+    GROUP BY rt.category
+    HAVING total_requests > 0 OR admin_count > 0
+    ORDER BY completion_rate DESC, total_requests DESC
+  `, [startDate, endDate]);
+
+  const enhancedDepartments = departments.map(dept => {
+    let performanceScore = 0;
+    
+    if (dept.total_requests > 0) {
+      performanceScore = (dept.completion_rate * 0.6) + 
+                        (Math.max(0, 100 - ((dept.avg_response_time || 0) * 2)) * 0.4);
+    }
+    
+    const assignmentRate = dept.total_requests > 0 ? 
+      Math.round(((dept.total_requests - dept.unassigned_requests) / dept.total_requests) * 100) : 100;
+    
+    return {
+      ...dept,
+      performance_score: Math.round(performanceScore),
+      assignment_rate: assignmentRate,
+      utilization_rate: dept.admin_count > 0 ? 
+        Math.round((dept.admins_with_assignments / dept.admin_count) * 100) : 0
+    };
+  });
+
+  console.log(`✅ Assignment-based department breakdown for ${enhancedDepartments.length} departments`);
+  return enhancedDepartments;
+}
+
+async function getAssignmentBasedAdminStats(targetDepartment, startDate, endDate) {
+  console.log('📊 Generating assignment-based admin statistics...');
+  
+  let query = `
+    SELECT 
+      au.admin_id,
+      au.username,
+      au.full_name,
+      au.name,
+      au.email,
+      au.department,
+      au.is_super_admin,
+      au.is_active,
+      au.created_at as admin_since,
+      
+      -- ASSIGNMENT-BASED STATISTICS (PRIMARY DATA SOURCE)
+      COUNT(DISTINCT gr.request_id) as total_requests,
+      COUNT(DISTINCT CASE WHEN gr.status = 'Completed' THEN gr.request_id END) as completed_requests,
+      COUNT(DISTINCT CASE WHEN gr.status = 'Pending' THEN gr.request_id END) as pending_requests,
+      COUNT(DISTINCT CASE WHEN gr.status = 'Informed' THEN gr.request_id END) as informed_requests,
+      COUNT(DISTINCT CASE WHEN gr.status = 'Rejected' THEN gr.request_id END) as rejected_requests,
+      
+      -- ASSIGNMENT TRACKING
+      MIN(gr.assigned_at) as first_assignment,
+      MAX(gr.assigned_at) as last_assignment,
+      COUNT(DISTINCT CASE WHEN gr.assignment_method = 'auto' THEN gr.request_id END) as auto_assigned,
+      COUNT(DISTINCT CASE WHEN gr.assignment_method = 'manual' THEN gr.request_id END) as manual_assigned,
+      
+      -- RESPONSE STATISTICS (SUPPLEMENTARY)
+      COUNT(DISTINCT ar.response_id) as total_responses,
+      COUNT(DISTINCT CASE WHEN ar.created_at BETWEEN ? AND ? THEN ar.response_id END) as period_responses,
+      
+      -- PERFORMANCE METRICS
+      ROUND(
+        CASE 
+          WHEN COUNT(DISTINCT gr.request_id) > 0 THEN
+            (COUNT(DISTINCT CASE WHEN gr.status = 'Completed' THEN gr.request_id END) * 100.0 / 
+             COUNT(DISTINCT gr.request_id))
+          ELSE 0
+        END, 1
+      ) as completion_rate,
+      
+      ROUND(AVG(CASE 
+        WHEN TIMESTAMPDIFF(HOUR, gr.submitted_at, ar.created_at) IS NOT NULL 
+        THEN TIMESTAMPDIFF(HOUR, gr.submitted_at, ar.created_at)
+        ELSE NULL
+      END), 2) as avg_response_time_hours,
+      
+      -- ACTIVITY METRICS
+      MIN(ar.created_at) as first_activity,
+      MAX(ar.created_at) as last_activity
+      
+    FROM admin_users au
+    LEFT JOIN guidance_requests gr ON au.admin_id = gr.assigned_admin_id 
+      AND gr.submitted_at BETWEEN ? AND ?
+    LEFT JOIN admin_responses ar ON gr.request_id = ar.request_id AND ar.admin_id = au.admin_id
+    WHERE au.is_active = TRUE
+  `;
+
+  const params = [
+    startDate, // For period_responses CASE statement
+    endDate,   // For period_responses CASE statement
+    startDate, // For gr.submitted_at filter
+    endDate    // For gr.submitted_at filter
+  ];
+
+  if (targetDepartment) {
+    query += ' AND au.department = ?';
+    params.push(targetDepartment);
+  }
+
+  query += `
+    GROUP BY 
+      au.admin_id, 
+      au.username, 
+      au.full_name, 
+      au.name, 
+      au.email, 
+      au.department, 
+      au.is_super_admin, 
+      au.is_active, 
+      au.created_at
+    ORDER BY total_requests DESC, au.full_name
+  `;
+
+  console.log('📊 Executing assignment-based query...');
+  const [adminStats] = await pool.execute(query, params);
+
+  // Enhanced performance score calculation
+  const enhancedAdmins = adminStats.map(admin => {
+    const completionRate = admin.completion_rate || 0;
+    const totalRequests = admin.total_requests || 0;
+    const totalResponses = admin.total_responses || 0;
+    const avgResponseTime = admin.avg_response_time_hours || 0;
+
+    // PERFORMANCE SCORE CALCULATION
+    let performanceScore = 0;
+    
+    if (totalRequests > 0) {
+      // Completion rate: 40% weight
+      performanceScore += (completionRate * 0.4);
+      
+      // Response time: 30% weight (inverted - faster is better)
+      if (avgResponseTime > 0) {
+        const responseTimeScore = Math.max(0, 100 - (avgResponseTime * 2));
+        performanceScore += (responseTimeScore * 0.3);
+      } else {
+        performanceScore += 30; // Default good score if no response time data
+      }
+      
+      // Activity level: 20% weight
+      const activityScore = Math.min(100, totalRequests * 2); // Cap at 100
+      performanceScore += (activityScore * 0.2);
+      
+      // Response ratio: 10% weight
+      if (totalResponses > 0) {
+        const responseRatio = Math.min(100, (totalResponses / totalRequests) * 100);
+        performanceScore += (responseRatio * 0.1);
+      }
+    }
+
+    return {
+      ...admin,
+      performance_score: Math.round(performanceScore),
+      
+      // ADDITIONAL METRICS
+      efficiency_score: totalRequests > 0 && totalResponses > 0 ? 
+        Math.round((totalResponses / totalRequests) * 100) : 0,
+      
+      workload_category: 
+        totalRequests >= 50 ? 'High' :
+        totalRequests >= 20 ? 'Medium' :
+        totalRequests > 0 ? 'Low' : 'Inactive',
+      
+      has_assignments: totalRequests > 0,
+      has_recent_activity: (admin.period_responses || 0) > 0,
+      
+      requests_per_day: totalRequests > 0 ? 
+        Math.round((totalRequests / 30) * 10) / 10 : 0,
+      
+      assignment_period: admin.first_assignment && admin.last_assignment ? 
+        Math.ceil((new Date(admin.last_assignment) - new Date(admin.first_assignment)) / (1000 * 60 * 60 * 24)) : 0
+    };
+  });
+
+  console.log(`✅ Assignment-based statistics for ${enhancedAdmins.length} admins generated`);
+  return enhancedAdmins;
+}
+
 
 async function getFixedAdminStatistics(targetDepartment, startDate, endDate) {
   console.log('📊 FIXED: Generating assignment-based admin statistics...');

@@ -606,10 +606,10 @@ const rbacHelpers = {
 
 // ===== ADMIN STATISTICS METHODS =====
 const adminStatisticsMethods = {
-  // Get admin performance statistics
+   // Get admin performance statistics (Assignment-based)
    getAdminStatistics: async (params = {}) => {
     try {
-      console.log('📊 Fetching admin statistics with params:', params);
+      console.log('📊 Fetching assignment-based admin statistics with params:', params);
       
       // Validate parameters
       const validatedParams = {
@@ -624,16 +624,18 @@ const adminStatisticsMethods = {
       });
 
       if (response.data.success) {
-        console.log('✅ Statistics loaded successfully:', {
+        console.log('✅ Assignment-based statistics loaded successfully:', {
           adminCount: response.data.data.detailed_admins?.length || 0,
           period: validatedParams.period,
-          department: validatedParams.department || 'ALL'
+          department: validatedParams.department || 'ALL',
+          dataSource: response.data.data.meta?.data_source,
+          version: response.data.version
         });
       }
 
       return response;
     } catch (error) {
-      console.error('❌ Failed to fetch admin statistics:', error);
+      console.error('❌ Failed to fetch assignment-based admin statistics:', error);
       
       // Enhanced error handling
       if (error.code === 'ECONNABORTED') {
@@ -649,7 +651,6 @@ const adminStatisticsMethods = {
       throw error;
     }
   },
-
    // Cached statistics with TTL
   getAdminStatisticsWithCache: async (params = {}, useCache = true, ttl = 300000) => {
     const cacheKey = `admin_stats_${JSON.stringify(params)}`;

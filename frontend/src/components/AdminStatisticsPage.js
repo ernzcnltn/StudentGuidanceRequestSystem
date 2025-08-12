@@ -1066,27 +1066,7 @@ const loadUnassignedRequests = useCallback(async () => {
         {activeTab === 'unassigned' && renderUnassignedRequests()}
       </div>
 
-      {/* Data Version Footer */}
-      {statistics?.meta && (
-        <div className="row mt-4">
-          <div className="col-12">
-            <div className={`alert ${statistics.meta.data_version === '2.0_assignment_based' ? 'alert-success' : 'alert-warning'} border-0`}>
-              <div className="d-flex justify-content-between align-items-center">
-                <small>
-                  <strong>Data Version:</strong> {statistics.meta.data_version || 'legacy'} 
-                  {statistics.meta.data_version === '2.0_assignment_based' ? 
-                    ' ✅ Assignment-based tracking active' : 
-                    ' ⚠️ Legacy response-based tracking'
-                  }
-                </small>
-                <small className="text-muted">
-                  Generated: {new Date(statistics.meta.generated_at).toLocaleString()}
-                </small>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      
 
       {/* Error State */}
       {!loading && !statistics && (
