@@ -3,6 +3,430 @@ import axios from 'axios';
 // Base API URL
 const BASE_URL = 'http://localhost:5000/api';
 
+
+
+
+const academicCalendarMethods = {
+  // ===== ACADEMIC CALENDAR METHODS =====
+  
+  // Upload academic calendar document
+  uploadAcademicCalendar: (formData) => {
+    console.log('📤 Uploading academic calendar document...');
+    return adminApi.post('/academic-calendar/upload', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+      timeout: 120000 // 2 minutes timeout for large files
+    });
+  },
+
+  // Get academic calendar status
+  getAcademicCalendarStatus: () => {
+    console.log('📊 Getting academic calendar status...');
+    return adminApi.get('/academic-calendar/status');
+  },
+
+  // Get calendar events
+  getAcademicCalendarEvents: (params = {}) => {
+    console.log('📅 Getting academic calendar events:', params);
+    return adminApi.get('/academic-calendar/events', { params });
+  },
+
+  // Check specific date availability
+  checkDateAvailability: (date) => {
+    console.log('🗓️ Checking date availability:', date);
+    return adminApi.get(`/academic-calendar/check-date/${date}`);
+  },
+
+  // Update calendar settings
+  updateAcademicCalendarSettings: (settings) => {
+    console.log('⚙️ Updating academic calendar settings:', settings);
+    return adminApi.post('/academic-calendar/settings', settings);
+  },
+
+  // Get upload history
+  getAcademicCalendarUploads: (params = { limit: 20, offset: 0 }) => {
+    console.log('📂 Getting calendar upload history...');
+    return adminApi.get('/academic-calendar/uploads', { params });
+  },
+
+  // Delete calendar upload
+  deleteAcademicCalendarUpload: (uploadId) => {
+    console.log('🗑️ Deleting calendar upload:', uploadId);
+    return adminApi.delete(`/academic-calendar/upload/${uploadId}`);
+  },
+
+  // Get parsing logs for upload
+  getCalendarParsingLogs: (uploadId) => {
+    console.log('📋 Getting parsing logs for upload:', uploadId);
+    return adminApi.get(`/academic-calendar/parsing-logs/${uploadId}`);
+  },
+
+  // ===== ENHANCED WORKING HOURS WITH CALENDAR =====
+  
+  // Check current working hours and calendar status
+  checkCurrentAvailability: async () => {
+    try {
+      console.log('🕒 Checking current request availability...');
+      
+      const today = new Date().toISOString().split('T')[0];
+      const response = await apiService.checkDateAvailability(today);
+      
+      if (response.data.success) {
+        return {
+          success: true,
+          canCreateRequest: response.data.data.can_create_requests,
+          reason: response.data.data.summary.is_working_day ? 'available' : 'restricted',
+          details: response.data.data,
+          message: response.data.data.summary.is_working_day ? 
+            'You can create requests now' : 
+            'Request creation is currently restricted'
+        };
+      }
+      
+      return {
+        success: false,
+        canCreateRequest: false,
+        reason: 'unknown',
+        message: 'Unable to check availability'
+      };
+    } catch (error) {
+      console.error('❌ Availability check error:', error);
+      return {
+        success: false,
+        canCreateRequest: false,
+        reason: 'error',
+        message: 'Unable to check availability',
+        error: error.message
+      };
+    }
+  },
+
+  // Get next available request creation time
+  getNextAvailableTime: async () => {
+    try {
+      console.log('⏰ Getting next available request time...');
+      
+      const response = await apiService.getAcademicCalendarStatus();
+      
+      if (response.data.success && response.data.data.next_available) {
+        const nextInfo = response.data.data.next_available;
+        
+        if (nextInfo.success) {
+          return {
+            success: true,
+            nextDate: nextInfo.next_date,
+            formattedDate: nextInfo.formatted_date,
+            dayName: nextInfo.day_name,
+            daysAhead: nextInfo.days_ahead,
+            message: `Next available: ${nextInfo.formatted_date} (${nextInfo.day_name})`
+          };
+        }
+      }
+      
+      return {
+        success: false,
+        message: 'Unable to determine next available time'
+      };
+    } catch (error) {
+      console.error('❌ Next available time error:', error);
+      return {
+        success: false,
+        message: 'Error checking next available time'
+      };
+    }
+  },
+
+  // ===== CALENDAR UTILITIES =====
+  
+  // Validate academic year format
+  validateAcademicYear: (academicYear) => {
+    const yearPattern = /^\d{4}-\d{4}$/;
+    if (!yearPattern.test(academicYear)) {
+      return {
+        isValid: false,
+        error: 'Invalid academic year format. Use format: "2025-2026"'
+      };
+    }
+    
+    const [startYear, endYear] = academicYear.split('-').map(y => parseInt(y));
+    
+    if (endYear !== startYear + 1) {
+      return {
+        isValid: false,
+        error: 'Academic year end must be one year after start year'
+      };
+    }
+    
+    return {
+      isValid: true,
+      startYear,
+      endYear
+    };
+  },
+
+  // Generate academic year options
+  generateAcademicYearOptions: (yearsBack = 2, yearsForward = 3) => {
+    const currentYear = new Date().getFullYear();
+    const options = [];
+    
+    for (let i = -yearsBack; i <= yearsForward; i++) {
+      const startYear = currentYear + i;
+      const endYear = startYear + 1;
+      options.push({
+        value: `${startYear}-${endYear}`,
+        label: `${startYear}-${endYear}`,
+        isCurrent: i === 0
+      });
+    }
+    
+    return options;
+  },
+
+  // Format event type for display
+  formatEventType: (eventType) => {
+    const types = {
+      'holiday': 'Holiday',
+      'break': 'Break',
+      'exam_period': 'Exam Period',
+      'registration': 'Registration',
+      'semester_start': 'Semester Start',
+      'semester_end': 'Semester End',
+      'orientation': 'Orientation',
+      'no_classes': 'No Classes'
+    };
+    return types[eventType] || eventType.replace('_', ' ');
+  },
+
+  // Get event type icon
+  getEventTypeIcon: (eventType) => {
+    const icons = {
+      'holiday': '🎉',
+      'break': '📚',
+      'exam_period': '📝',
+      'registration': '📋',
+      'semester_start': '🏫',
+      'semester_end': '🎓',
+      'orientation': '👋',
+      'no_classes': '🚫'
+    };
+    return icons[eventType] || '📅';
+  },
+
+  // Check if date is in academic year
+  isDateInAcademicYear: (date, academicYear) => {
+    const [startYear, endYear] = academicYear.split('-').map(y => parseInt(y));
+    const checkDate = new Date(date);
+    const checkYear = checkDate.getFullYear();
+    const checkMonth = checkDate.getMonth() + 1;
+    
+    // Academic year typically starts in September and ends in August
+    if (checkMonth >= 9) {
+      return checkYear === startYear;
+    } else {
+      return checkYear === endYear;
+    }
+  },
+
+  // Calculate event duration
+  calculateEventDuration: (startDate, endDate) => {
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    const diffTime = Math.abs(end - start);
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+    
+    return {
+      days: diffDays,
+      weeks: Math.floor(diffDays / 7),
+      formatted: diffDays === 1 ? '1 day' : `${diffDays} days`
+    };
+  },
+
+  // ===== CALENDAR CACHING =====
+  
+  // Cache calendar data
+  cacheCalendarData: (key, data, expiry = 300000) => { // 5 minutes default
+    try {
+      const cacheItem = {
+        data,
+        timestamp: Date.now(),
+        expiry: Date.now() + expiry
+      };
+      sessionStorage.setItem(`calendar_${key}`, JSON.stringify(cacheItem));
+    } catch (error) {
+      console.warn('Failed to cache calendar data:', error);
+    }
+  },
+
+  // Get cached calendar data
+  getCachedCalendarData: (key) => {
+    try {
+      const cached = sessionStorage.getItem(`calendar_${key}`);
+      if (!cached) return null;
+
+      const item = JSON.parse(cached);
+      if (Date.now() > item.expiry) {
+        sessionStorage.removeItem(`calendar_${key}`);
+        return null;
+      }
+
+      return item.data;
+    } catch (error) {
+      console.warn('Failed to get cached calendar data:', error);
+      return null;
+    }
+  },
+
+  // Clear calendar cache
+  clearCalendarCache: () => {
+    try {
+      const keys = Object.keys(sessionStorage);
+      keys.forEach(key => {
+        if (key.startsWith('calendar_')) {
+          sessionStorage.removeItem(key);
+        }
+      });
+      console.log('📅 Calendar cache cleared');
+    } catch (error) {
+      console.warn('Failed to clear calendar cache:', error);
+    }
+  },
+
+  // ===== CALENDAR STATUS POLLING =====
+  
+  // Start calendar status polling
+  startCalendarStatusPolling: (callback, interval = 300000) => { // 5 minutes default
+    let isPolling = false;
+    let pollCount = 0;
+    
+    const pollFunction = async () => {
+      if (isPolling) return;
+      
+      try {
+        isPolling = true;
+        pollCount++;
+        
+        console.log(`📡 Polling calendar status #${pollCount}...`);
+        
+        const response = await apiService.getAcademicCalendarStatus();
+        
+        if (response?.data?.success && callback) {
+          callback(response.data.data);
+          console.log(`✅ Calendar status updated via polling`);
+        }
+      } catch (error) {
+        console.error('❌ Calendar status polling error:', error);
+        // Don't break the polling on single error
+      } finally {
+        isPolling = false;
+      }
+    };
+
+    // Initial call
+    pollFunction();
+    
+    // Set up interval
+    const intervalId = setInterval(pollFunction, interval);
+    
+    // Return cleanup function
+    return () => {
+      clearInterval(intervalId);
+      isPolling = false;
+      console.log('🔇 Calendar status polling stopped');
+    };
+  },
+
+  // ===== INTEGRATION WITH EXISTING VALIDATION =====
+  
+  // Enhanced request creation with calendar validation
+  createRequestWithCalendarValidation: async (requestData) => {
+    try {
+      console.log('📝 Creating request with calendar validation...');
+      
+      // First check current availability
+      const availability = await apiService.checkCurrentAvailability();
+      
+      if (!availability.canCreateRequest) {
+        throw new Error(`Request creation not available: ${availability.message}`);
+      }
+      
+      // Proceed with normal request creation
+      return await apiService.createRequest(requestData);
+    } catch (error) {
+      console.error('❌ Request creation with calendar validation error:', error);
+      throw error;
+    }
+  },
+
+  // ===== DEBUGGING AND TESTING =====
+  
+  // Test calendar system
+  testCalendarSystem: async () => {
+    console.group('🧪 Testing Academic Calendar System');
+    
+    try {
+      const tests = {
+        status: false,
+        availability: false,
+        dateCheck: false,
+        events: false
+      };
+      
+      // Test calendar status
+      try {
+        const statusResponse = await apiService.getAcademicCalendarStatus();
+        tests.status = statusResponse.data.success;
+        console.log('📊 Status check:', tests.status ? '✅' : '❌');
+      } catch (error) {
+        console.error('Status check failed:', error);
+      }
+      
+      // Test current availability
+      try {
+        const availability = await apiService.checkCurrentAvailability();
+        tests.availability = availability.success;
+        console.log('🕒 Availability check:', tests.availability ? '✅' : '❌');
+      } catch (error) {
+        console.error('Availability check failed:', error);
+      }
+      
+      // Test specific date check
+      try {
+        const today = new Date().toISOString().split('T')[0];
+        const dateResponse = await apiService.checkDateAvailability(today);
+        tests.dateCheck = dateResponse.data.success;
+        console.log('📅 Date check:', tests.dateCheck ? '✅' : '❌');
+      } catch (error) {
+        console.error('Date check failed:', error);
+      }
+      
+      // Test events fetch
+      try {
+        const eventsResponse = await apiService.getAcademicCalendarEvents();
+        tests.events = eventsResponse.data.success;
+        console.log('📋 Events check:', tests.events ? '✅' : '❌');
+      } catch (error) {
+        console.error('Events check failed:', error);
+      }
+      
+      const allPassed = Object.values(tests).every(test => test);
+      console.log(`🧪 Calendar system test: ${allPassed ? '✅ PASSED' : '❌ FAILED'}`);
+      
+      return { success: allPassed, tests };
+    } catch (error) {
+      console.error('❌ Calendar system test failed:', error);
+      return { success: false, error: error.message };
+    } finally {
+      console.groupEnd();
+    }
+  }
+};
+
+
+  
+
+
+
 // Ayrı axios instance'ları oluştur
 const studentApi = axios.create({
   baseURL: BASE_URL,
@@ -323,6 +747,9 @@ const rbacBatchOperations = {
     }
   }
 };
+
+
+
 
 // ===== RBAC HELPER FUNCTIONS =====
 const rbacHelpers = {
@@ -1285,7 +1712,7 @@ export const apiService = {
   // ===== EXISTING METHODS (PRESERVED) =====
 
   
-
+...academicCalendarMethods,
 ...adminStatisticsMethods,
 
  // Wrapper method with caching

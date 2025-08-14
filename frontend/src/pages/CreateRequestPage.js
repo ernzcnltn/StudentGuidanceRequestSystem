@@ -12,7 +12,12 @@ const CreateRequestPage = () => {
   const { showSuccess, showError, showWarning, showInfo } = useToast();
   const { t, translateRequestType } = useTranslation();
   
-  const { status: workingHoursStatus, isWithinWorkingHours, canCreateRequest } = useWorkingHours();
+  // ⭐ FIXED: Rename to avoid conflict
+  const { 
+    status: workingHoursStatus, 
+    isWithinWorkingHours, 
+    canCreateRequest: canCreateDuringWorkingHours 
+  } = useWorkingHours();
   
   const [requestTypes, setRequestTypes] = useState({});
   const [formData, setFormData] = useState({
@@ -31,10 +36,11 @@ const CreateRequestPage = () => {
   const [showWorkingHoursModal, setShowWorkingHoursModal] = useState(false);
   const [workingHoursChecked, setWorkingHoursChecked] = useState(false);
   
-  // ⭐ NEW: 24-hour limit state
+  // ⭐ ENHANCED: Academic Calendar + 24-hour limit state
   const [lastRequestInfo, setLastRequestInfo] = useState(null);
-  const [canSubmitRequest, setCanSubmitRequest] = useState(true);
+  const [canSubmitRequestNow, setCanSubmitRequestNow] = useState(true); // Renamed
   const [timeUntilNextRequest, setTimeUntilNextRequest] = useState(null);
+  const [academicCalendarStatus, setAcademicCalendarStatus] = useState(null);
 
   useEffect(() => {
     const fetchRequestTypes = async () => {
@@ -50,7 +56,38 @@ const CreateRequestPage = () => {
     fetchRequestTypes();
   }, [showError]);
 
-  // ⭐ NEW: Check student's recent requests for 24-hour limit
+  // ⭐ NEW: Check academic calendar status
+  useEffect(() => {
+    const checkAcademicCalendarStatus = async () => {
+      try {
+        console.log('📅 Checking academic calendar status...');
+        
+        const response = await apiService.checkCurrentAvailability();
+        
+        if (response.success) {
+          setAcademicCalendarStatus(response);
+          console.log('📅 Academic calendar status:', response);
+          
+          if (!response.canCreateRequest) {
+            showWarning(`📅 ${response.message}`);
+          }
+        }
+      } catch (error) {
+        console.error('❌ Academic calendar check error:', error);
+        // Don't show error to user as this is background check
+        setAcademicCalendarStatus({
+          success: false,
+          canCreateRequest: true, // Default to allowing if check fails
+          reason: 'error',
+          message: 'Unable to check academic calendar'
+        });
+      }
+    };
+
+    checkAcademicCalendarStatus();
+  }, [showWarning]);
+
+  // ⭐ UPDATED: Check student's recent requests for 24-hour limit
   useEffect(() => {
     const checkRecentRequests = async () => {
       if (!user?.student_id) return;
@@ -58,13 +95,11 @@ const CreateRequestPage = () => {
       try {
         console.log('🔍 Checking recent requests for 24-hour limit...');
         
-        // Get student's recent requests
         const response = await apiService.getStudentRequests(user.student_id);
         
         if (response.data.success) {
           const requests = response.data.data;
           
-          // Find the most recent request within 24 hours
           const last24Hours = new Date(Date.now() - 24 * 60 * 60 * 1000);
           const recentRequests = requests.filter(req => 
             new Date(req.submitted_at) > last24Hours
@@ -77,7 +112,7 @@ const CreateRequestPage = () => {
           });
           
           if (recentRequests.length > 0) {
-            const lastRequest = recentRequests[0]; // Most recent
+            const lastRequest = recentRequests[0];
             const lastRequestTime = new Date(lastRequest.submitted_at);
             const nextAllowedTime = new Date(lastRequestTime.getTime() + 24 * 60 * 60 * 1000);
             const now = new Date();
@@ -88,15 +123,14 @@ const CreateRequestPage = () => {
                 nextAllowedTime: nextAllowedTime,
                 hoursRemaining: Math.ceil((nextAllowedTime - now) / (1000 * 60 * 60))
               });
-              setCanSubmitRequest(false);
+              setCanSubmitRequestNow(false);
               
-              // Set up timer to update remaining time
               const timer = setInterval(() => {
                 const currentTime = new Date();
                 const hoursLeft = Math.ceil((nextAllowedTime - currentTime) / (1000 * 60 * 60));
                 
                 if (hoursLeft <= 0) {
-                  setCanSubmitRequest(true);
+                  setCanSubmitRequestNow(true);
                   setLastRequestInfo(null);
                   clearInterval(timer);
                   showSuccess('✅ You can now submit a new request!');
@@ -106,7 +140,7 @@ const CreateRequestPage = () => {
                     hoursRemaining: hoursLeft
                   }));
                 }
-              }, 60000); // Update every minute
+              }, 60000);
               
               return () => clearInterval(timer);
             }
@@ -114,12 +148,57 @@ const CreateRequestPage = () => {
         }
       } catch (error) {
         console.error('❌ Error checking recent requests:', error);
-        // Don't show error to user as this is background check
       }
     };
 
     checkRecentRequests();
   }, [user?.student_id, showSuccess]);
+
+  // ⭐ ENHANCED: Combined availability check
+  const canActuallyCreateRequest = () => {
+    // Check all conditions
+    const workingHoursOk = canCreateDuringWorkingHours;
+    const calendar24HourOk = canSubmitRequestNow;
+    const academicCalendarOk = academicCalendarStatus?.canCreateRequest !== false;
+    
+    console.log('🔍 Combined availability check:', {
+      workingHoursOk,
+      calendar24HourOk,
+      academicCalendarOk,
+      finalResult: workingHoursOk && calendar24HourOk && academicCalendarOk
+    });
+    
+    return workingHoursOk && calendar24HourOk && academicCalendarOk;
+  };
+
+  // ⭐ NEW: Get restriction reason
+  const getRestrictionReason = () => {
+    if (!canCreateDuringWorkingHours) {
+      return {
+        type: 'working_hours',
+        message: 'Outside working hours (Monday-Friday 08:30-17:30)',
+        icon: '🕒'
+      };
+    }
+    
+    if (!canSubmitRequestNow) {
+      return {
+        type: '24_hour_limit',
+        message: `Wait ${lastRequestInfo?.hoursRemaining || 0} more hours (24-hour limit)`,
+        icon: '⏰'
+      };
+    }
+    
+    if (academicCalendarStatus && !academicCalendarStatus.canCreateRequest) {
+      return {
+        type: 'academic_calendar',
+        message: academicCalendarStatus.message || 'Academic calendar restriction',
+        icon: '📅'
+      };
+    }
+    
+    return null;
+  };
 
   const getFileIcon = (fileType) => {
     if (fileType.includes('pdf')) return '📄';
@@ -174,7 +253,6 @@ const CreateRequestPage = () => {
   const handleFileChange = (e) => {
     const selectedFiles = Array.from(e.target.files);
     
-    // Mevcut dosya sayısını kontrol et
     const totalFiles = files.length + selectedFiles.length;
     
     if (totalFiles > 3) {
@@ -183,12 +261,10 @@ const CreateRequestPage = () => {
       return;
     }
     
-    // File validation
     const validFiles = [];
     const errors = [];
     
     selectedFiles.forEach(file => {
-      // Aynı isimde dosya var mı kontrol et
       const isDuplicate = files.some(existingFile => existingFile.name === file.name);
       if (isDuplicate) {
         errors.push(`${file.name}: File already added`);
@@ -225,11 +301,8 @@ const CreateRequestPage = () => {
       return;
     }
     
-    // Mevcut dosyalara yeni dosyaları ekle
     setFiles(prevFiles => [...prevFiles, ...validFiles]);
     setError(null);
-    
-    // Input'u temizle ki aynı dosya tekrar seçilebilsin
     e.target.value = '';
     
     if (validFiles.length > 0) {
@@ -250,35 +323,32 @@ const CreateRequestPage = () => {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   };
 
-    const handleSubmit = async (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     
-    // Double submit engelle
     if (submitting) {
       showWarning(t('requestAlreadyBeingSubmitted'));
       return;
     }
 
-    // ⭐ NEW: 24-hour limit check
-    if (!canSubmitRequest) {
-      showError(`⏰ You can only submit 1 request per 24 hours. Please wait ${lastRequestInfo?.hoursRemaining || 0} more hours.`);
-      return;
+    // ⭐ ENHANCED: Comprehensive availability check
+    if (!canActuallyCreateRequest()) {
+      const restriction = getRestrictionReason();
+      if (restriction) {
+        showError(`${restriction.icon} ${restriction.message}`);
+        
+        if (restriction.type === 'working_hours') {
+          setShowWorkingHoursModal(true);
+        }
+        return;
+      }
     }
 
-    // ⭐ Mesai saatleri son kontrol
-    if (!canCreateRequest) {
-      showError('Requests can only be created during working hours (Monday-Friday 08:30-17:30)');
-      setShowWorkingHoursModal(true);
-      return;
-    }
-
-    // Required document kontrolü
     if (selectedType?.is_document_required && files.length === 0) {
       showError(t('thisRequestTypeRequires'));
       return;
     }
 
-    // File size kontrolü
     const oversizedFiles = files.filter(file => file.size > 2 * 1024 * 1024);
     if (oversizedFiles.length > 0) {
       showError(`Files too large: ${oversizedFiles.map(f => f.name).join(', ')}. Maximum size is 2MB per file.`);
@@ -293,7 +363,8 @@ const CreateRequestPage = () => {
     try {
       showInfo(t('creatingYourRequest'));
       
-      const response = await apiService.createRequest(formData);
+      // ⭐ ENHANCED: Use calendar-aware request creation
+      const response = await apiService.createRequestWithCalendarValidation(formData);
       const requestId = response.data.data.request_id;
       
       if (files.length > 0) {
@@ -314,7 +385,6 @@ const CreateRequestPage = () => {
         showSuccess(`✅ ${t('requestCreatedSuccessfully')} #${requestId}!`);
       }
       
-      // Form'u temizle
       setFormData({
         student_id: user?.student_id || 1,
         type_id: '',
@@ -324,7 +394,7 @@ const CreateRequestPage = () => {
       setFiles([]);
       setSelectedType(null);
       
-      // ⭐ NEW: Update 24-hour limit state
+      // ⭐ UPDATED: Update 24-hour limit state
       const now = new Date();
       const nextAllowedTime = new Date(now.getTime() + 24 * 60 * 60 * 1000);
       setLastRequestInfo({
@@ -332,9 +402,9 @@ const CreateRequestPage = () => {
         nextAllowedTime: nextAllowedTime,
         hoursRemaining: 24
       });
-      setCanSubmitRequest(false);
+      setCanSubmitRequestNow(false);
       
-      showInfo('ℹ️ Remember: You can submit your next request after 24 hours.');
+      showInfo('ℹ️ Remember: You can submit your next request after 24 hours during working hours.');
       
       setTimeout(() => {
         navigate('/requests');
@@ -343,44 +413,46 @@ const CreateRequestPage = () => {
     } catch (error) {
       console.error('❌ Request creation error:', error);
       
-      // ⭐ Enhanced error handling for different limit types
-      if (error.response?.status === 423 && error.response?.data?.errorCode === 'OUTSIDE_WORKING_HOURS') {
+      // ⭐ ENHANCED: Better error handling for calendar restrictions
+      if (error.response?.status === 423) {
         const errorData = error.response.data;
-        showError('❌ Outside working hours: Requests can only be created Monday-Friday 08:30-17:30 (TRNC Time)');
         
-        if (errorData.guidance?.nextOpening) {
-          showInfo(`📅 ${errorData.guidance.nextOpening}`);
-        }
-        
-        setShowWorkingHoursModal(true);
-        return;
-      }
-      
-      // ⭐ NEW: Handle 24-hour limit error
-      if (error.response?.status === 429 && error.response?.data?.errorCode === 'DAILY_LIMIT_EXCEEDED') {
-        const errorData = error.response.data;
-        showError(`⏰ Daily limit exceeded: ${errorData.error}`);
-        
-        if (errorData.details) {
-          setLastRequestInfo({
-            lastRequestTime: new Date(errorData.details.last_request_time),
-            nextAllowedTime: new Date(errorData.details.next_allowed_time),
-            hoursRemaining: errorData.details.hours_remaining
-          });
-          setCanSubmitRequest(false);
-          
-          showInfo(`📅 Next request available: ${new Date(errorData.details.next_allowed_time).toLocaleString('tr-TR')}`);
+        if (errorData.errorCode === 'ACADEMIC_HOLIDAY') {
+          showError(`📅 Academic Holiday: ${errorData.error}`);
+          if (errorData.guidance?.next_available_date) {
+            showInfo(`📅 Next available: ${errorData.guidance.next_available_date}`);
+          }
+        } else if (errorData.errorCode === 'OUTSIDE_WORKING_HOURS') {
+          showError('❌ Outside working hours: Requests can only be created Monday-Friday 08:30-17:30 (TRNC Time)');
+          if (errorData.guidance?.nextOpening) {
+            showInfo(`📅 ${errorData.guidance.nextOpening}`);
+          }
+          setShowWorkingHoursModal(true);
+        } else {
+          showError(`❌ ${errorData.error}`);
         }
         return;
       }
       
-      // ⭐ NEW: Handle hourly rate limit error
-      if (error.response?.status === 429 && error.response?.data?.errorCode === 'HOURLY_RATE_LIMIT_EXCEEDED') {
+      if (error.response?.status === 429) {
         const errorData = error.response.data;
-        showError(`⏰ Rate limit exceeded: ${errorData.error}`);
         
-        if (errorData.details) {
-          showInfo(`⏱️ Please wait ${errorData.details.minutes_remaining} more minutes`);
+        if (errorData.errorCode === 'DAILY_LIMIT_EXCEEDED') {
+          showError(`⏰ Daily limit exceeded: ${errorData.error}`);
+          if (errorData.details) {
+            setLastRequestInfo({
+              lastRequestTime: new Date(errorData.details.last_request_time),
+              nextAllowedTime: new Date(errorData.details.actual_next_available_time || errorData.details.next_allowed_time),
+              hoursRemaining: errorData.details.hours_remaining
+            });
+            setCanSubmitRequestNow(false);
+            showInfo(`📅 Next request available: ${new Date(errorData.details.actual_next_available_time || errorData.details.next_allowed_time).toLocaleString('tr-TR')}`);
+          }
+        } else if (errorData.errorCode === 'HOURLY_RATE_LIMIT_EXCEEDED') {
+          showError(`⏰ Rate limit exceeded: ${errorData.error}`);
+          if (errorData.details) {
+            showInfo(`⏱️ Please wait ${errorData.details.minutes_remaining} more minutes`);
+          }
         }
         return;
       }
@@ -413,23 +485,41 @@ const CreateRequestPage = () => {
           </div>
         )}
 
-       
-
         <div className="card">
           <div className="card-body">
             <form onSubmit={handleSubmit}>
-              {/* ⭐ Working hours status in form */}
-              {!canCreateRequest && (
-                <div className="alert alert-warning mb-4">
-                  <h6 className="alert-heading">🕒 Outside Working Hours</h6>
-                  <p className="mb-2">
-                    Requests can only be created during working hours for proper support.
-                  </p>
-                  <p className="mb-0">
-                    <strong>Working hours:</strong> Monday-Friday, 08:30-17:30 (TRNC Time)
-                  </p>
-                </div>
-              )}
+              {/* ⭐ ENHANCED: Comprehensive restriction notice */}
+              {!canActuallyCreateRequest() && (() => {
+                const restriction = getRestrictionReason();
+                return restriction ? (
+                  <div className="alert alert-warning mb-4">
+                    <h6 className="alert-heading">{restriction.icon} Request Creation Restricted</h6>
+                    <p className="mb-2">{restriction.message}</p>
+                    
+                    {restriction.type === 'working_hours' && (
+                      <p className="mb-0">
+                        <strong>Working hours:</strong> Monday-Friday, 08:30-17:30 (TRNC Time)
+                      </p>
+                    )}
+                    
+                    {restriction.type === '24_hour_limit' && lastRequestInfo && (
+                      <p className="mb-0">
+                        <strong>Next request available:</strong> {lastRequestInfo.nextAllowedTime.toLocaleString('tr-TR')}
+                      </p>
+                    )}
+                    
+                    {restriction.type === 'academic_calendar' && academicCalendarStatus?.details && (
+                      <div>
+                        {academicCalendarStatus.details.holidayNames && (
+                          <p className="mb-0">
+                            <strong>Current holiday:</strong> {academicCalendarStatus.details.holidayNames}
+                          </p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                ) : null;
+              })()}
 
               {/* Important Notes */}
               <div className="alert alert-warning">
@@ -438,7 +528,8 @@ const CreateRequestPage = () => {
                   <li>{t('guideline1')}</li>
                   <li>{t('guideline2')}</li>
                   <li>{t('guideline4')}</li>
-                  
+                  <li>📅 Requests can only be created during working hours and non-holiday periods</li>
+                  <li>⏰ Maximum 1 request per 24 hours</li>
                 </ul>
               </div>
 
@@ -453,7 +544,7 @@ const CreateRequestPage = () => {
                   value={formData.type_id}
                   onChange={(e) => handleTypeChange(e.target.value)}
                   required
-                  disabled={!canSubmitRequest || !canCreateRequest}
+                  disabled={!canActuallyCreateRequest()}
                 >
                   <option value="">{t('pleaseSelect')}</option>
                   {Object.keys(requestTypes).map((category) => (
@@ -498,7 +589,7 @@ const CreateRequestPage = () => {
                   value={formData.priority}
                   onChange={handlePriorityChange}
                   required
-                  disabled={!canSubmitRequest || !canCreateRequest}
+                  disabled={!canActuallyCreateRequest()}
                 >
                   <option value="Low">🔵 {t('low')} - {t('nonUrgentRequest')}</option>
                   <option value="Medium">🟡 {t('medium')} - {t('standardRequest')}</option>
@@ -525,259 +616,296 @@ const CreateRequestPage = () => {
                   onChange={handleContentChange}
                   placeholder={t('pleaseDescribe')}
                   required
-                  disabled={!canSubmitRequest || !canCreateRequest}
+                  disabled={!canActuallyCreateRequest()}
                 />
               </div>
 
-              {/* File Upload Section */}
-              {selectedType && (
-                <div className="mb-3">
-                  <label className="form-label">
-                    <strong>{t('attachment')}</strong>
-                    {selectedType.is_document_required && (
-                      <span className="text-danger"> ({t('required')})</span>
-                    )}
-                  </label>
-                  
-                  <div className="border rounded p-3" style={{ backgroundColor: '#f8f9fa' }}>
-                    {/* Hidden File Input */}
-                    <input
-                      type="file"
-                      className="d-none"
-                      id="file-upload-input"
-                      multiple
-                      accept=".jpeg,.jpg,.png,.pdf,.doc,.docx,.csv"
-                      onChange={handleFileChange}
-                      disabled={loading || submitting || !canSubmitRequest || !canCreateRequest}
-                    />
-                    
-                    {/* File Upload Area */}
-                    <div className="row">
-                      {/* Upload Button Section */}
-                      <div className="col-md-4">
-                        <div className="text-center">
-                          <label 
-                            htmlFor="file-upload-input" 
-                            className="btn btn-primary d-flex flex-column align-items-center p-4 h-100"
-                            style={{ 
-                              cursor: (loading || submitting || !canSubmitRequest || !canCreateRequest) ? 'not-allowed' : 'pointer',
-                              opacity: (loading || submitting || !canSubmitRequest || !canCreateRequest) ? 0.6 : 1,
-                              borderRadius: '12px',
-                              border: 'none',
-                              minHeight: '150px',
-                              justifyContent: 'center'
-                            }}
-                          >
-                            <div style={{ fontSize: '3rem', marginBottom: '10px' }}>
-                              📁
-                            </div>
-                            <div className="fw-bold mb-2">
-                              {files.length > 0 ? 'Add More Files' : t('chooseFiles')}
-                            </div>
-                            <small className="text-white-50">
-                              Max 3 files • 2MB each
-                            </small>
-                          </label>
-                        </div>
-                      </div>
-                      
-                      {/* Drag & Drop Area */}
-                      <div className="col-md-8">
-                        <div 
-                          className="border border-2 border-dashed rounded p-4 h-100 d-flex flex-column justify-content-center align-items-center"
-                          style={{ 
-                            borderColor: '#dee2e6',
-                            backgroundColor: '#ffffff',
-                            transition: 'all 0.3s ease',
-                            minHeight: '150px'
-                          }}
-                        >
-                          <div className="text-muted text-center">
-                            <div style={{ fontSize: '2.5rem', marginBottom: '15px' }}>📎</div>
-                            <h6 className="mb-2">Drag files here</h6>
-                            <p className="mb-0 small">
-                              or use the button to browse
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                    
-                    {/* File Info */}
-                    <div className="row mt-3">
-                      <div className="col-12">
-                        <div className="d-flex justify-content-between align-items-center">
-                          <div className="form-text">
-                            <strong>Allowed:</strong> PDF, Images, DOC, CSV
-                          </div>
-                          <div className="text-end">
-                            <span className={`badge ${files.length >= 3 ? 'bg-warning' : 'bg-info'}`}>
-                              {files.length} / 3 files
-                            </span>
-                          </div>
-                        </div>
-                        
-                        {selectedType.is_document_required && (
-                          <div className="alert alert-warning mt-2 py-2">
-                            <small>
-                              <strong>⚠️ Required:</strong> {t('documentUploadRequired')}
-                            </small>
-                          </div>
-                        )}
-                      </div>
-                    </div>
+            {/* File Upload Section */}
+             {selectedType && (
+               <div className="mb-3">
+                 <label className="form-label">
+                   <strong>{t('attachment')}</strong>
+                   {selectedType.is_document_required && (
+                     <span className="text-danger"> ({t('required')})</span>
+                   )}
+                 </label>
+                 
+                 <div className="border rounded p-3" style={{ backgroundColor: '#f8f9fa' }}>
+                   <input
+                     type="file"
+                     className="d-none"
+                     id="file-upload-input"
+                     multiple
+                     accept=".jpeg,.jpg,.png,.pdf,.doc,.docx,.csv"
+                     onChange={handleFileChange}
+                     disabled={loading || submitting || !canActuallyCreateRequest()}
+                   />
+                   
+                   <div className="row">
+                     <div className="col-md-4">
+                       <div className="text-center">
+                         <label 
+                           htmlFor="file-upload-input" 
+                           className="btn btn-primary d-flex flex-column align-items-center p-4 h-100"
+                           style={{ 
+                             cursor: (loading || submitting || !canActuallyCreateRequest()) ? 'not-allowed' : 'pointer',
+                             opacity: (loading || submitting || !canActuallyCreateRequest()) ? 0.6 : 1,
+                             borderRadius: '12px',
+                             border: 'none',
+                             minHeight: '150px',
+                             justifyContent: 'center'
+                           }}
+                         >
+                           <div style={{ fontSize: '3rem', marginBottom: '10px' }}>
+                             📁
+                           </div>
+                           <div className="fw-bold mb-2">
+                             {files.length > 0 ? 'Add More Files' : t('chooseFiles')}
+                           </div>
+                           <small className="text-white-50">
+                             Max 3 files • 2MB each
+                           </small>
+                         </label>
+                       </div>
+                     </div>
+                     
+                     <div className="col-md-8">
+                       <div 
+                         className="border border-2 border-dashed rounded p-4 h-100 d-flex flex-column justify-content-center align-items-center"
+                         style={{ 
+                           borderColor: '#dee2e6',
+                           backgroundColor: '#ffffff',
+                           transition: 'all 0.3s ease',
+                           minHeight: '150px'
+                         }}
+                       >
+                         <div className="text-muted text-center">
+                           <div style={{ fontSize: '2.5rem', marginBottom: '15px' }}>📎</div>
+                           <h6 className="mb-2">Drag files here</h6>
+                           <p className="mb-0 small">
+                             or use the button to browse
+                           </p>
+                         </div>
+                       </div>
+                     </div>
+                   </div>
+                   
+                   <div className="row mt-3">
+                     <div className="col-12">
+                       <div className="d-flex justify-content-between align-items-center">
+                         <div className="form-text">
+                           <strong>Allowed:</strong> PDF, Images, DOC, CSV
+                         </div>
+                         <div className="text-end">
+                           <span className={`badge ${files.length >= 3 ? 'bg-warning' : 'bg-info'}`}>
+                             {files.length} / 3 files
+                           </span>
+                         </div>
+                       </div>
+                       
+                       {selectedType.is_document_required && (
+                         <div className="alert alert-warning mt-2 py-2">
+                           <small>
+                             <strong>⚠️ Required:</strong> {t('documentUploadRequired')}
+                           </small>
+                         </div>
+                       )}
+                     </div>
+                   </div>
 
-                    {/* Selected Files Display */}
-                    {files.length > 0 && (
-                      <div className="mt-4">
-                        <div className="d-flex justify-content-between align-items-center mb-3">
-                          <h6 className="mb-0">
-                            📋 Selected Files ({files.length})
-                          </h6>
-                          <button
-                            type="button"
-                            className="btn btn-outline-danger btn-sm"
-                            onClick={() => setFiles([])}
-                            disabled={loading || submitting || !canSubmitRequest}
-                          >
-                            🗑️ Clear All
-                          </button>
-                        </div>
-                        
-                        <div className="row">
-                          {files.map((file, index) => (
-                            <div key={index} className="col-lg-6 mb-2">
-                              <div className="card shadow-sm border-0" style={{ borderLeft: '4px solid #0d6efd' }}>
-                                <div className="card-body p-3">
-                                  <div className="d-flex align-items-center">
-                                    <div className="me-3">
-                                      <div 
-                                        className="rounded-circle bg-primary text-white d-flex align-items-center justify-content-center"
-                                        style={{ width: '45px', height: '45px', fontSize: '1.2rem' }}
-                                      >
-                                        {getFileIcon(file.type)}
-                                      </div>
-                                    </div>
-                                    <div className="flex-grow-1">
-                                      <h6 className="card-title mb-1" style={{ fontSize: '0.9rem' }}>
-                                        {file.name.length > 25 
-                                          ? file.name.substring(0, 25) + '...' 
-                                          : file.name
-                                        }
-                                      </h6>
-                                      <div className="d-flex justify-content-between align-items-center">
-                                        <small className="text-muted">
-                                          {formatFileSize(file.size)}
-                                        </small>
-                                        <div className="d-flex gap-1">
-                                          <span className="badge bg-light text-dark">
-                                            #{index + 1}
-                                          </span>
-                                          <button
-                                            type="button"
-                                            className="btn btn-sm btn-outline-danger"
-                                            onClick={() => removeFile(index)}
-                                            disabled={loading || submitting || !canSubmitRequest}
-                                            title="Remove file"
-                                            style={{ padding: '2px 6px', fontSize: '0.7rem' }}
-                                          >
-                                            ✕
-                                          </button>
-                                        </div>
-                                      </div>
-                                    </div>
-                                  </div>
-                                  
-                                  {/* File type indicator */}
-                                  <div className="mt-2">
-                                    <div className="progress" style={{ height: '3px' }}>
-                                      <div 
-                                        className="progress-bar bg-success" 
-                                        style={{ width: '100%' }}
-                                      ></div>
-                                    </div>
-                                    <small className="text-success">
-                                      ✓ Ready to upload
-                                    </small>
-                                  </div>
-                                </div>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
+                   {files.length > 0 && (
+                     <div className="mt-4">
+                       <div className="d-flex justify-content-between align-items-center mb-3">
+                         <h6 className="mb-0">
+                           📋 Selected Files ({files.length})
+                         </h6>
+                         <button
+                           type="button"
+                           className="btn btn-outline-danger btn-sm"
+                           onClick={() => setFiles([])}
+                           disabled={loading || submitting || !canActuallyCreateRequest()}
+                         >
+                           🗑️ Clear All
+                         </button>
+                       </div>
+                       
+                       <div className="row">
+                         {files.map((file, index) => (
+                           <div key={index} className="col-lg-6 mb-2">
+                             <div className="card shadow-sm border-0" style={{ borderLeft: '4px solid #0d6efd' }}>
+                               <div className="card-body p-3">
+                                 <div className="d-flex align-items-center">
+                                   <div className="me-3">
+                                     <div 
+                                       className="rounded-circle bg-primary text-white d-flex align-items-center justify-content-center"
+                                       style={{ width: '45px', height: '45px', fontSize: '1.2rem' }}
+                                     >
+                                       {getFileIcon(file.type)}
+                                     </div>
+                                   </div>
+                                   <div className="flex-grow-1">
+                                     <h6 className="card-title mb-1" style={{ fontSize: '0.9rem' }}>
+                                       {file.name.length > 25 
+                                         ? file.name.substring(0, 25) + '...' 
+                                         : file.name
+                                       }
+                                     </h6>
+                                     <div className="d-flex justify-content-between align-items-center">
+                                       <small className="text-muted">
+                                         {formatFileSize(file.size)}
+                                       </small>
+                                       <div className="d-flex gap-1">
+                                         <span className="badge bg-light text-dark">
+                                           #{index + 1}
+                                         </span>
+                                         <button
+                                           type="button"
+                                           className="btn btn-sm btn-outline-danger"
+                                           onClick={() => removeFile(index)}
+                                           disabled={loading || submitting || !canActuallyCreateRequest()}
+                                           title="Remove file"
+                                           style={{ padding: '2px 6px', fontSize: '0.7rem' }}
+                                         >
+                                           ✕
+                                         </button>
+                                       </div>
+                                     </div>
+                                   </div>
+                                 </div>
+                                 
+                                 <div className="mt-2">
+                                   <div className="progress" style={{ height: '3px' }}>
+                                     <div 
+                                       className="progress-bar bg-success" 
+                                       style={{ width: '100%' }}
+                                     ></div>
+                                   </div>
+                                   <small className="text-success">
+                                     ✓ Ready to upload
+                                   </small>
+                                 </div>
+                               </div>
+                             </div>
+                           </div>
+                         ))}
+                       </div>
+                     </div>
+                   )}
+                 </div>
+               </div>
+             )}
 
-              {/* Guidelines */}
-              <div className="mt-4">
-                <h5>{t('guidelines')}</h5>
-                <div className="card">
-                  <div className="alert alert-warning">
-                    <h6>{t('beforeSubmitting')}:</h6>
-                    <ul>
-                      <li>{t('checkIfResolvable')}</li>
-                      <li>{t('ensureCorrectType')}</li>
-                      <li>{t('provideDetail')}</li>
-                      <li>{t('prepareFiles')}</li>
-                      <li>{t('useHighPriority')}</li>
-                      
-                    </ul>
-                  </div>
-                </div>
-              </div>
+             {/* Guidelines */}
+             <div className="mt-4">
+               <h5>{t('guidelines')}</h5>
+               <div className="card">
+                 <div className="alert alert-warning">
+                   <h6>{t('beforeSubmitting')}:</h6>
+                   <ul>
+                     <li>{t('checkIfResolvable')}</li>
+                     <li>{t('ensureCorrectType')}</li>
+                     <li>{t('provideDetail')}</li>
+                     <li>{t('prepareFiles')}</li>
+                     <li>{t('useHighPriority')}</li>
+                     <li>📅 Ensure you're submitting during working hours and non-holiday periods</li>
+                     <li>⏰ Remember the 24-hour limit between requests</li>
+                   </ul>
+                 </div>
+               </div>
+             </div>
 
-              {/* Submit Button */}
-              <div className="d-grid gap-2">
-                <button
-                  type="submit"
-                  className="btn btn-primary btn-lg"
-                  disabled={
-                    loading || 
-                    submitting ||
-                    !canSubmitRequest ||
-                    !canCreateRequest ||
-                    !formData.type_id || 
-                    !formData.content.trim() ||
-                    (selectedType?.is_document_required && files.length === 0)
-                  }
-                >
-                  {submitting ? (
-                    <>
-                      <span className="spinner-border spinner-border-sm me-2" role="status"></span>
-                      {files.length > 0 ? t('creatingAndUploading') : t('loading') + '...'}
-                    </>
-                  ) : !canSubmitRequest ? (
-                    <>
-                      ⏰ Wait {lastRequestInfo?.hoursRemaining || 0} hours
-                    </>
-                  ) : !canCreateRequest ? (
-                    <>
-                      🕒 Outside Working Hours
-                    </>
-                  ) : (
-                    <>
-                      ✉️ {t('submitRequest')}
-                      {files.length > 0 && ` (${files.length} ${files.length > 1 ? t('files') : t('file')})`}
-                    </>
-                  )}
-                </button>
-                
-                {/* Additional info under button */}
-                {!canSubmitRequest && lastRequestInfo && (
-                  <small className="text-muted text-center">
-                    Next request available: {lastRequestInfo.nextAllowedTime.toLocaleString('tr-TR')}
-                  </small>
-                )}
-              </div>
-            </form>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
+             {/* Submit Button */}
+             <div className="d-grid gap-2">
+               <button
+                 type="submit"
+                 className="btn btn-primary btn-lg"
+                 disabled={
+                   loading || 
+                   submitting ||
+                   !canActuallyCreateRequest() ||
+                   !formData.type_id || 
+                   !formData.content.trim() ||
+                   (selectedType?.is_document_required && files.length === 0)
+                 }
+               >
+                 {submitting ? (
+                   <>
+                     <span className="spinner-border spinner-border-sm me-2" role="status"></span>
+                     {files.length > 0 ? t('creatingAndUploading') : t('loading') + '...'}
+                   </>
+                 ) : !canActuallyCreateRequest() ? (
+                   (() => {
+                     const restriction = getRestrictionReason();
+                     if (restriction?.type === '24_hour_limit') {
+                       return <>⏰ Wait {lastRequestInfo?.hoursRemaining || 0} hours</>;
+                     } else if (restriction?.type === 'working_hours') {
+                       return <>🕒 Outside Working Hours</>;
+                     } else if (restriction?.type === 'academic_calendar') {
+                       return <>📅 Academic Holiday</>;
+                     } else {
+                       return <>🚫 Request Restricted</>;
+                     }
+                   })()
+                 ) : (
+                   <>
+                     ✉️ {t('submitRequest')}
+                     {files.length > 0 && ` (${files.length} ${files.length > 1 ? t('files') : t('file')})`}
+                   </>
+                 )}
+               </button>
+               
+               {/* Additional info under button */}
+               {!canActuallyCreateRequest() && (() => {
+                 const restriction = getRestrictionReason();
+                 if (restriction?.type === '24_hour_limit' && lastRequestInfo) {
+                   return (
+                     <small className="text-muted text-center">
+                       Next request available: {lastRequestInfo.nextAllowedTime.toLocaleString('tr-TR')}
+                     </small>
+                   );
+                 } else if (restriction?.type === 'academic_calendar' && academicCalendarStatus?.details?.nextAvailable) {
+                   return (
+                     <small className="text-muted text-center">
+                       Next available: {academicCalendarStatus.details.nextAvailable}
+                     </small>
+                   );
+                 }
+                 return null;
+               })()}
+             </div>
+           </form>
+         </div>
+       </div>
+
+       {/* ⭐ NEW: Academic Calendar Status Display */}
+       {academicCalendarStatus && !academicCalendarStatus.canCreateRequest && (
+         <div className="card mt-4">
+           <div className="card-header bg-warning text-dark">
+             <h6 className="mb-0">📅 Academic Calendar Notice</h6>
+           </div>
+           <div className="card-body">
+             <div className="alert alert-info mb-0">
+               <h6>Current Status</h6>
+               <p className="mb-2">{academicCalendarStatus.message}</p>
+               
+               {academicCalendarStatus.details?.holidayNames && (
+                 <p className="mb-2">
+                   <strong>Active Holiday:</strong> {academicCalendarStatus.details.holidayNames}
+                 </p>
+               )}
+               
+               {academicCalendarStatus.details?.nextAvailable && (
+                 <p className="mb-0">
+                   <strong>Next Available Date:</strong> {academicCalendarStatus.details.nextAvailable}
+                 </p>
+               )}
+             </div>
+           </div>
+         </div>
+       )}
+     </div>
+   </div>
+ );
 };
 
 export default CreateRequestPage;

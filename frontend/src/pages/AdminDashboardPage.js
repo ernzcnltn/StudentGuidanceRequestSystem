@@ -23,6 +23,11 @@ import { useToast } from '../contexts/ToastContext';
 import { useConfirmation } from '../hooks/useConfirmation';
 import ConfirmationModal from '../components/ConfirmationModal';
 
+
+
+import AcademicCalendarManager from '../components/AcademicCalendarManager';
+
+
 const AdminDashboardPage = () => {
   const [selectedRequestForResponse, setSelectedRequestForResponse] = useState(null);
   const [showResponseModal, setShowResponseModal] = useState(false);
@@ -497,6 +502,10 @@ const handleRejectRequest = async (rejectionReason) => {
       tabs.push({ key: 'settings', label: '⚙️ Settings', icon: '' });
     }
 
+
+
+    
+
     // STATISTICS TAB - Department Admin ve Super Admin için
   if ((isDepartmentAdmin() || isSuperAdmin()) && canViewAnalytics()) {
     tabs.push({ 
@@ -520,6 +529,20 @@ const handleRejectRequest = async (rejectionReason) => {
       tabs.push({ key: 'dept-users', label: '👥 Dept Users', icon: '' });
     }
     
+   
+
+  // ⭐ YENİ TAB EKLE
+  if (isSuperAdmin()) {
+    tabs.push({ 
+      key: 'calendar', 
+      label: '📅 Academic Calendar', 
+      icon: '' 
+    });
+  }
+
+ 
+
+
     return tabs;
   };
 
@@ -1380,6 +1403,8 @@ const handleRejectRequest = async (rejectionReason) => {
         return renderRoleManagement();
       case 'permissions':
         return renderPermissionManagement();
+        case 'calendar':
+      return <AcademicCalendarManager />;
       default:
         return renderDashboard();
     }
