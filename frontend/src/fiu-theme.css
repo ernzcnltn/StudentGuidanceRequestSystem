@@ -501,5 +501,16 @@ a:hover {
     padding: 0.4rem 0.8rem;
     font-size: 0.85rem;
   }
+
+.modal-backdrop.show {
+  opacity: 1 !important; /* Arka planı karart */
+  background-color: rgba(0, 0, 0, 0.7) !important;
+}
+
+.modal.show.d-block {
+  background-color: transparent;
+  z-index: 1055 !important; /* Arka plandan daha önde */
+}
+
 }
 

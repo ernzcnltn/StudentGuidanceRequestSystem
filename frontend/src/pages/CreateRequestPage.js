@@ -56,6 +56,63 @@ const CreateRequestPage = () => {
     fetchRequestTypes();
   }, [showError]);
 
+
+  useEffect(() => {
+  const checkAvailabilityWithRetry = async (retryCount = 0) => {
+    try {
+      console.log('📅 Checking academic calendar availability...');
+      
+      const response = await apiService.checkCurrentAvailability();
+      
+      if (response.success) {
+        setAcademicCalendarStatus(response);
+        
+        if (!response.canCreateRequest) {
+          let message = `📅 ${response.message}`;
+          if (response.reason === 'academic_holiday') {
+            message += '\nAkademik tatil döneminde talep oluşturamazsınız.';
+          } else if (response.reason === 'weekend') {
+            message += '\nHaftasonları talep oluşturamazsınız.';
+          } else if (response.reason === 'outside_working_hours') {
+            message += '\nSadece mesai saatleri içinde talep oluşturabilirsiniz.';
+          }
+          showWarning(message);
+        }
+      } else {
+        // Hata durumunda retry
+        if (retryCount < 2) {
+          console.log(`⚠️ Availability check failed, retrying... (${retryCount + 1}/3)`);
+          setTimeout(() => checkAvailabilityWithRetry(retryCount + 1), 2000);
+        } else {
+          console.warn('⚠️ Availability check failed after retries, assuming available');
+          setAcademicCalendarStatus({
+            success: true,
+            canCreateRequest: true,
+            reason: 'error_fallback',
+            message: 'Calendar check failed, but allowing requests'
+          });
+        }
+      }
+    } catch (error) {
+      console.error('❌ Availability check error:', error);
+      
+      if (retryCount < 2) {
+        setTimeout(() => checkAvailabilityWithRetry(retryCount + 1), 2000);
+      } else {
+        setAcademicCalendarStatus({
+          success: true,
+          canCreateRequest: true,
+          reason: 'error_fallback',
+          message: 'Calendar check unavailable'
+        });
+      }
+    }
+  };
+
+  checkAvailabilityWithRetry();
+}, [showWarning]);
+
+
   // ⭐ NEW: Check academic calendar status
   useEffect(() => {
     const checkAcademicCalendarStatus = async () => {
@@ -438,7 +495,7 @@ const CreateRequestPage = () => {
         const errorData = error.response.data;
         
         if (errorData.errorCode === 'DAILY_LIMIT_EXCEEDED') {
-          showError(`⏰ Daily limit exceeded: ${errorData.error}`);
+          showError(` Daily limit exceeded: ${errorData.error}`);
           if (errorData.details) {
             setLastRequestInfo({
               lastRequestTime: new Date(errorData.details.last_request_time),
@@ -446,7 +503,7 @@ const CreateRequestPage = () => {
               hoursRemaining: errorData.details.hours_remaining
             });
             setCanSubmitRequestNow(false);
-            showInfo(`📅 Next request available: ${new Date(errorData.details.actual_next_available_time || errorData.details.next_allowed_time).toLocaleString('tr-TR')}`);
+            showInfo(` Next request available: ${new Date(errorData.details.actual_next_available_time || errorData.details.next_allowed_time).toLocaleString('tr-TR')}`);
           }
         } else if (errorData.errorCode === 'HOURLY_RATE_LIMIT_EXCEEDED') {
           showError(`⏰ Rate limit exceeded: ${errorData.error}`);
@@ -493,7 +550,7 @@ const CreateRequestPage = () => {
                 const restriction = getRestrictionReason();
                 return restriction ? (
                   <div className="alert alert-warning mb-4">
-                    <h6 className="alert-heading">{restriction.icon} Request Creation Restricted</h6>
+                    <h6 className="alert-heading"> Request Creation Restricted</h6>
                     <p className="mb-2">{restriction.message}</p>
                     
                     {restriction.type === 'working_hours' && (
@@ -528,8 +585,7 @@ const CreateRequestPage = () => {
                   <li>{t('guideline1')}</li>
                   <li>{t('guideline2')}</li>
                   <li>{t('guideline4')}</li>
-                  <li>📅 Requests can only be created during working hours and non-holiday periods</li>
-                  <li>⏰ Maximum 1 request per 24 hours</li>
+                 
                 </ul>
               </div>
 
@@ -807,8 +863,8 @@ const CreateRequestPage = () => {
                      <li>{t('provideDetail')}</li>
                      <li>{t('prepareFiles')}</li>
                      <li>{t('useHighPriority')}</li>
-                     <li>📅 Ensure you're submitting during working hours and non-holiday periods</li>
-                     <li>⏰ Remember the 24-hour limit between requests</li>
+                     <li>Ensure you're submitting during working hours and non-holiday periods</li>
+                    
                    </ul>
                  </div>
                </div>

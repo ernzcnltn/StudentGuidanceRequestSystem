@@ -76,17 +76,54 @@ const AcademicCalendarManager = () => {
 
   // Fetch upload history
   const fetchUploadHistory = async () => {
-    try {
-      const response = await apiService.getAcademicCalendarUploads();
-      
-      if (response.data.success) {
-        setUploadHistory(response.data.data.uploads);
-      }
-    } catch (error) {
-      console.error('Failed to fetch upload history:', error);
-      showError('Failed to load upload history');
+  try {
+    console.log('📂 Fetching upload history...');
+    
+    // ✅ FIXED: Simplified API call
+    const response = await apiService.getAcademicCalendarUploads({
+      limit: 20,
+      offset: 0
+    });
+    
+    console.log('📂 Upload history response:', response);
+    
+    if (response.data && response.data.success) {
+      setUploadHistory(response.data.data.uploads || []);
+      console.log('✅ Upload history loaded:', response.data.data.uploads?.length || 0, 'items');
+    } else {
+      console.error('❌ Upload history response not successful:', response.data);
+      setUploadHistory([]);
+      showError('Failed to load upload history: Invalid response format');
     }
-  };
+  } catch (error) {
+    console.error('❌ Failed to fetch upload history:', error);
+    setUploadHistory([]);
+    
+    // Better error messaging
+    let errorMessage = 'Failed to load upload history';
+    
+    if (error.response?.status === 500) {
+      errorMessage = 'Server error while loading upload history';
+    } else if (error.response?.status === 403) {
+      errorMessage = 'Access denied: Super admin required';
+    } else if (error.response?.status === 401) {
+      errorMessage = 'Authentication required';
+    } else if (error.code === 'NETWORK_ERROR') {
+      errorMessage = 'Network error: Cannot reach server';
+    }
+    
+    showError(errorMessage);
+    
+    // Show detailed error in development
+    if (process.env.NODE_ENV === 'development') {
+      console.error('Detailed error:', {
+        status: error.response?.status,
+        data: error.response?.data,
+        message: error.message
+      });
+    }
+  }
+};
 
   // Handle file selection
   const handleFileSelect = (event) => {
@@ -132,64 +169,100 @@ const AcademicCalendarManager = () => {
   };
 
   // Handle calendar upload
-  const handleUpload = async () => {
-    if (!selectedFile) {
-      showError('Please select a file to upload');
-      return;
-    }
+ const handleUpload = async () => {
+  if (!selectedFile) {
+    showError('Please select a file to upload');
+    return;
+  }
 
-    if (!academicYear) {
-      showError('Please select an academic year');
-      return;
-    }
+  if (!academicYear) {
+    showError('Please select an academic year');
+    return;
+  }
 
-    try {
-      setUploadInProgress(true);
-      showInfo('Starting calendar upload and processing...');
+  try {
+    setUploadInProgress(true);
+    showInfo('Starting calendar upload and processing...');
 
-      const formData = new FormData();
-      formData.append('calendar_document', selectedFile);
-      formData.append('academic_year', academicYear);
+    const formData = new FormData();
+    formData.append('calendar_document', selectedFile);
+    formData.append('academic_year', academicYear);
 
-      const response = await apiService.uploadAcademicCalendar(formData);
+    console.log('📤 Uploading calendar:', {
+      fileName: selectedFile.name,
+      academicYear: academicYear,
+      fileSize: selectedFile.size
+    });
 
-      if (response.data.success) {
-        showSuccess(`✅ Calendar uploaded successfully! Processed ${response.data.data.events_processed} events.`);
-        
-        setSelectedFile(null);
-        setShowUploadModal(false);
-        
-        // Reset file input
-        const fileInput = document.getElementById('calendar-file-input');
-        if (fileInput) fileInput.value = '';
-        
-        // Refresh data
-        await fetchCalendarStatus();
-        await fetchUploadHistory();
+    const response = await apiService.uploadAcademicCalendar(formData);
+    
+    console.log('📤 Upload response:', response);
 
-        // Show events summary
-        if (response.data.data.events_summary.length > 0) {
-          showInfo(`Events processed: ${response.data.data.events_summary.map(e => e.name).join(', ')}`);
-        }
-      }
-    } catch (error) {
-      console.error('Calendar upload error:', error);
+    // ✅ FIX: Enhanced response handling
+    if (response && response.data && response.data.success) {
+      const data = response.data.data;
+      showSuccess(`✅ Calendar uploaded successfully! Processed ${data.events_processed} events.`);
       
-      let errorMessage = 'Failed to upload calendar';
-      if (error.response?.data?.error) {
-        errorMessage = error.response.data.error;
-      }
+      setSelectedFile(null);
+      setShowUploadModal(false);
       
-      showError(errorMessage);
+      // Reset file input
+      const fileInput = document.getElementById('calendar-file-input');
+      if (fileInput) fileInput.value = '';
       
-      // Show additional details if available
-      if (error.response?.data?.details) {
-        showWarning(`Details: ${error.response.data.details}`);
+      // Refresh data
+      await fetchCalendarStatus();
+      await fetchUploadHistory();
+
+      // Show events summary
+      if (data.events_summary && data.events_summary.length > 0) {
+        showInfo(`Sample events: ${data.events_summary.slice(0, 3).map(e => e.name).join(', ')}`);
       }
-    } finally {
-      setUploadInProgress(false);
+    } else {
+      // Handle response structure issues
+      const errorMsg = response?.data?.error || 'Unknown error occurred';
+      const details = response?.data?.details || '';
+      const stage = response?.data?.stage || 'unknown';
+      
+      console.error('❌ Upload failed:', { errorMsg, details, stage });
+      showError(`Upload failed: ${errorMsg}`);
+      
+      if (details) {
+        showWarning(`Details: ${details}`);
+      }
     }
-  };
+  } catch (error) {
+    console.error('❌ Calendar upload error:', error);
+    
+    // ✅ FIX: Enhanced error handling
+    let errorMessage = 'Failed to upload calendar';
+    let details = '';
+    
+    if (error.response) {
+      // Server responded with error
+      const responseData = error.response.data;
+      errorMessage = responseData?.error || 'Server error';
+      details = responseData?.details || '';
+      
+      console.error('Server error response:', responseData);
+    } else if (error.request) {
+      // Network error
+      errorMessage = 'Network error - cannot reach server';
+      details = 'Please check your internet connection';
+    } else {
+      // Other error
+      errorMessage = 'Upload error';
+      details = error.message;
+    }
+    
+    showError(errorMessage);
+    if (details) {
+      showWarning(`Details: ${details}`);
+    }
+  } finally {
+    setUploadInProgress(false);
+  }
+};
 
   // Update calendar settings
   const updateSettings = async () => {
@@ -679,30 +752,36 @@ const AcademicCalendarManager = () => {
                   )}
                 </div>
                 <div className="modal-footer">
-                  <button 
-                    type="button" 
-                    className="btn btn-secondary"
-                    onClick={() => setShowUploadModal(false)}
-                    disabled={uploadInProgress}
-                  >
-                    Cancel
-                  </button>
-                  <button 
-                    type="button" 
-                    className="btn btn-primary"
-                    onClick={handleUpload}
-                    disabled={!selectedFile || !academicYear || uploadInProgress}
-                  >
-                    {uploadInProgress ? (
-                      <>
-                        <span className="spinner-border spinner-border-sm me-2"></span>
-                        Processing...
-                      </>
-                    ) : (
-                      '📤 Upload & Process'
-                    )}
-                  </button>
-                </div>
+  <button 
+    type="button" 
+    className="btn btn-secondary"
+    onClick={() => setShowUploadModal(false)}
+    disabled={uploadInProgress}
+  >
+    Cancel
+  </button>
+  <button 
+    type="button" 
+    className="btn btn-primary"
+    onClick={handleUpload}
+    disabled={
+      !selectedFile || 
+      !academicYear || 
+      uploadInProgress ||
+      !selectedFile?.name ||
+      academicYear === ''
+    }
+  >
+    {uploadInProgress ? (
+      <>
+        <span className="spinner-border spinner-border-sm me-2"></span>
+        Processing...
+      </>
+    ) : (
+      '📤 Upload & Process'
+    )}
+  </button>
+</div>
               </div>
             </div>
           </div>

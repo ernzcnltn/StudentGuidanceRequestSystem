@@ -2,12 +2,22 @@
 const express = require('express');
 const router = express.Router();
 const { pool } = require('../config/database');
-const { validateCreateRequest, validateStatusUpdate, validateIdParam } = require('../middleware/validation');
+const { 
+  validateCreateRequest, 
+  validateStatusUpdate, 
+  validateIdParam,
+  validateAcademicCalendarOnly 
+} = require('../middleware/validation');
 const { upload, handleUploadError } = require('../middleware/upload');
 const jwt = require('jsonwebtoken');
 const path = require('path');
 const fs = require('fs');
 const { handleNewRequestAssignment } = require('./adminAuth'); // Import from adminAuth
+
+const { 
+  validateWorkingHoursAndCalendarWithAdminBypass 
+} = require('../middleware/academicCalendar');
+
 
 // Student auth middleware
 const authenticateStudent = async (req, res, next) => {
@@ -84,6 +94,104 @@ router.get('/', async (req, res) => {
     });
   }
 });
+
+
+// ✅ NEW: Check current request creation availability
+router.get('/availability/current', async (req, res) => {
+  try {
+    console.log('🕒 Checking current request creation availability...');
+    
+    // Import calendar utilities
+    const { enhancedWorkingHoursUtils } = require('../middleware/academicCalendar');
+    
+    let availabilityCheck;
+    try {
+      availabilityCheck = await enhancedWorkingHoursUtils.isWithinWorkingHoursAndCalendar();
+    } catch (calendarError) {
+      console.error('❌ Calendar availability check failed:', calendarError);
+      
+      // Fallback to basic working hours check
+      const kktcDate = new Date(new Date().toLocaleString("en-US", {timeZone: "Europe/Istanbul"}));
+      const dayOfWeek = kktcDate.getDay();
+      const hours = kktcDate.getHours();
+      const minutes = kktcDate.getMinutes();
+      const currentTimeInMinutes = hours * 60 + minutes;
+      
+      const workStartMinutes = 8 * 60 + 30; // 08:30
+      const workEndMinutes = 17 * 60 + 30;   // 17:30
+      
+      const isWorkingTime = dayOfWeek !== 0 && dayOfWeek !== 6 && 
+                           currentTimeInMinutes >= workStartMinutes && 
+                           currentTimeInMinutes < workEndMinutes;
+      
+      availabilityCheck = {
+        isAllowed: isWorkingTime,
+        reason: isWorkingTime ? 'working_hours' : 
+                (dayOfWeek === 0 || dayOfWeek === 6) ? 'weekend' : 'outside_hours',
+        message: isWorkingTime ? 
+          'Request can be created during working hours' : 
+          'Requests can only be created during working hours (Monday-Friday 08:30-17:30)',
+        currentTime: `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`,
+        date: kktcDate.toISOString().split('T')[0],
+        calendar_error: true
+      };
+    }
+    
+    let nextWorkingTime = null;
+    if (!availabilityCheck.isAllowed) {
+      try {
+        nextWorkingTime = await enhancedWorkingHoursUtils.getNextWorkingTime();
+      } catch (nextTimeError) {
+        console.error('❌ Next working time calculation failed:', nextTimeError);
+        // Fallback calculation
+        const now = new Date();
+        let nextDay = new Date(now);
+        do {
+          nextDay.setDate(nextDay.getDate() + 1);
+        } while (nextDay.getDay() === 0 || nextDay.getDay() === 6);
+        nextDay.setHours(8, 30, 0, 0);
+        
+        nextWorkingTime = {
+          date: nextDay.toLocaleDateString('tr-TR'),
+          time: '08:30',
+          fullDateTime: nextDay.toISOString(),
+          dayName: ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][nextDay.getDay()],
+          daysAhead: Math.ceil((nextDay - now) / (1000 * 60 * 60 * 24))
+        };
+      }
+    }
+    
+    res.json({
+      success: true,
+      data: {
+        can_create_request: availabilityCheck.isAllowed,
+        reason: availabilityCheck.reason,
+        message: availabilityCheck.message,
+        current_time: availabilityCheck.currentTime,
+        current_date: availabilityCheck.date,
+        next_available: nextWorkingTime,
+        academic_calendar: {
+          enabled: !availabilityCheck.calendar_error,
+          error: availabilityCheck.calendar_error || false,
+          holiday_details: availabilityCheck.holiday_details || null
+        },
+        working_hours: {
+          schedule: 'Monday-Friday 08:30-17:30',
+          timezone: 'Turkey Time (GMT+3)'
+        }
+      }
+    });
+    
+  } catch (error) {
+    console.error('❌ Availability check error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to check availability',
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
+
 
 // GET /api/requests/student/:studentId - Belirli bir öğrencinin taleplerini getir
 router.get('/student/:studentId', async (req, res) => {
@@ -197,55 +305,246 @@ router.put('/:id/status', validateIdParam, validateStatusUpdate, async (req, res
   }
 });
 
+
 // POST /api/requests - Create new request (Student tarafından)
-router.post('/', authenticateStudent, async (req, res) => {
-  try {
-    const { type_id, content, priority = 'Medium' } = req.body;
-    const student_id = req.student.student_id;
+router.post('/', 
+  authenticateStudent,
+  validateWorkingHoursAndCalendarWithAdminBypass, // Academic calendar + working hours
+  validateCreateRequest, // Enhanced validation with calendar
+  async (req, res) => {
+    try {
+      const { type_id, content, priority = 'Medium' } = req.body;
+      const studentId = req.student.student_id;
 
-    if (!type_id || !content) {
-      return res.status(400).json({
-        success: false,
-        error: 'Type ID and content are required'
-      });
-    }
-
-    // Request type kontrolü
-    const [typeCheck] = await pool.execute(
-      'SELECT type_id, is_disabled FROM request_types WHERE type_id = ?',
-      [type_id]
-    );
-
-    if (typeCheck.length === 0 || typeCheck[0].is_disabled) {
-      return res.status(400).json({
-        success: false,
-        error: 'Invalid or disabled request type'
-      });
-    }
-
-    const [result] = await pool.execute(`
-      INSERT INTO guidance_requests (student_id, type_id, content, priority, status, submitted_at)
-      VALUES (?, ?, ?, ?, 'Pending', NOW())
-    `, [student_id, type_id, content, priority]);
-
-    res.status(201).json({
-      success: true,
-      message: 'Request created successfully',
-      data: {
-        request_id: result.insertId,
-        student_id,
+      console.log('📝 Creating new request with calendar validation:', {
+        studentId,
         type_id,
-        content,
         priority,
-        status: 'Pending'
+        contentLength: content?.length || 0,
+        validationInfo: req.validationInfo ? 'Present' : 'Missing',
+        calendarInfo: req.workingHoursInfo ? 'Present' : 'Missing'
+      });
+
+      // Additional server-side validation
+      if (!type_id || !content) {
+        return res.status(400).json({
+          success: false,
+          error: 'Request type and content are required'
+        });
+      }
+
+      if (content.trim().length < 10) {
+        return res.status(400).json({
+          success: false,
+          error: 'Content must be at least 10 characters long'
+        });
+      }
+
+      if (content.length > 300) {
+        return res.status(400).json({
+          success: false,
+          error: `Content exceeds 300 characters limit. Current: ${content.length} characters`
+        });
+      }
+
+      // Get request type info for assignment
+      const [requestType] = await pool.execute(
+        'SELECT type_id, type_name, category, is_disabled FROM request_types WHERE type_id = ?',
+        [type_id]
+      );
+
+      if (requestType.length === 0) {
+        return res.status(400).json({
+          success: false,
+          error: 'Invalid request type'
+        });
+      }
+
+      if (requestType[0].is_disabled) {
+        return res.status(400).json({
+          success: false,
+          error: 'This request type is currently disabled'
+        });
+      }
+
+      const category = requestType[0].category;
+
+      // Create the request
+      const [result] = await pool.execute(`
+        INSERT INTO guidance_requests (
+          student_id, 
+          type_id, 
+          content, 
+          priority, 
+          status, 
+          submitted_at
+        ) VALUES (?, ?, ?, ?, 'Pending', NOW())
+      `, [studentId, type_id, content.trim(), priority]);
+
+      const requestId = result.insertId;
+
+      console.log(`✅ Request created with ID: ${requestId}`);
+
+      // AUTO-ASSIGNMENT LOGIC with error handling
+      console.log(`🤖 Starting auto-assignment for request ${requestId} to ${category} department`);
+      
+      let assignmentInfo = {
+        auto_assignment_attempted: false,
+        assignment_successful: false
+      };
+
+      try {
+        const assignmentResult = await handleNewRequestAssignment(requestId);
+        assignmentInfo.auto_assignment_attempted = true;
+        
+        if (assignmentResult?.success) {
+          assignmentInfo.assignment_successful = true;
+          assignmentInfo.assigned_to = assignmentResult.assignedTo.full_name;
+          assignmentInfo.admin_workload = assignmentResult.workload;
+          console.log(`✅ Request ${requestId} auto-assigned to ${assignmentResult.assignedTo.full_name}`);
+        } else {
+          assignmentInfo.assignment_error = assignmentResult?.reason || assignmentResult?.error;
+          console.log(`⚠️ Auto-assignment failed for request ${requestId}: ${assignmentInfo.assignment_error}`);
+        }
+      } catch (assignmentError) {
+        console.error('❌ Auto-assignment error (non-critical):', assignmentError);
+        assignmentInfo.auto_assignment_attempted = true;
+        assignmentInfo.assignment_error = 'Auto-assignment failed but request was created';
+      }
+
+      // Success response with enhanced info
+      res.status(201).json({
+        success: true,
+        message: 'Request submitted successfully',
+        data: {
+          request_id: requestId,
+          type_name: requestType[0].type_name,
+          category: category,
+          priority: priority,
+          status: 'Pending',
+          submitted_at: new Date().toISOString(),
+          assignment_info: assignmentInfo,
+          validation_info: {
+            academic_calendar_validated: req.validationInfo?.academicCalendarValidated || false,
+            calendar_error: req.validationInfo?.calendarError || false,
+            working_hours_validated: !!req.workingHoursInfo,
+            current_date: req.validationInfo?.currentDate || new Date().toISOString().split('T')[0],
+            is_academic_holiday: req.validationInfo?.isAcademicHoliday || false
+          }
+        }
+      });
+
+    } catch (error) {
+      console.error('❌ Request creation error:', error);
+      
+      // Enhanced error response
+      let errorMessage = 'Failed to create request';
+      let statusCode = 500;
+      
+      if (error.code === 'ER_DUP_ENTRY') {
+        errorMessage = 'Duplicate request detected';
+        statusCode = 409;
+      } else if (error.code === 'ER_NO_REFERENCED_ROW_2') {
+        errorMessage = 'Invalid student or request type reference';
+        statusCode = 400;
+      }
+      
+      res.status(statusCode).json({
+        success: false,
+        error: errorMessage,
+        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      });
+    }
+  }
+);
+
+
+// ✅ ENHANCED: Student's own requests with calendar validation info
+router.get('/student/me', authenticateStudent, async (req, res) => {
+  try {
+    const studentId = req.student.student_id;
+    const { status, limit = 50 } = req.query;
+
+    console.log('📋 Fetching student requests with calendar info:', { studentId, status, limit });
+
+    let statusCondition = '';
+    const params = [studentId];
+
+    if (status && status !== 'all') {
+      statusCondition = ' AND gr.status = ?';
+      params.push(status);
+    }
+
+    const [requests] = await pool.execute(`
+      SELECT 
+        gr.request_id,
+        gr.content,
+        gr.status,
+        gr.priority,
+        gr.submitted_at,
+        gr.updated_at,
+        gr.resolved_at,
+        gr.assigned_admin_id,
+        gr.assigned_at,
+        gr.assignment_method,
+        
+        rt.type_name,
+        rt.category,
+        rt.description_en,
+        
+        au.full_name as assigned_admin_name,
+        au.email as assigned_admin_email,
+        
+        COUNT(a.attachment_id) as attachment_count,
+        COUNT(ar.response_id) as response_count,
+        
+        MAX(ar.created_at) as last_response_at
+        
+      FROM guidance_requests gr
+      JOIN request_types rt ON gr.type_id = rt.type_id
+      LEFT JOIN admin_users au ON gr.assigned_admin_id = au.admin_id
+      LEFT JOIN attachments a ON gr.request_id = a.request_id
+      LEFT JOIN admin_responses ar ON gr.request_id = ar.request_id
+      WHERE gr.student_id = ? ${statusCondition}
+      GROUP BY gr.request_id
+      ORDER BY gr.submitted_at DESC
+      LIMIT ?
+    `, [...params, parseInt(limit)]);
+
+    // Add enhanced info for each request
+    const enhancedRequests = requests.map(request => ({
+      ...request,
+      has_assignment: !!request.assigned_admin_id,
+      assignment_delay_hours: request.assigned_at ? 
+        Math.round((new Date(request.assigned_at) - new Date(request.submitted_at)) / (1000 * 60 * 60)) : null,
+      is_auto_assigned: request.assignment_method === 'auto',
+      time_since_submission: Math.round((new Date() - new Date(request.submitted_at)) / (1000 * 60 * 60)),
+      time_since_last_update: request.updated_at ? 
+        Math.round((new Date() - new Date(request.updated_at)) / (1000 * 60 * 60)) : null
+    }));
+
+    console.log(`✅ Retrieved ${enhancedRequests.length} requests for student ${studentId}`);
+
+    res.json({
+      success: true,
+      data: enhancedRequests,
+      meta: {
+        total_requests: enhancedRequests.length,
+        student_id: studentId,
+        filter_status: status || 'all',
+        assignment_stats: {
+          assigned: enhancedRequests.filter(r => r.has_assignment).length,
+          unassigned: enhancedRequests.filter(r => !r.has_assignment).length,
+          auto_assigned: enhancedRequests.filter(r => r.is_auto_assigned).length
+        }
       }
     });
 
   } catch (error) {
-    console.error('Create request error:', error);
+    console.error('❌ Get student requests error:', error);
     res.status(500).json({
       success: false,
-      error: 'Failed to create request'
+      error: 'Failed to fetch requests'
     });
   }
 });
@@ -265,14 +564,14 @@ router.post('/:id/upload', upload.array('files', 3), handleUploadError, async (r
       });
     }
     
-    // Request'in var olup olmadığını kontrol et
+    // Check if request exists
     const [requestCheck] = await pool.execute(
       'SELECT request_id FROM guidance_requests WHERE request_id = ?',
       [requestId]
     );
     
     if (requestCheck.length === 0) {
-      // Yüklenen dosyaları sil
+      // Clean up uploaded files
       files.forEach(file => {
         fs.unlinkSync(file.path);
       });
@@ -283,7 +582,7 @@ router.post('/:id/upload', upload.array('files', 3), handleUploadError, async (r
       });
     }
     
-    // Dosya bilgilerini veritabanına kaydet
+    // Save file information to database
     const uploadedFiles = [];
     for (const file of files) {
       console.log('Saving file to DB:', {
@@ -317,7 +616,7 @@ router.post('/:id/upload', upload.array('files', 3), handleUploadError, async (r
   } catch (error) {
     console.error('Error uploading files:', error);
     
-    // Hata durumunda yüklenen dosyaları temizle
+    // Clean up uploaded files on error
     if (req.files) {
       req.files.forEach(file => {
         try {
@@ -334,7 +633,6 @@ router.post('/:id/upload', upload.array('files', 3), handleUploadError, async (r
     });
   }
 });
-
 
 // POST /api/requests - Create new request with auto-assignment
 router.post('/requests', authenticateStudent, async (req, res) => {
@@ -693,6 +991,68 @@ router.get('/:id/attachments', async (req, res) => {
   }
 });
 
+// GET /api/requests/attachments/:filename - Download file
+router.get('/attachments/:filename', async (req, res) => {
+  try {
+    const filename = req.params.filename;
+    const filePath = path.join(__dirname, '../uploads', filename);
+    
+    console.log('Download request for:', filename);
+    console.log('File path:', filePath);
+    
+    // Security check - does file actually exist
+    if (!fs.existsSync(filePath)) {
+      console.log('File not found at:', filePath);
+      return res.status(404).json({
+        success: false,
+        error: 'File not found'
+      });
+    }
+    
+    // Get file info from database (for security)
+    const [attachments] = await pool.execute(
+      'SELECT * FROM attachments WHERE file_path = ?',
+      [filename]
+    );
+    
+    if (attachments.length === 0) {
+      console.log('File not found in database:', filename);
+      return res.status(404).json({
+        success: false,
+        error: 'File not found in database'
+      });
+    }
+    
+    const attachment = attachments[0];
+    console.log('Downloading file:', attachment.file_name);
+    
+    // Set Content-Type
+    res.setHeader('Content-Type', attachment.file_type || 'application/octet-stream');
+    res.setHeader('Content-Disposition', `inline; filename="${attachment.file_name}"`);
+    
+    // Send file
+    res.sendFile(filePath, (err) => {
+      if (err) {
+        console.error('Error sending file:', err);
+        if (!res.headersSent) {
+          res.status(500).json({ 
+            success: false,
+            error: 'Failed to send file' 
+          });
+        }
+      } else {
+        console.log('File sent successfully:', attachment.file_name);
+      }
+    });
+  } catch (error) {
+    console.error('Error downloading file:', error);
+    res.status(500).json({ 
+      success: false,
+      error: 'Failed to download file' 
+    });
+  }
+});
+
 // GET /api/requests/attachments/:filename - Dosya indirme
 router.get('/attachments/:filename', async (req, res) => {
   try {
@@ -762,7 +1122,7 @@ router.get('/:id/responses', async (req, res) => {
     
     console.log('📋 Getting responses for request:', requestId);
     
-    // Request'in var olup olmadığını kontrol et
+    // Check if request exists
     const [requestCheck] = await pool.execute(
       'SELECT request_id FROM guidance_requests WHERE request_id = ?',
       [requestId]
@@ -775,7 +1135,7 @@ router.get('/:id/responses', async (req, res) => {
       });
     }
     
-    // Admin responses'ları getir (admin_responses tablosundan)
+    // Get admin responses (from admin_responses table)
     const [responses] = await pool.execute(
       `SELECT 
         ar.response_id,
@@ -852,6 +1212,49 @@ router.get('/:requestId/rejection-details', authenticateStudent, async (req, res
 
 
 
+// NEW: GET /api/requests/:requestId/rejection-details - Student rejection details
+router.get('/:requestId/rejection-details', authenticateStudent, async (req, res) => {
+  try {
+    const { requestId } = req.params;
+    const studentId = req.student.student_id; // JWT'den gelen student ID
+    
+    console.log('📋 Getting rejection details for request (STUDENT):', { requestId, studentId });
+    
+    // Student can only see their own request details
+    const [rejectionDetails] = await pool.execute(`
+      SELECT 
+        gr.rejection_reason as reason,
+        '' as additional_info,
+        gr.rejected_at,
+        gr.rejected_by,
+        COALESCE(au.full_name, au.name, au.username, 'Admin') as admin_name
+      FROM guidance_requests gr
+      LEFT JOIN admin_users au ON gr.rejected_by = au.admin_id
+      WHERE gr.request_id = ? AND gr.student_id = ? AND gr.status = 'Rejected'
+    `, [requestId, studentId]);
+    
+    if (rejectionDetails.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'Rejection details not found or request is not rejected'
+      });
+    }
+    
+    console.log('✅ Found rejection details:', rejectionDetails[0]);
+    
+    res.json({
+      success: true,
+      data: rejectionDetails[0]
+    });
+  } catch (error) {
+    console.error('❌ Get rejection details error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to get rejection details',
+      error: error.message
+    });
+  }
+});
 
 
 

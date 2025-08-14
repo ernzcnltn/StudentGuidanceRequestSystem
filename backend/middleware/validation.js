@@ -1,4 +1,5 @@
-// backend/middleware/validation.js - UPDATED with Academic Calendar Integration
+
+// backend/middleware/validation.js - COMPLETE FUNCTION
 
 const { pool } = require('../config/database');
 const { 
@@ -6,7 +7,7 @@ const {
   enhancedWorkingHoursUtils 
 } = require('./academicCalendar');
 
-// ⭐ UPDATED: Request oluşturma validasyonu - Academic Calendar entegrasyonu ile
+// ⭐ COMPLETE validateCreateRequest function with calendar integration
 const validateCreateRequest = async (req, res, next) => {
   try {
     const { student_id, type_id, content, priority = 'Medium' } = req.body;
@@ -18,59 +19,13 @@ const validateCreateRequest = async (req, res, next) => {
       priority
     });
 
+    // ===== BASIC FIELD VALIDATION (ÖNCE GELEN KOD) =====
     // Required fields check
     if (!student_id || !type_id || !content) {
       return res.status(400).json({
         success: false,
         error: 'Missing required fields',
         required: ['student_id', 'type_id', 'content']
-      });
-    }
-    
-    // ⭐ UPDATED: Enhanced working hours and academic calendar check
-    const workingHoursCheck = await enhancedWorkingHoursUtils.isWithinWorkingHoursAndCalendar();
-    if (!workingHoursCheck.isAllowed) {
-      const nextWorkingTime = await enhancedWorkingHoursUtils.getNextWorkingTime();
-      
-      // Enhanced error response with calendar information
-      let errorMessage = workingHoursCheck.message;
-      let errorCode = workingHoursCheck.code || 'ACCESS_RESTRICTED';
-      let guidance = {
-        message: 'Please submit your request during available times',
-        schedule: 'Monday to Friday, 08:30 - 17:30 (Turkey Time)',
-        nextOpening: nextWorkingTime ? 
-          `Next available: ${nextWorkingTime.date} at ${nextWorkingTime.time}` : 
-          'Next working day at 08:30'
-      };
-
-      // Specific guidance for academic holidays
-      if (workingHoursCheck.reason === 'academic_holiday') {
-        errorMessage = `Academic Holiday Restriction: ${workingHoursCheck.message}`;
-        errorCode = 'ACADEMIC_HOLIDAY';
-        guidance.message = 'Requests cannot be submitted during academic holidays';
-        guidance.holiday_info = workingHoursCheck.holiday_details;
-        
-        if (workingHoursCheck.next_available) {
-          guidance.next_available_date = workingHoursCheck.next_available;
-        }
-      }
-      
-      return res.status(423).json({
-        success: false,
-        error: errorMessage,
-        errorCode: errorCode,
-        details: {
-          reason: workingHoursCheck.reason,
-          currentTime: workingHoursCheck.currentTime,
-          currentDate: workingHoursCheck.date,
-          workingHours: '08:30-17:30',
-          workingDays: 'Monday - Friday',
-          timezone: 'Turkey Time (GMT+3)',
-          nextAvailableTime: nextWorkingTime,
-          holiday_details: workingHoursCheck.holiday_details || null,
-          academic_calendar_enabled: true
-        },
-        guidance: guidance
       });
     }
 
@@ -138,8 +93,121 @@ const validateCreateRequest = async (req, res, next) => {
         error: 'This request type is currently disabled'
       });
     }
+
+    // ===== CALENDAR VALIDATION (YENİ EKLENEN KOD) =====
+    // ✅ FIX: Enhanced working hours and calendar check with error handling
+    let workingHoursCheck;
+    try {
+      workingHoursCheck = await enhancedWorkingHoursUtils.isWithinWorkingHoursAndCalendar();
+    } catch (calendarError) {
+      console.error('❌ Calendar check error in validation:', calendarError);
+      
+      // Fallback to basic working hours check
+      const kktcDate = new Date(new Date().toLocaleString("en-US", {timeZone: "Europe/Istanbul"}));
+      const dayOfWeek = kktcDate.getDay();
+      const hours = kktcDate.getHours();
+      const minutes = kktcDate.getMinutes();
+      const currentTimeInMinutes = hours * 60 + minutes;
+      
+      const workStartMinutes = 8 * 60 + 30; // 08:30
+      const workEndMinutes = 17 * 60 + 30;   // 17:30
+      
+      const isWorkingTime = dayOfWeek !== 0 && dayOfWeek !== 6 && 
+                           currentTimeInMinutes >= workStartMinutes && 
+                           currentTimeInMinutes < workEndMinutes;
+      
+      workingHoursCheck = {
+        isAllowed: isWorkingTime,
+        reason: isWorkingTime ? 'working_hours' : 
+                (dayOfWeek === 0 || dayOfWeek === 6) ? 'weekend' : 'outside_hours',
+        message: isWorkingTime ? 
+          'Request can be created during working hours' : 
+          'Requests can only be created during working hours (Monday-Friday 08:30-17:30)',
+        currentTime: `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`,
+        date: kktcDate.toISOString().split('T')[0],
+        calendar_error: true
+      };
+    }
     
-    // ⭐ UPDATED: 24 saat limit kontrolü - Academic calendar aware
+    if (!workingHoursCheck.isAllowed) {
+      let nextWorkingTime;
+      try {
+        nextWorkingTime = await enhancedWorkingHoursUtils.getNextWorkingTime();
+      } catch (nextTimeError) {
+        console.error('❌ Next working time error:', nextTimeError);
+        // Fallback next working time calculation
+        const now = new Date();
+        let nextDay = new Date(now);
+        do {
+          nextDay.setDate(nextDay.getDate() + 1);
+        } while (nextDay.getDay() === 0 || nextDay.getDay() === 6);
+        nextDay.setHours(8, 30, 0, 0);
+        
+        nextWorkingTime = {
+          date: nextDay.toLocaleDateString('tr-TR'),
+          time: '08:30',
+          fullDateTime: nextDay.toISOString(),
+          dayName: ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][nextDay.getDay()],
+          daysAhead: Math.ceil((nextDay - now) / (1000 * 60 * 60 * 24))
+        };
+      }
+      
+      // Enhanced error response with calendar information
+      let errorMessage = workingHoursCheck.message;
+      let errorCode = workingHoursCheck.code || 'ACCESS_RESTRICTED';
+      let guidance = {
+        message: 'Please submit your request during available times',
+        schedule: 'Monday to Friday, 08:30 - 17:30 (Turkey Time)',
+        nextOpening: nextWorkingTime ? 
+          `Next available: ${nextWorkingTime.date} at ${nextWorkingTime.time}` : 
+          'Next working day at 08:30'
+      };
+
+      // Specific guidance for academic holidays
+      if (workingHoursCheck.reason === 'academic_holiday') {
+        errorMessage = `Academic Holiday Restriction: ${workingHoursCheck.message}`;
+        errorCode = 'ACADEMIC_HOLIDAY';
+        guidance.message = 'Requests cannot be submitted during academic holidays';
+        guidance.holiday_info = workingHoursCheck.holiday_details;
+        
+        if (workingHoursCheck.next_available) {
+          guidance.next_available_date = workingHoursCheck.next_available;
+        }
+      } else if (workingHoursCheck.reason === 'weekend') {
+        errorCode = 'WEEKEND_NOT_ALLOWED';
+        errorMessage = 'Weekend Restriction: Requests cannot be submitted on weekends';
+      } else if (workingHoursCheck.reason === 'outside_hours' || workingHoursCheck.reason === 'too_early' || workingHoursCheck.reason === 'too_late') {
+        errorCode = 'OUTSIDE_WORKING_HOURS';
+        errorMessage = 'Outside Working Hours: Requests can only be created Monday-Friday 08:30-17:30';
+      }
+      
+      // Add calendar error warning if applicable
+      if (workingHoursCheck.calendar_error) {
+        guidance.warning = 'Academic calendar could not be verified';
+      }
+      
+      return res.status(423).json({
+        success: false,
+        error: errorMessage,
+        errorCode: errorCode,
+        details: {
+          reason: workingHoursCheck.reason,
+          currentTime: workingHoursCheck.currentTime,
+          currentDate: workingHoursCheck.date,
+          workingHours: '08:30-17:30',
+          workingDays: 'Monday - Friday',
+          timezone: 'Turkey Time (GMT+3)',
+          nextAvailableTime: nextWorkingTime,
+          holiday_details: workingHoursCheck.holiday_details || null,
+          academic_calendar_enabled: !workingHoursCheck.calendar_error,
+          calendar_error: workingHoursCheck.calendar_error || false
+        },
+        guidance: guidance
+      });
+    }
+
+    // ===== 24-HOUR LIMIT CHECK (SONRA GELEN KOD) =====
+    // ✅ FIXED: 24 saat limit kontrolü - Academic calendar aware with error handling
     console.log('🕐 Checking 24-hour limit for student:', student_id);
     
     const [recentRequests] = await pool.execute(`
@@ -165,16 +233,34 @@ const validateCreateRequest = async (req, res, next) => {
       const nextAllowedTime = new Date(lastRequestDate.getTime() + 24 * 60 * 60 * 1000);
       const hoursLeft = Math.ceil((nextAllowedTime - new Date()) / (1000 * 60 * 60));
       
-      // ⭐ NEW: Check if next allowed time is during working hours and not a holiday
-      const nextAllowedTimeCheck = await enhancedWorkingHoursUtils.isWithinWorkingHoursAndCalendar(nextAllowedTime);
+      // ✅ FIXED: Check if next allowed time is during working hours and not a holiday with error handling
       let actualNextAvailable = nextAllowedTime;
       
-      if (!nextAllowedTimeCheck.isAllowed) {
-        // If 24-hour period ends during non-working time, find next working time
-        const nextWorkingTime = await enhancedWorkingHoursUtils.getNextWorkingTime(nextAllowedTime);
-        if (nextWorkingTime && nextWorkingTime.fullDateTime) {
-          actualNextAvailable = new Date(nextWorkingTime.fullDateTime);
+      try {
+        const nextAllowedTimeCheck = await enhancedWorkingHoursUtils.isWithinWorkingHoursAndCalendar(nextAllowedTime);
+        
+        if (!nextAllowedTimeCheck.isAllowed) {
+          // If 24-hour period ends during non-working time, find next working time
+          try {
+            const nextWorkingTime = await enhancedWorkingHoursUtils.getNextWorkingTime(nextAllowedTime);
+            if (nextWorkingTime && nextWorkingTime.fullDateTime) {
+              actualNextAvailable = new Date(nextWorkingTime.fullDateTime);
+            }
+          } catch (nextTimeError) {
+            console.error('❌ Next working time calculation error:', nextTimeError);
+            // Use fallback calculation
+            let nextWorkingDay = new Date(nextAllowedTime);
+            while (nextWorkingDay.getDay() === 0 || nextWorkingDay.getDay() === 6) {
+              nextWorkingDay.setDate(nextWorkingDay.getDate() + 1);
+            }
+            nextWorkingDay.setHours(8, 30, 0, 0);
+            actualNextAvailable = nextWorkingDay;
+          }
         }
+      } catch (calendarCheckError) {
+        console.error('❌ Calendar check for next available time failed:', calendarCheckError);
+        // Use the original 24-hour time if calendar check fails
+        actualNextAvailable = nextAllowedTime;
       }
       
       const actualHoursLeft = Math.ceil((actualNextAvailable - new Date()) / (1000 * 60 * 60));
@@ -216,7 +302,8 @@ const validateCreateRequest = async (req, res, next) => {
       });
     }
     
-    // ⭐ UPDATED: Add enhanced validation success info to request
+    // ===== SUCCESS - ADD VALIDATION INFO (SON KISIM) =====
+    // ✅ FIXED: Add enhanced validation success info to request
     req.validationInfo = {
       checkedAt: new Date().toISOString(),
       student: students[0],
@@ -227,9 +314,10 @@ const validateCreateRequest = async (req, res, next) => {
       nextAllowedTime: recentCount > 0 ? 
         new Date(new Date(lastRequestTime).getTime() + 24 * 60 * 60 * 1000) : 
         new Date(),
-      academicCalendarValidated: true,
+      academicCalendarValidated: !workingHoursCheck.calendar_error,
       currentDate: workingHoursCheck.date,
-      isAcademicHoliday: workingHoursCheck.reason === 'academic_holiday'
+      isAcademicHoliday: workingHoursCheck.reason === 'academic_holiday',
+      calendarError: workingHoursCheck.calendar_error || false
     };
     
     console.log('✅ Request validation passed with academic calendar:', {
@@ -237,10 +325,12 @@ const validateCreateRequest = async (req, res, next) => {
       requestType: requestTypes[0].type_name,
       recent24hCount: recentCount,
       pendingCount: pendingRequests[0].pending_count,
-      academicCalendarOk: workingHoursCheck.isAllowed
+      academicCalendarOk: workingHoursCheck.isAllowed,
+      calendarError: workingHoursCheck.calendar_error || false
     });
     
-    next();
+    next(); // ✅ Validation passed, proceed to next middleware
+    
   } catch (error) {
     console.error('❌ Enhanced validation error:', error);
     res.status(500).json({
@@ -258,11 +348,23 @@ const validateAcademicCalendarOnly = async (req, res, next) => {
     
     const currentDate = new Date().toISOString().split('T')[0];
     
-    // Check if academic calendar is enabled
-    const [calendarSettings] = await pool.execute(`
-      SELECT setting_value FROM academic_settings 
-      WHERE setting_key = 'academic_calendar_enabled'
-    `);
+    // Check if academic calendar is enabled with error handling
+    let calendarSettings;
+    try {
+      [calendarSettings] = await pool.execute(`
+        SELECT setting_value FROM academic_settings 
+        WHERE setting_key = 'academic_calendar_enabled'
+      `);
+    } catch (settingsError) {
+      console.error('❌ Calendar settings check failed:', settingsError);
+      req.academicCalendarInfo = {
+        enabled: false,
+        reason: 'settings_error',
+        message: 'Academic calendar settings unavailable',
+        error: settingsError.message
+      };
+      return next();
+    }
     
     if (calendarSettings.length === 0 || calendarSettings[0].setting_value !== 'true') {
       console.log('📅 Academic calendar is disabled, skipping validation');
@@ -274,10 +376,23 @@ const validateAcademicCalendarOnly = async (req, res, next) => {
       return next();
     }
 
-    // Get holiday information for today
-    const [holidayResult] = await pool.execute(`
-      SELECT is_academic_holiday_detailed(?) as holiday_info
-    `, [currentDate]);
+    // Get holiday information for today with error handling
+    let holidayResult;
+    try {
+      [holidayResult] = await pool.execute(`
+        SELECT is_academic_holiday_detailed(?) as holiday_info
+      `, [currentDate]);
+    } catch (holidayCheckError) {
+      console.error('❌ Holiday check function failed:', holidayCheckError);
+      req.academicCalendarInfo = {
+        enabled: true,
+        isHoliday: false,
+        reason: 'function_error',
+        message: 'Holiday check function unavailable',
+        error: holidayCheckError.message
+      };
+      return next();
+    }
 
     if (!holidayResult[0]?.holiday_info) {
       req.academicCalendarInfo = {
@@ -289,15 +404,36 @@ const validateAcademicCalendarOnly = async (req, res, next) => {
       return next();
     }
 
-    const holidayInfo = JSON.parse(holidayResult[0].holiday_info);
+    let holidayInfo;
+    try {
+      holidayInfo = JSON.parse(holidayResult[0].holiday_info);
+    } catch (parseError) {
+      console.error('❌ Holiday info parsing failed:', parseError);
+      req.academicCalendarInfo = {
+        enabled: true,
+        isHoliday: false,
+        reason: 'parse_error',
+        message: 'Holiday information format error',
+        error: parseError.message
+      };
+      return next();
+    }
     
     if (holidayInfo.is_holiday) {
-      // Get next available date
-      const [nextAvailable] = await pool.execute(`
-        SELECT get_next_request_creation_date(?) as next_info
-      `, [currentDate]);
+      // Get next available date with error handling
+      let nextAvailable = null;
+      try {
+        const [nextAvailableResult] = await pool.execute(`
+          SELECT get_next_request_creation_date(?) as next_info
+        `, [currentDate]);
 
-      const nextInfo = nextAvailable[0]?.next_info ? JSON.parse(nextAvailable[0].next_info) : null;
+        if (nextAvailableResult[0]?.next_info) {
+          nextAvailable = JSON.parse(nextAvailableResult[0].next_info);
+        }
+      } catch (nextDateError) {
+        console.error('❌ Next available date check failed:', nextDateError);
+        // Continue without next date info
+      }
 
       return res.status(423).json({
         success: false,
@@ -310,12 +446,12 @@ const validateAcademicCalendarOnly = async (req, res, next) => {
           holidayTypes: holidayInfo.types,
           isRecurring: holidayInfo.is_recurring,
           priority: holidayInfo.priority,
-          nextAvailable: nextInfo
+          nextAvailable: nextAvailable
         },
         guidance: {
           message: 'Requests cannot be submitted during academic holidays',
           currentHolidays: holidayInfo.names,
-          nextAvailableDate: nextInfo?.success ? nextInfo.formatted_date : 'Unknown',
+          nextAvailableDate: nextAvailable?.success ? nextAvailable.formatted_date : 'Unknown',
           contactInfo: 'For urgent matters, please contact student services directly'
         }
       });
@@ -345,6 +481,143 @@ const validateAcademicCalendarOnly = async (req, res, next) => {
     
     console.warn('⚠️ Academic calendar validation failed, proceeding without restriction');
     next();
+  }
+};
+
+// Export all functions including enhanced versions
+module.exports = {
+  validateCreateRequest,
+  validateAcademicCalendarOnly,
+  
+  // Existing validations (unchanged)
+  validateStatusUpdate: (req, res, next) => {
+    const { status, response_content } = req.body;
+    
+    if (!status) {
+      return res.status(400).json({
+        success: false,
+        error: 'Status is required'
+      });
+    }
+    
+    const validStatuses = ['Pending', 'Informed', 'Completed', 'Rejected'];
+    if (!validStatuses.includes(status)) {
+      return res.status(400).json({
+        success: false,
+        error: `Invalid status. Must be one of: ${validStatuses.join(', ')}`
+      });
+    }
+    
+    if (response_content && typeof response_content !== 'string') {
+      return res.status(400).json({
+        success: false,
+        error: 'Response content must be a string'
+      });
+    }
+    
+    req.statusUpdateInfo = {
+      checkedAt: new Date().toISOString(),
+      newStatus: status,
+      hasResponse: !!response_content
+    };
+    
+    next();
+  },
+  
+  validateIdParam: (req, res, next) => {
+    const id = parseInt(req.params.id);
+    
+    if (isNaN(id) || id <= 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid ID parameter'
+      });
+    }
+    
+    req.params.id = id;
+    next();
+  },
+  
+  // Rate limiting with calendar awareness (enhanced)
+  validateRateLimit: async (req, res, next) => {
+    try {
+      const { student_id } = req.body;
+      
+      if (!student_id) {
+        return next(); // Skip if no student_id
+      }
+      
+      console.log('⏰ Checking hourly rate limit for student:', student_id);
+      
+      const [hourlyRequests] = await pool.execute(`
+        SELECT 
+          COUNT(*) as hourly_count,
+          MAX(submitted_at) as last_request_time
+        FROM guidance_requests 
+        WHERE student_id = ? AND submitted_at >= NOW() - INTERVAL 1 HOUR
+      `, [student_id]);
+      
+      const hourlyCount = hourlyRequests[0].hourly_count;
+      
+      if (hourlyCount >= 1) {
+        const lastRequestTime = new Date(hourlyRequests[0].last_request_time);
+        const nextAllowedTime = new Date(lastRequestTime.getTime() + 60 * 60 * 1000);
+        
+        // Check if next allowed time considers academic calendar (with error handling)
+        let actualNextAvailable = nextAllowedTime;
+        
+        try {
+          const nextAllowedTimeCheck = await enhancedWorkingHoursUtils.isWithinWorkingHoursAndCalendar(nextAllowedTime);
+          if (!nextAllowedTimeCheck.isAllowed) {
+            const nextWorkingTime = await enhancedWorkingHoursUtils.getNextWorkingTime(nextAllowedTime);
+            if (nextWorkingTime && nextWorkingTime.fullDateTime) {
+              actualNextAvailable = new Date(nextWorkingTime.fullDateTime);
+            }
+          }
+        } catch (calendarError) {
+          console.warn('⚠️ Calendar check failed for rate limit, using original time:', calendarError);
+          // Use original time if calendar check fails
+        }
+        
+        const minutesLeft = Math.ceil((actualNextAvailable - new Date()) / (1000 * 60));
+        
+        return res.status(429).json({
+          success: false,
+          error: 'Rate limit exceeded: Maximum 1 request per hour',
+          errorCode: 'HOURLY_RATE_LIMIT_EXCEEDED',
+          details: {
+            current_hourly_count: hourlyCount,
+            max_hourly_allowed: 1,
+            last_request_time: lastRequestTime.toISOString(),
+            next_allowed_time_1h: nextAllowedTime.toISOString(),
+            actual_next_available_time: actualNextAvailable.toISOString(),
+            minutes_remaining: minutesLeft,
+            academic_calendar_considered: true
+          },
+          guidance: {
+            message: `You submitted a request ${Math.floor((new Date() - lastRequestTime) / (1000 * 60))} minutes ago`,
+            wait_time: `Please wait ${minutesLeft} more minutes`,
+            retry_after: `${minutesLeft} minutes`,
+            note: 'Next available time considers academic calendar restrictions'
+          }
+        });
+      }
+      
+      req.rateLimitInfo = {
+        checkedAt: new Date().toISOString(),
+        hourlyCount: hourlyCount,
+        maxHourlyAllowed: 1,
+        academicCalendarConsidered: true
+      };
+      
+      next();
+    } catch (error) {
+      console.error('❌ Enhanced rate limit validation error:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Rate limit validation failed'
+      });
+    }
   }
 };
 

@@ -90,12 +90,73 @@ const enhancedWorkingHoursUtils = {
     }
   },
 
+    // ✅ YENİ: SQL fonksiyonu yoksa manuel kontrol
+  async fallbackHolidayCheck(dateString) {
+    try {
+      console.log('🔄 Using fallback holiday check for:', dateString);
+      
+      // Manuel olarak events tablosundan kontrol et
+      const [events] = await pool.execute(`
+        SELECT 
+          event_name,
+          event_type,
+          start_date,
+          end_date,
+          affects_request_creation
+        FROM academic_calendar_events ace
+        JOIN academic_calendar_uploads acu ON ace.upload_id = acu.upload_id
+        WHERE ? BETWEEN ace.start_date AND ace.end_date
+          AND acu.is_active = TRUE 
+          AND acu.processing_status = 'completed'
+          AND ace.affects_request_creation = TRUE
+        ORDER BY ace.start_date ASC
+      `, [dateString]);
+
+      if (events.length > 0) {
+        const eventNames = events.map(e => e.event_name).join(', ');
+        
+        return {
+          isAllowed: false,
+          reason: 'academic_holiday',
+          message: `Academic holiday: ${eventNames}`,
+          code: 'ACADEMIC_HOLIDAY',
+          date: dateString,
+          holiday_details: {
+            names: eventNames,
+            events: events,
+            is_recurring: false,
+            priority: 'high'
+          }
+        };
+      }
+
+      return {
+        isAllowed: true,
+        reason: 'regular_day',
+        message: 'Regular working day - no academic restrictions',
+        date: dateString
+      };
+
+    } catch (fallbackError) {
+      console.error('❌ Fallback holiday check failed:', fallbackError);
+      
+      // Son çare: calendar kontrolünü devre dışı bırak
+      return {
+        isAllowed: true,
+        reason: 'fallback_error',
+        message: 'Holiday check failed, allowing request',
+        error: true
+      };
+    }
+  },
+
+
   // Check academic calendar for holidays
   async checkAcademicCalendar(dateString) {
     try {
       console.log('🗓️ Checking academic calendar for date:', dateString);
       
-      // Check if academic calendar is enabled
+      // Önce academic calendar'ın aktif olup olmadığını kontrol et
       const [calendarSettings] = await pool.execute(`
         SELECT setting_value FROM academic_settings 
         WHERE setting_key = 'academic_calendar_enabled'
@@ -110,7 +171,20 @@ const enhancedWorkingHoursUtils = {
         };
       }
 
-      // Get holiday information for the date
+      // ✅ FIX: SQL fonksiyonunun varlığını kontrol et
+      const [functionExists] = await pool.execute(`
+        SELECT COUNT(*) as count 
+        FROM information_schema.ROUTINES 
+        WHERE ROUTINE_SCHEMA = DATABASE() 
+        AND ROUTINE_NAME = 'is_academic_holiday_detailed'
+      `);
+
+      if (functionExists[0].count === 0) {
+        console.warn('⚠️ Academic holiday function not found, creating fallback...');
+        return await this.fallbackHolidayCheck(dateString);
+      }
+
+      // Ana fonksiyon çağrısı
       const [holidayResult] = await pool.execute(`
         SELECT is_academic_holiday_detailed(?) as holiday_info
       `, [dateString]);
@@ -123,31 +197,26 @@ const enhancedWorkingHoursUtils = {
         };
       }
 
-      const holidayInfo = JSON.parse(holidayResult[0].holiday_info);
+      // ✅ FIX: JSON parse hata kontrolü
+      let holidayInfo;
+      try {
+        const rawData = holidayResult[0].holiday_info;
+        
+        // String ise parse et, object ise direkt kullan
+        if (typeof rawData === 'string') {
+          holidayInfo = JSON.parse(rawData);
+        } else if (typeof rawData === 'object') {
+          holidayInfo = rawData;
+        } else {
+          throw new Error('Invalid holiday data format');
+        }
+      } catch (parseError) {
+        console.error('❌ Holiday info parsing failed:', parseError);
+        return await this.fallbackHolidayCheck(dateString);
+      }
       
       if (holidayInfo.is_holiday) {
-        // Get specific events for better messaging
-        const [events] = await pool.execute(`
-          SELECT 
-            event_name,
-            event_type,
-            start_date,
-            end_date,
-            is_recurring,
-            recurring_type
-          FROM active_calendar_events
-          WHERE ? BETWEEN start_date AND end_date
-            AND affects_request_creation = TRUE
-          ORDER BY start_date ASC
-        `, [dateString]);
-
-        // Get next available date
-        const [nextAvailable] = await pool.execute(`
-          SELECT get_next_request_creation_date(?) as next_info
-        `, [dateString]);
-
-        const nextInfo = nextAvailable[0]?.next_info ? JSON.parse(nextAvailable[0].next_info) : null;
-
+        // Holiday var, request'i engelle
         return {
           isAllowed: false,
           reason: 'academic_holiday',
@@ -158,10 +227,8 @@ const enhancedWorkingHoursUtils = {
             names: holidayInfo.names,
             types: holidayInfo.types,
             is_recurring: holidayInfo.is_recurring,
-            priority: holidayInfo.priority,
-            events: events
-          },
-          next_available: nextInfo
+            priority: holidayInfo.priority
+          }
         };
       }
 
@@ -174,56 +241,186 @@ const enhancedWorkingHoursUtils = {
 
     } catch (error) {
       console.error('❌ Academic calendar check error:', error);
-      return {
-        isAllowed: false,
-        reason: 'calendar_check_error',
-        message: 'Unable to verify academic calendar',
-        code: 'ACADEMIC_CALENDAR_ERROR'
-      };
+      // Hata durumunda fallback kullan
+      return await this.fallbackHolidayCheck(dateString);
     }
   },
 
   // Get next available working day considering calendar
   async getNextWorkingTime(currentDate = new Date()) {
     try {
-      const [nextAvailable] = await pool.execute(`
-        SELECT get_next_request_creation_date(CURDATE()) as next_info
+      console.log('⏰ Getting next working time from date:', currentDate);
+      
+      // ✅ FIX: Check if SQL function exists first
+      const [functionExists] = await pool.execute(`
+        SELECT COUNT(*) as count 
+        FROM information_schema.ROUTINES 
+        WHERE ROUTINE_SCHEMA = DATABASE() 
+        AND ROUTINE_NAME = 'get_next_request_creation_date'
       `);
 
-      const nextInfo = nextAvailable[0]?.next_info ? JSON.parse(nextAvailable[0].next_info) : null;
+      if (functionExists[0].count === 0) {
+        console.warn('⚠️ get_next_request_creation_date function not found, using fallback');
+        return await this.fallbackNextWorkingTime(currentDate);
+      }
+
+      // ✅ FIX: Safe SQL function call with proper date format
+      const inputDate = currentDate instanceof Date ? 
+        currentDate.toISOString().split('T')[0] : 
+        currentDate;
+
+      console.log('📅 Calling SQL function with date:', inputDate);
+
+      const [nextResult] = await pool.execute(`
+        SELECT get_next_request_creation_date(?) as next_info
+      `, [inputDate]);
+
+      console.log('📋 Raw SQL function result:', nextResult[0]);
+
+      if (!nextResult[0] || !nextResult[0].next_info) {
+        console.warn('⚠️ SQL function returned null, using fallback');
+        return await this.fallbackNextWorkingTime(currentDate);
+      }
+
+      // ✅ FIX: Enhanced JSON parsing with error handling
+      let nextInfo;
+      const rawNextInfo = nextResult[0].next_info;
       
+      console.log('🔍 Raw next_info type:', typeof rawNextInfo);
+      console.log('🔍 Raw next_info value:', rawNextInfo);
+
+      try {
+        if (typeof rawNextInfo === 'string') {
+          // String ise JSON parse et
+          nextInfo = JSON.parse(rawNextInfo);
+        } else if (typeof rawNextInfo === 'object' && rawNextInfo !== null) {
+          // Zaten object ise direkt kullan
+          nextInfo = rawNextInfo;
+        } else {
+          throw new Error(`Invalid next_info type: ${typeof rawNextInfo}`);
+        }
+      } catch (parseError) {
+        console.error('❌ JSON parse error for next_info:', parseError);
+        console.error('❌ Raw data causing error:', rawNextInfo);
+        return await this.fallbackNextWorkingTime(currentDate);
+      }
+      
+      console.log('✅ Parsed next_info:', nextInfo);
+
       if (nextInfo && nextInfo.success) {
         return {
           date: nextInfo.formatted_date,
           time: '08:30',
           fullDateTime: `${nextInfo.next_date}T08:30:00.000Z`,
           dayName: nextInfo.day_name,
-          daysAhead: nextInfo.days_ahead
+          daysAhead: nextInfo.days_ahead,
+          source: 'sql_function'
         };
+      } else {
+        console.warn('⚠️ SQL function returned unsuccessful result:', nextInfo);
+        return await this.fallbackNextWorkingTime(currentDate);
       }
 
-      // Fallback to basic calculation
-      const kktcDate = new Date(currentDate.toLocaleString("en-US", {timeZone: "Europe/Istanbul"}));
-      let nextWorkingDay = new Date(kktcDate);
-      
-      do {
-        nextWorkingDay.setDate(nextWorkingDay.getDate() + 1);
-      } while (nextWorkingDay.getDay() === 0 || nextWorkingDay.getDay() === 6);
-      
-      nextWorkingDay.setHours(8, 30, 0, 0);
-      
-      return {
-        date: nextWorkingDay.toLocaleDateString('tr-TR'),
-        time: '08:30',
-        fullDateTime: nextWorkingDay.toISOString(),
-        dayName: ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][nextWorkingDay.getDay()],
-        daysAhead: Math.ceil((nextWorkingDay - kktcDate) / (1000 * 60 * 60 * 24))
-      };
     } catch (error) {
-      console.error('Next working time calculation error:', error);
-      return null;
+      console.error('❌ SQL function error:', error);
+      return await this.fallbackNextWorkingTime(currentDate);
     }
   },
+
+ // ✅ NEW: Fallback calculation when SQL function fails
+  async fallbackNextWorkingTime(currentDate = new Date()) {
+    try {
+      console.log('🔄 Using fallback next working time calculation');
+      
+      const startDate = currentDate instanceof Date ? currentDate : new Date(currentDate);
+      let checkDate = new Date(startDate);
+      let daysChecked = 0;
+      const maxDays = 365;
+      
+      while (daysChecked < maxDays) {
+        checkDate = new Date(startDate.getTime() + (daysChecked * 24 * 60 * 60 * 1000));
+        const dayOfWeek = checkDate.getDay();
+        
+        // Check if it's a weekday (1=Monday, 5=Friday)
+        if (dayOfWeek >= 1 && dayOfWeek <= 5) {
+          // Check if it's not a holiday using manual database query
+          const dateString = checkDate.toISOString().split('T')[0];
+          
+          try {
+            const [holidayCheck] = await pool.execute(`
+              SELECT COUNT(*) as holiday_count
+              FROM academic_calendar_events ace
+              JOIN academic_calendar_uploads acu ON ace.upload_id = acu.upload_id
+              WHERE ? BETWEEN ace.start_date AND ace.end_date
+                AND acu.is_active = TRUE 
+                AND acu.processing_status = 'completed'
+                AND ace.affects_request_creation = TRUE
+            `, [dateString]);
+            
+            if (holidayCheck[0].holiday_count === 0) {
+              // This is a working day!
+              return {
+                date: checkDate.toLocaleDateString('tr-TR'),
+                time: '08:30',
+                fullDateTime: new Date(checkDate.getFullYear(), checkDate.getMonth(), checkDate.getDate(), 8, 30).toISOString(),
+                dayName: ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][dayOfWeek],
+                daysAhead: daysChecked,
+                source: 'fallback_calculation'
+              };
+            }
+          } catch (holidayError) {
+            console.warn('⚠️ Holiday check failed, assuming working day:', holidayError);
+            // If holiday check fails, assume it's a working day
+            return {
+              date: checkDate.toLocaleDateString('tr-TR'),
+              time: '08:30',
+              fullDateTime: new Date(checkDate.getFullYear(), checkDate.getMonth(), checkDate.getDate(), 8, 30).toISOString(),
+              dayName: ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][dayOfWeek],
+              daysAhead: daysChecked,
+              source: 'fallback_no_holiday_check'
+            };
+          }
+        }
+        
+        daysChecked++;
+      }
+      
+      // If no working day found within maxDays, return next Monday
+      const nextMonday = new Date(startDate);
+      while (nextMonday.getDay() !== 1) {
+        nextMonday.setDate(nextMonday.getDate() + 1);
+      }
+      nextMonday.setHours(8, 30, 0, 0);
+      
+      return {
+        date: nextMonday.toLocaleDateString('tr-TR'),
+        time: '08:30',
+        fullDateTime: nextMonday.toISOString(),
+        dayName: 'Monday',
+        daysAhead: Math.ceil((nextMonday - startDate) / (1000 * 60 * 60 * 24)),
+        source: 'fallback_next_monday'
+      };
+      
+    } catch (error) {
+      console.error('❌ Fallback calculation failed:', error);
+      
+      // Ultimate fallback - just return next Monday
+      const today = new Date();
+      const nextMonday = new Date(today);
+      nextMonday.setDate(today.getDate() + (7 - today.getDay() + 1) % 7 || 7);
+      nextMonday.setHours(8, 30, 0, 0);
+      
+      return {
+        date: nextMonday.toLocaleDateString('tr-TR'),
+        time: '08:30',
+        fullDateTime: nextMonday.toISOString(),
+        dayName: 'Monday',
+        daysAhead: Math.ceil((nextMonday - today) / (1000 * 60 * 60 * 24)),
+        source: 'ultimate_fallback'
+      };
+    }
+  },
+
 
   // Format time helper
   formatTime(date) {
@@ -233,22 +430,55 @@ const enhancedWorkingHoursUtils = {
   },
 
   // Get current time info with academic calendar
-  async getCurrentTimeInfo() {
-    const now = new Date();
-    const kktcTime = new Date(now.toLocaleString("en-US", {timeZone: "Europe/Istanbul"}));
-    const check = await this.isWithinWorkingHoursAndCalendar();
-    
-    return {
-      localTime: now.toISOString(),
-      kktcTime: kktcTime.toISOString(),
-      kktcTimeFormatted: kktcTime.toLocaleString('tr-TR'),
-      dayOfWeek: kktcTime.getDay(),
-      dayName: ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][kktcTime.getDay()],
-      isWorkingHours: check.isAllowed,
-      checkResult: check,
-      nextWorkingTime: check.isAllowed ? null : await this.getNextWorkingTime()
-    };
-  }
+ async getCurrentTimeInfo() {
+    try {
+      const now = new Date();
+      const kktcTime = new Date(now.toLocaleString("en-US", {timeZone: "Europe/Istanbul"}));
+      
+      let check;
+      try {
+        check = await this.isWithinWorkingHoursAndCalendar();
+      } catch (checkError) {
+        console.error('❌ Working hours check failed:', checkError);
+        check = {
+          isAllowed: false,
+          reason: 'check_error',
+          message: 'Unable to verify working hours',
+          error: checkError.message
+        };
+      }
+      
+      let nextWorkingTime = null;
+      if (!check.isAllowed) {
+        try {
+          nextWorkingTime = await this.getNextWorkingTime();
+        } catch (nextTimeError) {
+          console.error('❌ Next working time failed:', nextTimeError);
+          nextWorkingTime = {
+            error: 'Unable to calculate next working time',
+            source: 'error'
+          };
+        }
+      }
+      
+      return {
+        localTime: now.toISOString(),
+        kktcTime: kktcTime.toISOString(),
+        kktcTimeFormatted: kktcTime.toLocaleString('tr-TR'),
+        dayOfWeek: kktcTime.getDay(),
+        dayName: ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][kktcTime.getDay()],
+        isWorkingHours: check.isAllowed,
+        checkResult: check,
+        nextWorkingTime: nextWorkingTime
+      };
+    } catch (error) {
+      console.error('❌ getCurrentTimeInfo failed:', error);
+      return {
+        error: 'Unable to get current time info',
+        message: error.message
+      };
+    }
+  },
 };
 
 // Enhanced middleware that includes academic calendar validation

@@ -5,7 +5,7 @@ export const translations = {
 
 
 maxFileSizeStudent: 'Maksimum dosya boyutu: 2MB',
-
+'Next request available':'Bir sonraki istek' ,
 
 'Monday-Friday, 08:30-17:30 (TRNC Time)': 'Pazartesi-Cuma, 08:30-17:30 (KKTC Saati)',
 'Working hours:':'Mesai Saatleri:',
