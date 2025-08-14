@@ -561,7 +561,7 @@ const CreateRequestPage = () => {
                     
                     {restriction.type === '24_hour_limit' && lastRequestInfo && (
                       <p className="mb-0">
-                        <strong>Next request available:</strong> {lastRequestInfo.nextAllowedTime.toLocaleString('tr-TR')}
+                        <strong>{t('Next request available')}:</strong> {lastRequestInfo.nextAllowedTime.toLocaleString('tr-TR')}
                       </p>
                     )}
                     

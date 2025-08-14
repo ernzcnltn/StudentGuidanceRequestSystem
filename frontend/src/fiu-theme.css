@@ -487,6 +487,16 @@ a:hover {
   background-color: #960808;
 }
 
+.modal-backdrop.show {
+  opacity: 1 !important; /* Arka planı karart */
+  background-color: rgba(0, 0, 0, 0.7) !important;
+}
+
+.modal.show.d-block {
+  background-color: transparent;
+  z-index: 1055 !important; /* Arka plandan daha önde */
+}
+
 /* Mobile responsive */
 @media (max-width: 768px) {
   .navbar .dropdown-toggle .d-none.d-md-inline {

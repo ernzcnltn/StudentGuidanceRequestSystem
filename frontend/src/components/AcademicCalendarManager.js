@@ -818,7 +818,7 @@ const AcademicCalendarManager = () => {
                             <th>End Date</th>
                             <th>Duration</th>
                             <th>Affects Requests</th>
-                            <th>Status</th>
+                          
                           </tr>
                         </thead>
                         <tbody>
@@ -857,9 +857,7 @@ const AcademicCalendarManager = () => {
                                 </span>
                               </td>
                               <td>
-                                <span className={`badge ${event.status === 'active' ? 'bg-success' : event.status === 'upcoming' ? 'bg-primary' : 'bg-secondary'}`}>
-                                  {event.status}
-                                </span>
+                                
                               </td>
                             </tr>
                           ))}

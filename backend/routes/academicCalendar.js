@@ -88,209 +88,23 @@ const requireSuperAdmin = (req, res, next) => {
 };
 
 // Academic calendar document text extraction service
+
 class CalendarDocumentParser {
   
-  // ✅ FIX: Enhanced parseWordDocument with proper error handling
-  static async parseWordDocument(filePath) {
-    try {
-      console.log('📄 Parsing Word document:', filePath);
-      
-      const mammoth = require('mammoth');
-      const fs = require('fs');
-      
-      // Check if file exists
-      if (!fs.existsSync(filePath)) {
-        console.error('❌ File not found:', filePath);
-        return {
-          success: false,
-          error: 'File not found',
-          text: null
-        };
-      }
-      
-      // Get file stats
-      const stats = fs.statSync(filePath);
-      console.log('📄 File size:', stats.size, 'bytes');
-      
-      if (stats.size === 0) {
-        return {
-          success: false,
-          error: 'File is empty',
-          text: null
-        };
-      }
-      
-      // Parse document
-      const result = await mammoth.extractRawText({ path: filePath });
-      const text = result.value;
-      
-      console.log('📄 Extracted text length:', text.length);
-      console.log('📄 Sample text:', text.substring(0, 200) + '...');
-      
-      if (!text || text.length === 0) {
-        return {
-          success: false,
-          error: 'No text could be extracted from document',
-          text: null
-        };
-      }
-      
-      return {
-        success: true,
-        text: text,
-        messages: result.messages || []
-      };
-    } catch (error) {
-      console.error('❌ Word document parsing error:', error);
-      return {
-        success: false,
-        error: error.message,
-        text: null
-      };
-    }
-  }
-
-  // ✅ FIX: Enhanced parseTextFile
-  static async parseTextFile(filePath) {
-    try {
-      console.log('📄 Parsing text file:', filePath);
-      
-      const fs = require('fs');
-      
-      // Check if file exists
-      if (!fs.existsSync(filePath)) {
-        console.error('❌ File not found:', filePath);
-        return {
-          success: false,
-          error: 'File not found',
-          text: null
-        };
-      }
-      
-      const text = fs.readFileSync(filePath, 'utf8');
-      
-      if (!text || text.length === 0) {
-        return {
-          success: false,
-          error: 'File is empty',
-          text: null
-        };
-      }
-      
-      console.log('📄 Text file length:', text.length);
-      
-      return {
-        success: true,
-        text: text,
-        messages: []
-      };
-    } catch (error) {
-      console.error('❌ Text file parsing error:', error);
-      return {
-        success: false,
-        error: error.message,
-        text: null
-      };
-    }
-  }
-
-  // ✅ FIX: Enhanced main parsing function with comprehensive error handling
-  static async parseDocument(filePath, mimeType) {
-    try {
-      console.log('🔍 Starting document parsing:', { filePath, mimeType });
-      
-      // Validate inputs
-      if (!filePath) {
-        console.error('❌ No file path provided');
-        return {
-          success: false,
-          error: 'No file path provided',
-          text: null
-        };
-      }
-      
-      if (!mimeType) {
-        console.error('❌ No MIME type provided');
-        return {
-          success: false,
-          error: 'No MIME type provided',
-          text: null
-        };
-      }
-      
-      // Check file existence
-      const fs = require('fs');
-      if (!fs.existsSync(filePath)) {
-        console.error('❌ File does not exist:', filePath);
-        return {
-          success: false,
-          error: `File does not exist: ${filePath}`,
-          text: null
-        };
-      }
-      
-      let parseResult;
-      
-      // Route to appropriate parser based on MIME type
-      switch (mimeType) {
-        case 'application/vnd.openxmlformats-officedocument.wordprocessingml.document':
-        case 'application/msword':
-          console.log('📄 Routing to Word document parser');
-          parseResult = await this.parseWordDocument(filePath);
-          break;
-        
-        case 'text/plain':
-          console.log('📄 Routing to text file parser');
-          parseResult = await this.parseTextFile(filePath);
-          break;
-        
-        default:
-          console.error('❌ Unsupported file type:', mimeType);
-          return {
-            success: false,
-            error: `Unsupported file type: ${mimeType}`,
-            text: null
-          };
-      }
-      
-      // Validate parse result
-      if (!parseResult) {
-        console.error('❌ Parser returned null/undefined result');
-        return {
-          success: false,
-          error: 'Parser returned no result',
-          text: null
-        };
-      }
-      
-      console.log('📄 Parse result summary:', {
-        success: parseResult.success,
-        hasText: !!parseResult.text,
-        textLength: parseResult.text?.length || 0,
-        hasError: !!parseResult.error
-      });
-      
-      return parseResult;
-      
-    } catch (error) {
-      console.error('❌ Document parsing failed:', error);
-      return {
-        success: false,
-        error: error.message || 'Unknown parsing error',
-        text: null
-      };
-    }
-  }
-
-  // ✅ ENHANCED: Your existing extractEventsFromText method (from previous artifact)
+  // ✅ ENHANCED: Extract events with multi-event support
   static extractEventsFromText(text, academicYear) {
-    console.log('📅 Enhanced event extraction for academic year:', academicYear);
-    console.log('📄 Text sample:', text.substring(0, 500));
+    console.log('📅 Multi-event table-aware extraction for academic year:', academicYear);
+    console.log('📄 Processing text sample:', text.substring(0, 500));
     
     const events = [];
-    const lines = text.split('\n').map(line => line.trim()).filter(line => line.length > 0);
     
-    // Enhanced Turkish month names mapping (including variations)
+    // Split text into lines and clean
+    const lines = text.split('\n')
+      .map(line => line.trim())
+      .filter(line => line.length > 0)
+      .filter(line => !this.isTableBorderOrEmpty(line));
+    
+    // Enhanced Turkish month mapping
     const turkishMonths = {
       'ocak': '01', 'oca': '01', 'january': '01',
       'şubat': '02', 'şub': '02', 'february': '02', 'subat': '02',
@@ -309,112 +123,44 @@ class CalendarDocumentParser {
     // Academic year parsing
     const [startYear, endYear] = academicYear.split('-').map(y => parseInt(y));
     
-    console.log(`📋 Processing ${lines.length} lines for date extraction...`);
+    console.log(`📋 Processing ${lines.length} lines for multi-event extraction...`);
 
-    for (let lineIndex = 0; lineIndex < lines.length; lineIndex++) {
-      const line = lines[lineIndex];
-      const originalLine = line;
+    // ✅ NEW: Group lines by date patterns
+    const dateGroups = this.groupLinesByDates(lines, turkishMonths, startYear, endYear);
+    
+    // ✅ NEW: Process each date group
+    for (const group of dateGroups) {
+      const { startDate, endDate, eventLines, originalDateLine } = group;
       
-      // Skip header lines and empty content
-      if (this.isHeaderLine(line)) {
-        continue;
-      }
+      if (!startDate || !endDate) continue;
       
-      console.log(`🔍 Processing line ${lineIndex + 1}: "${line}"`);
+      console.log(`📅 Processing date group: ${startDate} to ${endDate}`);
+      console.log(`   Found ${eventLines.length} events for this date`);
       
-      let eventName = '';
-      let eventType = 'academic_event';
-      let startDate = null;
-      let endDate = null;
-      let isRecurring = false;
-      let recurringType = 'none';
-      let affectsRequests = true;
-      
-      // ✅ ENHANCED: Try multiple date patterns
-      let dateMatch = null;
-      let matchedPattern = '';
-      
-      // Try Pattern 1: "15-19 Eylül 2025"
-      const pattern1 = /(\d{1,2})-(\d{1,2})\s+(\w+)\s+(\d{4})/gi;
-      dateMatch = pattern1.exec(line);
-      if (dateMatch) {
-        matchedPattern = 'Pattern 1: Range with same month';
-        const [, startDay, endDay, monthName, year] = dateMatch;
-        const monthNum = turkishMonths[monthName.toLowerCase()];
+      // ✅ NEW: Create separate events for each line in the date group
+      for (const eventLine of eventLines) {
+        let eventName = this.cleanEventName(eventLine);
         
-        if (monthNum && parseInt(year) >= startYear && parseInt(year) <= endYear) {
-          startDate = `${year}-${monthNum}-${startDay.padStart(2, '0')}`;
-          endDate = `${year}-${monthNum}-${endDay.padStart(2, '0')}`;
-          eventName = line.replace(dateMatch[0], '').trim();
+        if (eventName.length <= 3 || this.isJustFormatting(eventName)) {
+          continue;
         }
-      }
-      
-      // Try Pattern 2: "29 Ekim 2025" (single date)
-      if (!dateMatch) {
-        const pattern2 = /(\d{1,2})\s+(\w+)\s+(\d{4})/gi;
-        dateMatch = pattern2.exec(line);
-        if (dateMatch) {
-          matchedPattern = 'Pattern 2: Single date';
-          const [, day, monthName, year] = dateMatch;
-          const monthNum = turkishMonths[monthName.toLowerCase()];
-          
-          if (monthNum && parseInt(year) >= startYear && parseInt(year) <= endYear) {
-            startDate = `${year}-${monthNum}-${day.padStart(2, '0')}`;
-            endDate = startDate;
-            eventName = line.replace(dateMatch[0], '').trim();
-          }
-        }
-      }
-      
-      // Try Pattern 3: Cross-month range "19 Aralık 2025 - 3 Ocak 2026"
-      if (!dateMatch) {
-        const pattern3 = /(\d{1,2})\s+(\w+)\s+(\d{4})\s*[-–]\s*(\d{1,2})\s+(\w+)\s+(\d{4})/gi;
-        dateMatch = pattern3.exec(line);
-        if (dateMatch) {
-          matchedPattern = 'Pattern 3: Cross-month range';
-          const [, startDay, startMonth, startYear, endDay, endMonth, endYear] = dateMatch;
-          const startMonthNum = turkishMonths[startMonth.toLowerCase()];
-          const endMonthNum = turkishMonths[endMonth.toLowerCase()];
-          
-          if (startMonthNum && endMonthNum) {
-            startDate = `${startYear}-${startMonthNum}-${startDay.padStart(2, '0')}`;
-            endDate = `${endYear}-${endMonthNum}-${endDay.padStart(2, '0')}`;
-            eventName = line.replace(dateMatch[0], '').trim();
-          }
-        }
-      }
-      
-      // ✅ ENHANCED: Determine event properties
-      if (eventName) {
-        eventType = this.determineEventType(eventName, line);
-        affectsRequests = this.determineAffectsRequests(eventName, line);
-        isRecurring = this.determineIsRecurring(eventName);
-        recurringType = this.determineRecurringType(eventName);
         
-        console.log(`✅ Date extracted: ${matchedPattern}`);
-        console.log(`   📅 Start: ${startDate}, End: ${endDate}`);
-        console.log(`   📝 Event: ${eventName}`);
-        console.log(`   🏷️ Type: ${eventType}, Affects: ${affectsRequests}`);
-      }
-      
-      // Clean up event name
-      eventName = eventName.replace(/^[-–\s]+|[-–\s]+$/g, '').trim();
-      eventName = eventName.replace(/\*+/g, '').trim(); // Remove asterisks
-      
-      // Only add events with valid dates and names
-      if (startDate && endDate && eventName && eventName.length > 3) {
+        const eventType = this.determineEventType(eventName, eventLine);
+        const affectsRequests = this.determineAffectsRequests(eventName, eventLine);
+        
         events.push({
           event_type: eventType,
           event_name: eventName,
           start_date: startDate,
           end_date: endDate,
-          is_recurring: isRecurring,
-          recurring_type: recurringType,
+          is_recurring: this.determineIsRecurring(eventName),
+          recurring_type: this.determineRecurringType(eventName),
           affects_request_creation: affectsRequests,
-          description: `Extracted from: ${originalLine.substring(0, 100)}`,
+          description: `Extracted from: ${originalDateLine} | ${eventLine}`,
           priority_level: this.determinePriorityLevel(eventType, eventName),
-          source_line: originalLine,
-          extraction_method: matchedPattern
+          source_line: originalDateLine,
+          event_line: eventLine,
+          extraction_method: 'multi_event_table'
         });
         
         console.log(`✅ Added event: ${eventName} (${startDate} to ${endDate})`);
@@ -422,95 +168,298 @@ class CalendarDocumentParser {
     }
 
     console.log(`📅 Total events extracted: ${events.length}`);
-    
-    // Show extraction summary
     this.logExtractionSummary(events);
     
     return events;
   }
 
-  // ✅ Helper methods (add these if not present)
-  static isHeaderLine(line) {
-    const headerPatterns = [
-      /^[*]+.*[*]+$/,
-      /^#+/,
-      /^={3,}/,
-      /^-{3,}/,
-      /^\s*\|\s*\*\*/,
-      /LİSANS.*PROGRAMLARI/i,
-      /AKADEMİK.*TAKVİMİ/i,
-      /GÜZ.*DÖNEMİ/i,
-      /BAHAR.*DÖNEMİ/i,
-      /YAZ.*OKULU/i,
-      /^\s*\+[-=]+\+/,
-      /^\s*\|.*\|.*\|/
-    ];
+  // ✅ NEW: Group lines by their date patterns
+  static groupLinesByDates(lines, turkishMonths, startYear, endYear) {
+    const groups = [];
+    let currentGroup = null;
     
-    return headerPatterns.some(pattern => pattern.test(line));
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      
+      // Skip headers and formatting
+      if (this.isHeaderOrFormatting(line)) {
+        continue;
+      }
+      
+      // ✅ Check if this line contains a date
+      const dateInfo = this.extractDateFromLine(line, turkishMonths, startYear, endYear);
+      
+      if (dateInfo.hasDate) {
+        // ✅ This line has a date - start new group or finish current group
+        if (currentGroup) {
+          groups.push(currentGroup);
+        }
+        
+        currentGroup = {
+          startDate: dateInfo.startDate,
+          endDate: dateInfo.endDate,
+          originalDateLine: line,
+          eventLines: []
+        };
+        
+        // ✅ Add event text from same line if present
+        if (dateInfo.eventText && dateInfo.eventText.length > 3) {
+          currentGroup.eventLines.push(dateInfo.eventText);
+        }
+        
+      } else if (currentGroup) {
+        // ✅ This line doesn't have date - add to current group as additional event
+        const cleanLine = this.cleanEventName(line);
+        if (cleanLine.length > 3 && !this.isJustFormatting(cleanLine)) {
+          currentGroup.eventLines.push(cleanLine);
+        }
+      }
+    }
+    
+    // ✅ Add last group
+    if (currentGroup) {
+      groups.push(currentGroup);
+    }
+    
+    return groups;
   }
 
+  // ✅ NEW: Extract date information from a single line
+  static extractDateFromLine(line, turkishMonths, startYear, endYear) {
+    const result = {
+      hasDate: false,
+      startDate: null,
+      endDate: null,
+      eventText: null
+    };
+    
+    // ✅ Try multiple date patterns
+    const patterns = [
+      // Pattern 1: "**15-19 September 2025**" or "15-19 September 2025"
+      {
+        regex: /\*{0,2}(\d{1,2})\s*[-–]\s*(\d{1,2})\s+(\w+)\s+(\d{4})\*{0,2}/gi,
+        type: 'range_same_month'
+      },
+      // Pattern 2: "**29 October 2025**" or "29 October 2025"  
+      {
+        regex: /\*{0,2}(\d{1,2})\s+(\w+)\s+(\d{4})\*{0,2}/gi,
+        type: 'single_date'
+      },
+      // Pattern 3: "19 December 2025 - 3 January 2026"
+      {
+        regex: /(\d{1,2})\s+(\w+)\s+(\d{4})\s*[-–]\s*(\d{1,2})\s+(\w+)\s+(\d{4})/gi,
+        type: 'cross_month_range'
+      }
+    ];
+    
+    for (const pattern of patterns) {
+      const match = pattern.regex.exec(line);
+      if (match) {
+        if (pattern.type === 'range_same_month') {
+          const [fullMatch, startDay, endDay, monthName, year] = match;
+          const monthNum = turkishMonths[monthName.toLowerCase()];
+          
+          if (monthNum && parseInt(year) >= startYear && parseInt(year) <= endYear) {
+            result.hasDate = true;
+            result.startDate = `${year}-${monthNum}-${startDay.padStart(2, '0')}`;
+            result.endDate = `${year}-${monthNum}-${endDay.padStart(2, '0')}`;
+            result.eventText = line.replace(fullMatch, '').trim();
+            break;
+          }
+        } else if (pattern.type === 'single_date') {
+          const [fullMatch, day, monthName, year] = match;
+          const monthNum = turkishMonths[monthName.toLowerCase()];
+          
+          if (monthNum && parseInt(year) >= startYear && parseInt(year) <= endYear) {
+            result.hasDate = true;
+            result.startDate = `${year}-${monthNum}-${day.padStart(2, '0')}`;
+            result.endDate = result.startDate;
+            result.eventText = line.replace(fullMatch, '').trim();
+            break;
+          }
+        } else if (pattern.type === 'cross_month_range') {
+          const [fullMatch, startDay, startMonth, startYear, endDay, endMonth, endYear] = match;
+          const startMonthNum = turkishMonths[startMonth.toLowerCase()];
+          const endMonthNum = turkishMonths[endMonth.toLowerCase()];
+          
+          if (startMonthNum && endMonthNum) {
+            result.hasDate = true;
+            result.startDate = `${startYear}-${startMonthNum}-${startDay.padStart(2, '0')}`;
+            result.endDate = `${endYear}-${endMonthNum}-${endDay.padStart(2, '0')}`;
+            result.eventText = line.replace(fullMatch, '').trim();
+            break;
+          }
+        }
+      }
+    }
+    
+    return result;
+  }
+
+  // ✅ ENHANCED: Clean event name more thoroughly
+  static cleanEventName(text) {
+    return text
+      .replace(/^[-–\s*|]+|[-–\s*|]+$/g, '') // Remove table chars and markers
+      .replace(/\*+/g, '') // Remove asterisks
+      .replace(/\|+/g, '') // Remove pipes
+      .replace(/\s+/g, ' ') // Normalize spaces
+      .replace(/^(for|to|and|the|a|an)\s+/gi, '') // Remove common prefixes
+      .trim();
+  }
+
+  // ✅ ENHANCED: Better event type detection for specific events
   static determineEventType(eventName, fullLine) {
     const lowerName = eventName.toLowerCase();
+    const lowerLine = fullLine.toLowerCase();
     
-    if (lowerName.includes('bayram') || lowerName.includes('tatil')) {
+    // ✅ More specific patterns
+    if (lowerName.includes('bayram') || lowerLine.includes('holiday')) {
       return 'holiday';
-    } else if (lowerName.includes('sınav')) {
+    } else if (lowerName.includes('tatil') || lowerName.includes('break')) {
+      return 'break';
+    } else if (lowerName.includes('sınav') || lowerName.includes('exam')) {
       return 'exam_period';
-    } else if (lowerName.includes('kayıt') || lowerName.includes('başvuru')) {
+    } else if (lowerName.includes('kayıt') || lowerName.includes('registration')) {
       return 'registration';
-    } else if (lowerName.includes('oryantasyon')) {
+    } else if (lowerName.includes('oryantasyon') || lowerName.includes('orientation')) {
       return 'orientation';
-    } else if (lowerName.includes('derslerin başlaması')) {
+    } else if (lowerName.includes('başvuru') || lowerName.includes('application')) {
+      return 'application';
+    } else if (lowerName.includes('derslerin başlaması') || lowerName.includes('first day of classes')) {
       return 'semester_start';
-    } else if (lowerName.includes('derslerin son günü')) {
+    } else if (lowerName.includes('derslerin son günü') || lowerName.includes('last day of classes')) {
       return 'semester_end';
-    } else if (lowerName.includes('mezuniyet')) {
+    } else if (lowerName.includes('mezuniyet') || lowerName.includes('graduation')) {
       return 'graduation';
+    } else if (lowerName.includes('telafi') || lowerName.includes('make-up')) {
+      return 'makeup_classes';
+    } else if (lowerName.includes('proficiency') || lowerName.includes('placement')) {
+      return 'placement_test';
     } else {
       return 'academic_event';
     }
   }
 
+  // ✅ ENHANCED: More accurate request blocking logic
   static determineAffectsRequests(eventName, fullLine) {
     const lowerName = eventName.toLowerCase();
     const lowerLine = fullLine.toLowerCase();
     
-    // These should NOT affect request creation
-    const noAffectPatterns = [
-      'yoklama alınacaktır',
-      'ders değerlendirmesi yapılmayacaktır',
-      'resmi tatil değildir',
-      'dersler yapılacak',
-      'başvuru',
-      'teslimi',
-      'açıklanması'
+    // ✅ These should NOT block requests (academic processes)
+    const noBlockPatterns = [
+      'registration', 'kayıt', 'başvuru', 'application',
+      'orientation', 'oryantasyon',
+      'proficiency', 'placement', 'exam', 'sınav',
+      'teslimi', 'açıklanması', 'announcement',
+      'first day', 'last day', 'derslerin',
+      'course selection', 'ders seçim'
     ];
     
-    // These SHOULD affect request creation
-    const affectPatterns = [
-      'tatil',
-      'bayram',
-      'resmi tatil',
-      'cumhuriyet bayramı',
-      'ramazan bayramı',
-      'kurban bayramı',
-      'yeni yıl',
-      'noel'
+    // ✅ These SHOULD block requests (holidays, breaks)
+    const blockPatterns = [
+      'holiday', 'tatil', 'bayram',
+      'christmas', 'noel',
+      'republic day', 'cumhuriyet',
+      'new year', 'yeni yıl',
+      'memorial day', 'atatürk',
+      'national sovereignty', 'ulusal egemenlik',
+      'labor day', 'emek ve dayanışma',
+      'peace and freedom', 'barış ve özgürlük',
+      'victory day', 'zafer'
     ];
     
-    if (noAffectPatterns.some(pattern => lowerLine.includes(pattern))) {
+    // Check no-block patterns first
+    if (noBlockPatterns.some(pattern => lowerName.includes(pattern) || lowerLine.includes(pattern))) {
       return false;
     }
     
-    if (affectPatterns.some(pattern => lowerName.includes(pattern))) {
+    // Check block patterns
+    if (blockPatterns.some(pattern => lowerName.includes(pattern) || lowerLine.includes(pattern))) {
       return true;
     }
     
-    return lowerName.includes('tatil') || lowerName.includes('bayram');
+    return false; // Default: don't block
+  }
+
+  // ✅ Keep all other existing methods unchanged
+  static async parseWordDocument(filePath) {
+    try {
+      console.log('📄 Parsing Word document with multi-event support:', filePath);
+      
+      const mammoth = require('mammoth');
+      const fs = require('fs');
+      
+      if (!fs.existsSync(filePath)) {
+        return { success: false, error: 'File not found', text: null };
+      }
+      
+      const stats = fs.statSync(filePath);
+      if (stats.size === 0) {
+        return { success: false, error: 'File is empty', text: null };
+      }
+      
+      const result = await mammoth.extractRawText({ 
+        path: filePath,
+        options: {
+          includeEmbeddedStyleMap: true,
+          includeDefaultStyleMap: true
+        }
+      });
+      
+      let text = result.value
+        .replace(/\r\n/g, '\n')
+        .replace(/\r/g, '\n')
+        .replace(/[ \t]+/g, ' ')
+        .replace(/\+[-=]+\+/g, '\n')
+        .replace(/^\s*\|\s*/gm, '')
+        .replace(/\s*\|\s*$/gm, '')
+        .replace(/\n\s*\n/g, '\n')
+        .trim();
+      
+      if (!text || text.length === 0) {
+        return { success: false, error: 'No readable text found', text: null };
+      }
+      
+      console.log('📄 Multi-event parsed text length:', text.length);
+      
+      return { success: true, text: text, messages: result.messages || [] };
+    } catch (error) {
+      console.error('❌ Multi-event parsing error:', error);
+      return { success: false, error: error.message, text: null };
+    }
+  }
+
+  static isTableBorderOrEmpty(line) {
+    const borderPatterns = [
+      /^\s*\+[-=]+\+\s*$/, /^\s*\|[\s\|]*\|\s*$/, /^\s*[-=]{3,}\s*$/, /^\s*$/
+    ];
+    return borderPatterns.some(pattern => pattern.test(line));
+  }
+
+  static isHeaderOrFormatting(line) {
+    const formatPatterns = [
+      /^[*+=\-]{3,}/, /^\s*\|\s*\*\*/, /LİSANS.*PROGRAMLARI/i,
+      /AKADEMİK.*TAKVİMİ/i, /FALL.*SEMESTER/i, /SPRING.*SEMESTER/i, /SUMMER.*SCHOOL/i,
+      /^\s*\+[-=]+\+/, /^\s*[-=]{5,}/, /tablo|table|başlık|header/i,
+      /UNDERGRADUATE.*PROGRAMS/i, /ACADEMIC.*CALENDAR/i
+    ];
+    return formatPatterns.some(pattern => pattern.test(line));
+  }
+
+  static isJustFormatting(text) {
+    const formattingPatterns = [
+      /^[\s\*\|\+\-=]+$/, /^(başlık|header|title)$/i, /^(gün|day|date)$/i,
+      /^(olay|event|etkinlik)$/i, /^(for|to|and|the|a|an)$/i
+    ];
+    return formattingPatterns.some(pattern => pattern.test(text.trim()));
   }
 
   static determineIsRecurring(eventName) {
-    const recurringEvents = ['cumhuriyet bayramı', 'ramazan bayramı', 'kurban bayramı', 'yeni yıl', 'noel', 'atatürk'];
+    const recurringEvents = [
+      'cumhuriyet bayramı', 'republic day', 'ramazan bayramı', 'kurban bayramı', 
+      'yeni yıl', 'new year', 'noel', 'christmas', 'atatürk', 'memorial day',
+      'ulusal egemenlik', 'national sovereignty', 'zafer bayramı', 'victory day'
+    ];
     const lowerName = eventName.toLowerCase();
     return recurringEvents.some(event => lowerName.includes(event));
   }
@@ -518,24 +467,24 @@ class CalendarDocumentParser {
   static determineRecurringType(eventName) {
     const lowerName = eventName.toLowerCase();
     
-    if (lowerName.includes('ramazan')) return 'eid_al_fitr';
-    if (lowerName.includes('kurban')) return 'eid_al_adha';
-    if (lowerName.includes('cumhuriyet') || lowerName.includes('atatürk')) return 'national_holiday';
-    if (lowerName.includes('yeni yıl') || lowerName.includes('noel')) return 'international_holiday';
+    if (lowerName.includes('ramazan')) return 'eid_fitr';
+    if (lowerName.includes('kurban')) return 'eid_adha';
+    if (lowerName.includes('cumhuriyet') || lowerName.includes('republic') || lowerName.includes('atatürk')) return 'national';
+    if (lowerName.includes('yeni yıl') || lowerName.includes('new year') || lowerName.includes('noel') || lowerName.includes('christmas')) return 'intl';
     
     return 'none';
   }
 
   static determinePriorityLevel(eventType, eventName) {
-    if (eventType === 'holiday') return 'high';
+    if (eventType === 'holiday' || eventType === 'break') return 'high';
     if (eventType === 'exam_period') return 'high';
     if (eventType === 'semester_start' || eventType === 'semester_end') return 'high';
     return 'medium';
   }
 
   static logExtractionSummary(events) {
-    console.log('\n📊 EXTRACTION SUMMARY:');
-    console.log('====================');
+    console.log('\n📊 MULTI-EVENT EXTRACTION SUMMARY:');
+    console.log('===================================');
     
     const typeCount = {};
     const affectsCount = { true: 0, false: 0 };
@@ -550,25 +499,65 @@ class CalendarDocumentParser {
       console.log(`   ${type}: ${count}`);
     });
     
-    console.log('\n🎯 Request restrictions:');
+    console.log('\n🎯 Request blocking:');
     console.log(`   Will block requests: ${affectsCount.true}`);
     console.log(`   Won't block requests: ${affectsCount.false}`);
     
-    if (events.length > 0) {
-      const dates = events.map(e => e.start_date).sort();
-      console.log('\n📅 Date range:');
-      console.log(`   From: ${dates[0]}`);
-      console.log(`   To: ${dates[dates.length - 1]}`);
-    }
+    console.log('\n📅 Sample events by date:');
+    const eventsByDate = events.reduce((acc, event) => {
+      const dateKey = `${event.start_date}${event.end_date !== event.start_date ? ' to ' + event.end_date : ''}`;
+      if (!acc[dateKey]) acc[dateKey] = [];
+      acc[dateKey].push(event.event_name);
+      return acc;
+    }, {});
     
-    console.log('\n🎉 Sample blocking events:');
-    events.filter(e => e.affects_request_creation).slice(0, 5).forEach(event => {
-      console.log(`   📅 ${event.start_date}: ${event.event_name}`);
+    Object.entries(eventsByDate).slice(0, 5).forEach(([date, eventNames]) => {
+      console.log(`   📅 ${date}:`);
+      eventNames.forEach(name => console.log(`      - ${name}`));
     });
     
-    console.log('====================\n');
+    console.log('===================================\n');
+  }
+
+  // Keep existing parseTextFile and parseDocument methods unchanged
+  static async parseTextFile(filePath) {
+    try {
+      const fs = require('fs');
+      if (!fs.existsSync(filePath)) {
+        return { success: false, error: 'File not found', text: null };
+      }
+      const text = fs.readFileSync(filePath, 'utf8');
+      if (!text || text.length === 0) {
+        return { success: false, error: 'File is empty', text: null };
+      }
+      return { success: true, text: text, messages: [] };
+    } catch (error) {
+      return { success: false, error: error.message, text: null };
+    }
+  }
+
+  static async parseDocument(filePath, mimeType) {
+    try {
+      if (!filePath || !mimeType) {
+        return { success: false, error: 'Missing file path or MIME type', text: null };
+      }
+      
+      switch (mimeType) {
+        case 'application/vnd.openxmlformats-officedocument.wordprocessingml.document':
+        case 'application/msword':
+          return await this.parseWordDocument(filePath);
+        case 'text/plain':
+          return await this.parseTextFile(filePath);
+        default:
+          return { success: false, error: `Unsupported file type: ${mimeType}`, text: null };
+      }
+    } catch (error) {
+      return { success: false, error: error.message || 'Unknown parsing error', text: null };
+    }
   }
 }
+
+
 // Routes
 
 // POST /api/academic-calendar/upload - Upload and parse academic calendar document
@@ -584,20 +573,17 @@ router.post('/upload', authenticateAdmin, requireSuperAdmin, calendarUpload.sing
       admin: req.admin.username
     });
 
-    // ✅ FIX: Enhanced validation
     if (!file) {
       return res.status(400).json({
         success: false,
-        error: 'No document uploaded',
-        details: 'Please select a file to upload'
+        error: 'No document uploaded'
       });
     }
 
     if (!academic_year) {
       return res.status(400).json({
         success: false,
-        error: 'Academic year is required (e.g., "2025-2026")',
-        details: 'Please select an academic year'
+        error: 'Academic year is required (e.g., "2025-2026")'
       });
     }
 
@@ -606,371 +592,207 @@ router.post('/upload', authenticateAdmin, requireSuperAdmin, calendarUpload.sing
     if (!yearPattern.test(academic_year)) {
       return res.status(400).json({
         success: false,
-        error: 'Invalid academic year format. Use format: "2025-2026"',
-        details: `Provided: ${academic_year}, Expected: YYYY-YYYY`
+        error: 'Invalid academic year format. Use format: "2025-2026"'
       });
     }
 
-    // ✅ FIX: Enhanced upload record creation with error handling
-    let uploadId;
-    try {
-      const [uploadResult] = await pool.execute(`
-        INSERT INTO academic_calendar_uploads (
-          file_name, file_path, file_type, file_size, 
-          academic_year, uploaded_by, processing_status, uploaded_at
-        ) VALUES (?, ?, ?, ?, ?, ?, 'pending', NOW())
-      `, [
-        file.originalname,
-        file.filename,
-        file.mimetype,
-        file.size,
-        academic_year,
-        req.admin.admin_id
-      ]);
+    // Create upload record
+    const [uploadResult] = await pool.execute(`
+      INSERT INTO academic_calendar_uploads (
+        file_name, file_path, file_type, file_size, 
+        academic_year, uploaded_by, processing_status
+      ) VALUES (?, ?, ?, ?, ?, ?, 'pending')
+    `, [
+      file.originalname,
+      file.filename,
+      file.mimetype,
+      file.size,
+      academic_year,
+      req.admin.admin_id
+    ]);
 
-      uploadId = uploadResult.insertId;
-      console.log('✅ Upload record created with ID:', uploadId);
-    } catch (dbError) {
-      console.error('❌ Database error creating upload record:', dbError);
-      return res.status(500).json({
-        success: false,
-        error: 'Database error creating upload record',
-        details: process.env.NODE_ENV === 'development' ? dbError.message : 'Internal server error'
-      });
-    }
+    const uploadId = uploadResult.insertId;
 
-    // ✅ FIX: Enhanced parsing with comprehensive error handling
-    try {
-      // Update status to processing
+    // Log parsing start
+    await pool.execute(`
+      INSERT INTO document_parsing_logs (upload_id, parsing_stage, status, message)
+      VALUES (?, 'upload', 'completed', 'File uploaded successfully')
+    `, [uploadId]);
+
+    // Parse document
+    console.log('🔍 Starting document parsing...');
+    
+    // Update status to processing
+    await pool.execute(`
+      UPDATE academic_calendar_uploads 
+      SET processing_status = 'processing' 
+      WHERE upload_id = ?
+    `, [uploadId]);
+
+    await pool.execute(`
+      INSERT INTO document_parsing_logs (upload_id, parsing_stage, status, message)
+      VALUES (?, 'text_extraction', 'started', 'Starting text extraction')
+    `, [uploadId]);
+
+    // Extract text from document
+    const parseResult = await CalendarDocumentParser.parseDocument(file.path, file.mimetype);
+    
+    if (!parseResult.success) {
       await pool.execute(`
         UPDATE academic_calendar_uploads 
-        SET processing_status = 'processing', processing_notes = 'Starting document parsing'
+        SET processing_status = 'failed', processing_notes = ?
+        WHERE upload_id = ?
+      `, [parseResult.error, uploadId]);
+
+      await pool.execute(`
+        INSERT INTO document_parsing_logs (upload_id, parsing_stage, status, message, error_details)
+        VALUES (?, 'text_extraction', 'failed', 'Text extraction failed', ?)
+      `, [uploadId, parseResult.error]);
+
+      return res.status(400).json({
+        success: false,
+        error: 'Failed to parse document',
+        details: parseResult.error
+      });
+    }
+
+    await pool.execute(`
+      INSERT INTO document_parsing_logs (upload_id, parsing_stage, status, message, data_extracted)
+      VALUES (?, 'text_extraction', 'completed', 'Text extracted successfully', JSON_OBJECT('text_length', ?))
+    `, [uploadId, parseResult.text.length]);
+
+    // Extract events from text
+    console.log('📅 Extracting events from text...');
+    
+    await pool.execute(`
+      INSERT INTO document_parsing_logs (upload_id, parsing_stage, status, message)
+      VALUES (?, 'date_parsing', 'started', 'Starting event extraction')
+    `, [uploadId]);
+
+    const events = CalendarDocumentParser.extractEventsFromText(parseResult.text, academic_year);
+
+    if (events.length === 0) {
+      await pool.execute(`
+        UPDATE academic_calendar_uploads 
+        SET processing_status = 'failed', processing_notes = 'No events could be extracted from document'
         WHERE upload_id = ?
       `, [uploadId]);
 
-      // Log parsing start
       await pool.execute(`
-        INSERT INTO document_parsing_logs (upload_id, parsing_stage, status, message, created_at)
-        VALUES (?, 'upload', 'completed', 'File uploaded successfully', NOW())
+        INSERT INTO document_parsing_logs (upload_id, parsing_stage, status, message)
+        VALUES (?, 'date_parsing', 'failed', 'No events extracted from text')
       `, [uploadId]);
 
-      console.log('🔍 Starting document parsing for upload:', uploadId);
-      
-      // ✅ FIX: Enhanced text extraction with error handling
-      await pool.execute(`
-        INSERT INTO document_parsing_logs (upload_id, parsing_stage, status, message, created_at)
-        VALUES (?, 'text_extraction', 'started', 'Starting text extraction', NOW())
-      `, [uploadId]);
-
-      let parseResult;
-      try {
-        parseResult = await CalendarDocumentParser.parseDocument(file.path, file.mimetype);
-        console.log('📄 Parse result:', {
-          success: parseResult.success,
-          textLength: parseResult.text?.length || 0,
-          hasMessages: parseResult.messages?.length || 0
-        });
-      } catch (parseError) {
-        console.error('❌ Document parsing failed:', parseError);
-        
-        await pool.execute(`
-          UPDATE academic_calendar_uploads 
-          SET processing_status = 'failed', processing_notes = ?
-          WHERE upload_id = ?
-        `, [`Parse error: ${parseError.message}`, uploadId]);
-
-        await pool.execute(`
-          INSERT INTO document_parsing_logs (upload_id, parsing_stage, status, message, error_details, created_at)
-          VALUES (?, 'text_extraction', 'failed', 'Text extraction failed', ?, NOW())
-        `, [uploadId, parseError.message]);
-
-        return res.status(400).json({
-          success: false,
-          error: 'Failed to parse document',
-          details: parseError.message,
-          stage: 'text_extraction'
-        });
-      }
-      
-      if (!parseResult.success) {
-        await pool.execute(`
-          UPDATE academic_calendar_uploads 
-          SET processing_status = 'failed', processing_notes = ?
-          WHERE upload_id = ?
-        `, [parseResult.error, uploadId]);
-
-        await pool.execute(`
-          INSERT INTO document_parsing_logs (upload_id, parsing_stage, status, message, error_details, created_at)
-          VALUES (?, 'text_extraction', 'failed', 'Text extraction failed', ?, NOW())
-        `, [uploadId, parseResult.error]);
-
-        return res.status(400).json({
-          success: false,
-          error: 'Failed to parse document',
-          details: parseResult.error,
-          stage: 'text_extraction'
-        });
-      }
-
-      // ✅ FIX: Log successful text extraction
-      await pool.execute(`
-        INSERT INTO document_parsing_logs (upload_id, parsing_stage, status, message, data_extracted, created_at)
-        VALUES (?, 'text_extraction', 'completed', 'Text extracted successfully', ?, NOW())
-      `, [uploadId, JSON.stringify({text_length: parseResult.text.length})]);
-
-      console.log('📄 Text extraction successful, length:', parseResult.text.length);
-      console.log('📄 Sample text:', parseResult.text.substring(0, 200));
-
-      // ✅ FIX: Enhanced event extraction with detailed logging
-      await pool.execute(`
-        INSERT INTO document_parsing_logs (upload_id, parsing_stage, status, message, created_at)
-        VALUES (?, 'date_parsing', 'started', 'Starting event extraction', NOW())
-      `, [uploadId]);
-
-      let events;
-      try {
-        console.log('📅 Extracting events from text...');
-        events = CalendarDocumentParser.extractEventsFromText(parseResult.text, academic_year);
-        console.log('📅 Event extraction result:', {
-          eventsFound: events.length,
-          sampleEvents: events.slice(0, 3).map(e => ({
-            name: e.event_name,
-            start: e.start_date,
-            end: e.end_date,
-            affects: e.affects_request_creation
-          }))
-        });
-      } catch (extractError) {
-        console.error('❌ Event extraction failed:', extractError);
-        
-        await pool.execute(`
-          UPDATE academic_calendar_uploads 
-          SET processing_status = 'failed', processing_notes = ?
-          WHERE upload_id = ?
-        `, [`Event extraction error: ${extractError.message}`, uploadId]);
-
-        await pool.execute(`
-          INSERT INTO document_parsing_logs (upload_id, parsing_stage, status, message, error_details, created_at)
-          VALUES (?, 'date_parsing', 'failed', 'Event extraction failed', ?, NOW())
-        `, [uploadId, extractError.message]);
-
-        return res.status(400).json({
-          success: false,
-          error: 'Failed to extract events from document',
-          details: extractError.message,
-          stage: 'event_extraction',
-          extracted_text_sample: parseResult.text.substring(0, 500)
-        });
-      }
-
-      if (events.length === 0) {
-        console.warn('⚠️ No events extracted from document');
-        
-        await pool.execute(`
-          UPDATE academic_calendar_uploads 
-          SET processing_status = 'failed', processing_notes = 'No events could be extracted from document'
-          WHERE upload_id = ?
-        `, [uploadId]);
-
-        await pool.execute(`
-          INSERT INTO document_parsing_logs (upload_id, parsing_stage, status, message, data_extracted, created_at)
-          VALUES (?, 'date_parsing', 'failed', 'No events extracted from text', ?, NOW())
-        `, [uploadId, JSON.stringify({
-          text_sample: parseResult.text.substring(0, 500),
-          text_length: parseResult.text.length,
-          parsing_messages: parseResult.messages
-        })]);
-
-        return res.status(400).json({
-          success: false,
-          error: 'No events could be extracted from the document',
-          details: 'The document may not contain recognizable date patterns or event information',
-          stage: 'event_extraction',
-          debug_info: {
-            extracted_text_sample: parseResult.text.substring(0, 500),
-            text_length: parseResult.text.length,
-            parsing_messages: parseResult.messages,
-            suggestion: 'Please check that the document contains dates in format like "29 Ekim 2025" or "15-19 Eylül 2025"'
-          }
-        });
-      }
-
-      await pool.execute(`
-        INSERT INTO document_parsing_logs (upload_id, parsing_stage, status, message, data_extracted, created_at)
-        VALUES (?, 'date_parsing', 'completed', 'Events extracted successfully', ?, NOW())
-      `, [uploadId, JSON.stringify({event_count: events.length})]);
-
-      // ✅ FIX: Enhanced database operations
-      try {
-        // Deactivate old calendars for this academic year
-        const [deactivateResult] = await pool.execute(`
-          UPDATE academic_calendar_uploads 
-          SET is_active = FALSE 
-          WHERE academic_year = ? AND upload_id != ?
-        `, [academic_year, uploadId]);
-        
-        console.log(`📝 Deactivated ${deactivateResult.affectedRows} old calendars for ${academic_year}`);
-
-        // Insert events into database
-        console.log('💾 Saving events to database...');
-        
-        await pool.execute(`
-          INSERT INTO document_parsing_logs (upload_id, parsing_stage, status, message, created_at)
-          VALUES (?, 'event_creation', 'started', 'Starting event creation', NOW())
-        `, [uploadId]);
-
-        let savedEvents = 0;
-        for (const event of events) {
-          try {
-            await pool.execute(`
-              INSERT INTO academic_calendar_events (
-                upload_id, event_type, event_name, event_name_en, start_date, end_date,
-                is_recurring, recurring_type, description, affects_request_creation, created_at
-              ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
-            `, [
-              uploadId,
-              event.event_type,
-              event.event_name,
-              event.event_name, // For now, use same name for English
-              event.start_date,
-              event.end_date,
-              event.is_recurring,
-              event.recurring_type,
-              event.description,
-              event.affects_request_creation
-            ]);
-            savedEvents++;
-          } catch (eventError) {
-            console.error('❌ Error saving event:', event.event_name, eventError);
-          }
-        }
-
-        console.log(`✅ Saved ${savedEvents} events to database`);
-
-        // Mark as completed
-        await pool.execute(`
-          UPDATE academic_calendar_uploads 
-          SET processing_status = 'completed', processing_notes = ?, is_active = TRUE
-          WHERE upload_id = ?
-        `, [`Successfully processed ${savedEvents} events`, uploadId]);
-
-        await pool.execute(`
-          INSERT INTO document_parsing_logs (upload_id, parsing_stage, status, message, data_extracted, created_at)
-          VALUES (?, 'completed', 'completed', 'Calendar processing completed successfully', ?, NOW())
-        `, [uploadId, JSON.stringify({total_events: savedEvents})]);
-
-        // Update current academic year setting
-        try {
-          await pool.execute(`
-            INSERT INTO academic_settings (setting_key, setting_value, updated_by, updated_at) 
-            VALUES ('current_academic_year', ?, ?, NOW())
-            ON DUPLICATE KEY UPDATE 
-            setting_value = VALUES(setting_value),
-            updated_by = VALUES(updated_by),
-            updated_at = NOW()
-          `, [academic_year, req.admin.admin_id]);
-        } catch (settingsError) {
-          console.warn('⚠️ Could not update academic year setting:', settingsError);
-        }
-
-        console.log('✅ Academic calendar upload completed successfully');
-
-        // ✅ FIX: Enhanced success response
-        res.json({
-          success: true,
-          message: 'Academic calendar uploaded and processed successfully',
-          data: {
-            upload_id: uploadId,
-            academic_year: academic_year,
-            events_processed: savedEvents,
-            file_info: {
-              original_name: file.originalname,
-              size: file.size,
-              type: file.mimetype
-            },
-            events_summary: events.slice(0, 10).map(e => ({
-              name: e.event_name,
-              type: e.event_type,
-              start_date: e.start_date,
-              end_date: e.end_date,
-              affects_requests: e.affects_request_creation
-            })),
-            processing_summary: {
-              text_extracted: parseResult.text.length,
-              events_found: events.length,
-              events_saved: savedEvents,
-              stage_completed: 'all'
-            }
-          }
-        });
-
-      } catch (dbSaveError) {
-        console.error('❌ Database save error:', dbSaveError);
-        
-        await pool.execute(`
-          UPDATE academic_calendar_uploads 
-          SET processing_status = 'failed', processing_notes = ?
-          WHERE upload_id = ?
-        `, [`Database error: ${dbSaveError.message}`, uploadId]);
-
-        return res.status(500).json({
-          success: false,
-          error: 'Database error while saving events',
-          details: dbSaveError.message,
-          stage: 'database_save'
-        });
-      }
-
-    } catch (processingError) {
-      console.error('❌ Processing error:', processingError);
-      
-      if (uploadId) {
-        try {
-          await pool.execute(`
-            UPDATE academic_calendar_uploads 
-            SET processing_status = 'failed', processing_notes = ?
-            WHERE upload_id = ?
-          `, [`Processing error: ${processingError.message}`, uploadId]);
-        } catch (updateError) {
-          console.error('❌ Could not update upload status:', updateError);
-        }
-      }
-
-      return res.status(500).json({
+      return res.status(400).json({
         success: false,
-        error: 'Failed to process academic calendar',
-        details: processingError.message,
-        stage: 'processing'
+        error: 'No events could be extracted from the document',
+        extracted_text_sample: parseResult.text.substring(0, 500),
+        parsing_messages: parseResult.messages
       });
     }
+
+    await pool.execute(`
+      INSERT INTO document_parsing_logs (upload_id, parsing_stage, status, message, data_extracted)
+      VALUES (?, 'date_parsing', 'completed', 'Events extracted successfully', JSON_OBJECT('event_count', ?))
+    `, [uploadId, events.length]);
+
+    // Deactivate old calendars for this academic year
+    await pool.execute(`
+      UPDATE academic_calendar_uploads 
+      SET is_active = FALSE 
+      WHERE academic_year = ? AND upload_id != ?
+    `, [academic_year, uploadId]);
+
+    // Insert events into database
+    console.log('💾 Saving events to database...');
+    
+    await pool.execute(`
+      INSERT INTO document_parsing_logs (upload_id, parsing_stage, status, message)
+      VALUES (?, 'event_creation', 'started', 'Starting event creation')
+    `, [uploadId]);
+
+    for (const event of events) {
+      await pool.execute(`
+        INSERT INTO academic_calendar_events (
+          upload_id, event_type, event_name, event_name_en, start_date, end_date,
+          is_recurring, recurring_type, description, affects_request_creation
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `, [
+        uploadId,
+        event.event_type,
+        event.event_name,
+        event.event_name, // For now, use same name for English
+        event.start_date,
+        event.end_date,
+        event.is_recurring,
+        event.recurring_type,
+        event.description,
+        event.affects_request_creation
+      ]);
+    }
+
+    // Mark as completed
+    await pool.execute(`
+      UPDATE academic_calendar_uploads 
+      SET processing_status = 'completed', processing_notes = ?
+      WHERE upload_id = ?
+    `, [`Successfully processed ${events.length} events`, uploadId]);
+
+    await pool.execute(`
+      INSERT INTO document_parsing_logs (upload_id, parsing_stage, status, message, data_extracted)
+      VALUES (?, 'completed', 'completed', 'Calendar processing completed successfully', JSON_OBJECT('total_events', ?))
+    `, [uploadId, events.length]);
+
+    // Update current academic year setting
+    await pool.execute(`
+      UPDATE academic_settings 
+      SET setting_value = ? 
+      WHERE setting_key = 'current_academic_year'
+    `, [academic_year]);
+
+    console.log('✅ Academic calendar upload completed successfully');
+
+    res.json({
+      success: true,
+      message: 'Academic calendar uploaded and processed successfully',
+      data: {
+        upload_id: uploadId,
+        academic_year: academic_year,
+        events_processed: events.length,
+        file_info: {
+          original_name: file.originalname,
+          size: file.size,
+          type: file.mimetype
+        },
+        events_summary: events.map(e => ({
+          name: e.event_name,
+          type: e.event_type,
+          start_date: e.start_date,
+          end_date: e.end_date,
+          affects_requests: e.affects_request_creation
+        }))
+      }
+    });
 
   } catch (error) {
     console.error('❌ Academic calendar upload error:', error);
     
-    // Clean up uploaded file on error
     if (req.file) {
+      // Clean up uploaded file on error
       try {
-        const fs = require('fs');
         fs.unlinkSync(req.file.path);
-        console.log('🗑️ Cleaned up uploaded file');
       } catch (cleanupError) {
-        console.error('❌ File cleanup error:', cleanupError);
+        console.error('File cleanup error:', cleanupError);
       }
     }
 
     res.status(500).json({
       success: false,
       error: 'Failed to process academic calendar',
-      details: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error',
-      stage: 'general_error'
+      details: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
     });
   }
 });
-
-
-
-
-
 
 // GET /api/academic-calendar/status - Get current academic calendar status
 router.get('/status', authenticateAdmin, async (req, res) => {
@@ -1644,7 +1466,20 @@ router.post('/settings', authenticateAdmin, requireSuperAdmin, async (req, res) 
 
 
 
+// GET /api/academic-calendar/uploads - Get upload history
+// backend/routes/academicCalendar.js - KESIN ÇÖZÜM
 
+// ❌ ESKİ KOD (1242. satır civarında):
+/*
+const [uploads] = await pool.execute(`
+  SELECT ... FROM academic_calendar_uploads acu
+  LEFT JOIN admin_users au ON acu.uploaded_by = au.admin_id
+  ORDER BY acu.uploaded_at DESC
+  LIMIT ? OFFSET ?
+`, [limit, offset]);
+*/
+
+// ✅ YENİ KOD - TAMAMEN DEĞİŞTİRİN:
 
 // GET /api/academic-calendar/uploads - Get upload history
 router.get('/uploads', authenticateAdmin, requireSuperAdmin, async (req, res) => {
