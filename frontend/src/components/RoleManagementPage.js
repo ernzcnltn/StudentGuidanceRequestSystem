@@ -7,7 +7,6 @@ import { apiService } from '../services/api';
 import { useConfirmation } from '../hooks/useConfirmation';
 import ConfirmationModal from './ConfirmationModal';
 
-
 const RoleManagementPage = () => {
   const { admin, isSuperAdmin } = useAdminAuth();
   const { isDark } = useTheme();
@@ -21,6 +20,10 @@ const RoleManagementPage = () => {
   const [showPermissionModal, setShowPermissionModal] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   
+  // Pagination
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage] = useState(10);
+  
   // Create role form state
   const [newRole, setNewRole] = useState({
     role_name: '',
@@ -29,16 +32,15 @@ const RoleManagementPage = () => {
     is_system_role: false
   });
 
-
-  // DÜZELTİLMİŞ VERSİYON:
-const getSelectedPermissionsSummary = () => {
-  const selectedPerms = allPermissions.filter(p => selectedPermissions.includes(p.permission_id));
-  return apiService.rbacHelpers.createPermissionSummary(selectedPerms);
-};
-
   // Permission assignment state
   const [selectedPermissions, setSelectedPermissions] = useState([]);
   const [permissionFilter, setPermissionFilter] = useState('');
+
+  // DÜZELTİLMİŞ VERSİYON:
+  const getSelectedPermissionsSummary = () => {
+    const selectedPerms = allPermissions.filter(p => selectedPermissions.includes(p.permission_id));
+    return apiService.rbacHelpers.createPermissionSummary(selectedPerms);
+  };
 
   useEffect(() => {
     if (isSuperAdmin()) {
@@ -145,27 +147,27 @@ const getSelectedPermissionsSummary = () => {
   };
 
   const handleDeleteRole = async (roleId, roleName) => {
-  const confirmed = await showConfirmation({
-    title: '🗑️ Delete Role',
-    message: `Are you sure you want to delete the role "${roleName}"?\n\nThis action cannot be undone.`,
-    type: 'danger',
-    confirmText: 'Delete Role',
-    cancelText: 'Cancel',
-    requireTextConfirmation: true,
-    confirmationText: 'DELETE'
-  });
+    const confirmed = await showConfirmation({
+      title: 'Delete Role',
+      message: `Are you sure you want to delete the role "${roleName}"?\n\nThis action cannot be undone.`,
+      type: 'danger',
+      confirmText: 'Delete Role',
+      cancelText: 'Cancel',
+      requireTextConfirmation: true,
+      confirmationText: 'DELETE'
+    });
 
-  if (!confirmed) return;
+    if (!confirmed) return;
 
-  try {
-    await apiService.deleteRole(roleId);
-    showSuccess('Role deleted successfully');
-    loadData();
-  } catch (error) {
-    console.error('Error deleting role:', error);
-    showError('Failed to delete role');
-  }
-};
+    try {
+      await apiService.deleteRole(roleId);
+      showSuccess('Role deleted successfully');
+      loadData();
+    } catch (error) {
+      console.error('Error deleting role:', error);
+      showError('Failed to delete role');
+    }
+  };
 
   // Filter roles based on search
   const filteredRoles = roles.filter(role => 
@@ -184,16 +186,88 @@ const getSelectedPermissionsSummary = () => {
     permission.resource.toLowerCase().includes(permissionFilter.toLowerCase())
   );
 
+  // Pagination helpers
+  const getPaginatedData = (data, page, itemsPerPage) => {
+    const startIndex = (page - 1) * itemsPerPage;
+    return data.slice(startIndex, startIndex + itemsPerPage);
+  };
+
+  const getTotalPages = (dataLength, itemsPerPage) => {
+    return Math.ceil(dataLength / itemsPerPage);
+  };
+
+  const PaginationComponent = ({ currentPage, totalPages, onPageChange }) => {
+    if (totalPages <= 1) return null;
+
+    return (
+      <nav aria-label="Page navigation" className="mt-4">
+        <ul className="pagination justify-content-center">
+          <li className={`page-item ${currentPage === 1 ? 'disabled' : ''}`}>
+            <button 
+              className="page-link" 
+              onClick={() => onPageChange(currentPage - 1)}
+              disabled={currentPage === 1}
+              style={{
+                backgroundColor: isDark ? '#000000' : '#ffffff',
+                borderColor: isDark ? '#4a5568' : '#e2e8f0',
+                color: isDark ? '#ffffff' : '#000000'
+              }}
+            >
+              Previous
+            </button>
+          </li>
+          
+          {[...Array(totalPages)].map((_, index) => (
+            <li key={index + 1} className={`page-item ${currentPage === index + 1 ? 'active' : ''}`}>
+              <button 
+                className="page-link" 
+                onClick={() => onPageChange(index + 1)}
+                style={{
+                  backgroundColor: currentPage === index + 1 
+                    ? '#dc2626' 
+                    : (isDark ? '#000000' : '#ffffff'),
+                  borderColor: currentPage === index + 1 
+                    ? '#dc2626' 
+                    : (isDark ? '#4a5568' : '#e2e8f0'),
+                  color: currentPage === index + 1 
+                    ? '#ffffff' 
+                    : (isDark ? '#ffffff' : '#000000')
+                }}
+              >
+                {index + 1}
+              </button>
+            </li>
+          ))}
+          
+          <li className={`page-item ${currentPage === totalPages ? 'disabled' : ''}`}>
+            <button 
+              className="page-link" 
+              onClick={() => onPageChange(currentPage + 1)}
+              disabled={currentPage === totalPages}
+              style={{
+                backgroundColor: isDark ? '#000000' : '#ffffff',
+                borderColor: isDark ? '#4a5568' : '#e2e8f0',
+                color: isDark ? '#ffffff' : '#000000'
+              }}
+            >
+              Next
+            </button>
+          </li>
+        </ul>
+      </nav>
+    );
+  };
+
   const cardStyle = {
     backgroundColor: isDark ? '#000000' : '#ffffff',
-    borderColor: isDark ? '#333333' : '#dee2e6',
+    borderColor: isDark ? '#4a5568' : '#e2e8f0',
     color: isDark ? '#ffffff' : '#000000'
   };
 
   if (!isSuperAdmin()) {
     return (
       <div className="alert alert-warning">
-        <h5>🔒 Access Denied</h5>
+        <h5>Access Denied</h5>
         <p>Role Management is only available for Super Administrators.</p>
       </div>
     );
@@ -210,13 +284,16 @@ const getSelectedPermissionsSummary = () => {
     );
   }
 
+  const totalPages = getTotalPages(filteredRoles.length, itemsPerPage);
+  const paginatedRoles = getPaginatedData(filteredRoles, currentPage, itemsPerPage);
+
   return (
     <div>
       {/* Header */}
       <div className="d-flex justify-content-between align-items-center mb-4">
         <div>
           <h3 className={isDark ? 'text-light' : 'text-dark'}>
-             Role Management
+            Role Management
           </h3>
           <p className={isDark ? 'text-light' : 'text-muted'}>
             Create and manage system roles and their permissions
@@ -224,10 +301,10 @@ const getSelectedPermissionsSummary = () => {
         </div>
         
         <button 
-          className="btn btn-primary"
+          className="btn btn-danger"
           onClick={() => setShowCreateModal(true)}
         >
-           Create Role
+          Create Role
         </button>
       </div>
 
@@ -242,7 +319,7 @@ const getSelectedPermissionsSummary = () => {
             onChange={(e) => setSearchTerm(e.target.value)}
             style={{
               backgroundColor: isDark ? '#000000' : '#ffffff',
-              borderColor: isDark ? '#333333' : '#ced4da',
+              borderColor: isDark ? '#4a5568' : '#cbd5e0',
               color: isDark ? '#ffffff' : '#000000'
             }}
           />
@@ -253,93 +330,98 @@ const getSelectedPermissionsSummary = () => {
               className="btn btn-outline-secondary"
               onClick={loadData}
             >
-            Refresh
+              Refresh
             </button>
-           
           </div>
         </div>
       </div>
 
-      {/* Roles List */}
-      <div className="row">
-        {filteredRoles.length === 0 ? (
-          <div className="col-12">
-            <div className="alert alert-info">
-              <h5>No roles found</h5>
-              <p>No roles match your search criteria.</p>
-            </div>
-          </div>
-        ) : (
-          filteredRoles.map((role) => (
-            <div key={role.role_id} className="col-lg-6 mb-3">
-              <div className="card" style={cardStyle}>
-                <div className="card-body">
-                  <div className="d-flex justify-content-between align-items-start">
-                    <div>
-                      <h6 className={`card-title ${isDark ? 'text-light' : 'text-dark'}`}>
-                        {role.display_name}
-                        
-                      </h6>
-                      
-                      <p className={`card-text ${isDark ? 'text-light' : 'text-muted'}`}>
-                        <strong>Role Name:</strong> {role.role_name}<br />
-                        <strong>Description:</strong> {role.description || 'No description'}
-                      </p>
-                      
-                      
-                      
-                      
-                    </div>
-                    
-                    <div className="dropdown">
-                      <button 
-                        className="btn btn-outline-secondary btn-sm dropdown-toggle"
-                        type="button"
-                        data-bs-toggle="dropdown"
-                      >
-                        Actions
-                      </button>
-                      <ul className="dropdown-menu">
-                        <li>
-                          <button 
-                            className="dropdown-item"
-                            onClick={() => handleViewPermissions(role)}
-                          >
-                             View Permissions
-                          </button>
-                        </li>
-                        <li>
-                          <button 
-                            className="dropdown-item"
-                            onClick={() => handleViewPermissions(role)}
-                          >
-                             Edit Permissions
-                          </button>
-                        </li>
-                        <li>
-                         
-                        </li>
-                        {!role.is_system_role && (
-                          <>
-                            <li><hr className="dropdown-divider" /></li>
-                            <li>
-                              <button 
-                                className="dropdown-item text-danger"
-                                onClick={() => handleDeleteRole(role.role_id, role.display_name)}
-                              >
-                                🗑️ Delete Role
-                              </button>
-                            </li>
-                          </>
+      {/* Roles Table */}
+      <div className="card" style={cardStyle}>
+        <div className="card-body">
+          <div className="table-responsive">
+            <table className="table table-hover">
+              <thead className={isDark ? 'table-dark' : 'table-light'}>
+                <tr>
+                  <th>Role Name</th>
+                  <th>Display Name</th>
+                  <th>Description</th>
+                  <th>Type</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {paginatedRoles.length === 0 ? (
+                  <tr>
+                    <td colSpan="5" className="text-center py-4">
+                      <div className={`text-muted ${isDark ? 'text-light' : ''}`}>
+                        <h5>No roles found</h5>
+                        <p>No roles match your search criteria.</p>
+                      </div>
+                    </td>
+                  </tr>
+                ) : (
+                  paginatedRoles.map((role) => (
+                    <tr key={role.role_id} className={isDark ? 'text-light' : ''}>
+                      <td>
+                        <code className={isDark ? 'text-info' : 'text-primary'}>
+                          {role.role_name}
+                        </code>
+                      </td>
+                      <td>
+                        <div className="fw-semibold">
+                          {role.display_name}
+                        </div>
+                      </td>
+                      <td>
+                        <span className={isDark ? 'text-light' : 'text-muted'}>
+                          {role.description || 'No description'}
+                        </span>
+                      </td>
+                      <td>
+                        {role.is_system_role ? (
+                          <span className="badge bg-warning text-dark">System Role</span>
+                        ) : (
+                          <span className="badge bg-success">Custom Role</span>
                         )}
-                      </ul>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          ))
-        )}
+                      </td>
+                      <td>
+                        <div className="btn-group" role="group">
+                          <button 
+                            className="btn btn-outline-info btn-sm"
+                            onClick={() => handleViewPermissions(role)}
+                          >
+                            View Permissions
+                          </button>
+                          <button 
+                            className="btn btn-outline-primary btn-sm"
+                            onClick={() => handleViewPermissions(role)}
+                          >
+                            Edit Permissions
+                          </button>
+                          {!role.is_system_role && (
+                            <button 
+                              className="btn btn-outline-danger btn-sm"
+                              onClick={() => handleDeleteRole(role.role_id, role.display_name)}
+                            >
+                              Delete Role
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+          
+          <PaginationComponent 
+            currentPage={currentPage}
+            totalPages={totalPages}
+            onPageChange={setCurrentPage}
+          />
+        </div>
       </div>
 
       {/* Create Role Modal */}
@@ -371,7 +453,7 @@ const getSelectedPermissionsSummary = () => {
                       required
                       style={{
                         backgroundColor: isDark ? '#000000' : '#ffffff',
-                        borderColor: isDark ? '#333333' : '#ced4da',
+                        borderColor: isDark ? '#4a5568' : '#cbd5e0',
                         color: isDark ? '#ffffff' : '#000000'
                       }}
                     />
@@ -393,7 +475,7 @@ const getSelectedPermissionsSummary = () => {
                       required
                       style={{
                         backgroundColor: isDark ? '#000000' : '#ffffff',
-                        borderColor: isDark ? '#333333' : '#ced4da',
+                        borderColor: isDark ? '#4a5568' : '#cbd5e0',
                         color: isDark ? '#ffffff' : '#000000'
                       }}
                     />
@@ -411,7 +493,7 @@ const getSelectedPermissionsSummary = () => {
                       rows="3"
                       style={{
                         backgroundColor: isDark ? '#000000' : '#ffffff',
-                        borderColor: isDark ? '#333333' : '#ced4da',
+                        borderColor: isDark ? '#4a5568' : '#cbd5e0',
                         color: isDark ? '#ffffff' : '#000000'
                       }}
                     />
@@ -439,7 +521,7 @@ const getSelectedPermissionsSummary = () => {
                   >
                     Cancel
                   </button>
-                  <button type="submit" className="btn btn-primary">
+                  <button type="submit" className="btn btn-danger">
                     Create Role
                   </button>
                 </div>
@@ -479,7 +561,7 @@ const getSelectedPermissionsSummary = () => {
                     onChange={(e) => setPermissionFilter(e.target.value)}
                     style={{
                       backgroundColor: isDark ? '#000000' : '#ffffff',
-                      borderColor: isDark ? '#333333' : '#ced4da',
+                      borderColor: isDark ? '#4a5568' : '#cbd5e0',
                       color: isDark ? '#ffffff' : '#000000'
                     }}
                   />
@@ -528,22 +610,18 @@ const getSelectedPermissionsSummary = () => {
                   </div>
                 ))}
 
-
-
-
                 {/* Permission Summary */}
                 <div className="mt-4 p-3 rounded" style={{ 
-                  backgroundColor: isDark ? '#111111' : '#f8f9fa',
-                  border: isDark ? '1px solid #333333' : '1px solid #e5e7eb'
+                  backgroundColor: isDark ? '#1a202c' : '#f7fafc',
+                  border: isDark ? '1px solid #4a5568' : '1px solid #e2e8f0'
                 }}>
                   <strong className={isDark ? 'text-light' : 'text-dark'}>
                     Selected: {selectedPermissions.length} permissions
                   </strong>
                   <br />
                   <small className={isDark ? 'text-light' : 'text-muted'}>
-  {getSelectedPermissionsSummary()}
-</small>
-
+                    {getSelectedPermissionsSummary()}
+                  </small>
                 </div>
               </div>
               <div className="modal-footer">
@@ -574,7 +652,7 @@ const getSelectedPermissionsSummary = () => {
                 </button>
                 <button 
                   type="button" 
-                  className="btn btn-primary"
+                  className="btn btn-danger"
                   onClick={handlePermissionUpdate}
                 >
                   Update Permissions
@@ -585,9 +663,7 @@ const getSelectedPermissionsSummary = () => {
         </div>
       )}
 
-     
-
-     
+      <ConfirmationModal {...confirmationState} />
     </div>
   );
 };

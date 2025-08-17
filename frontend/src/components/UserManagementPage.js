@@ -4,10 +4,8 @@ import { useAdminAuth } from '../contexts/AdminAuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { useToast } from '../contexts/ToastContext';
 import { apiService } from '../services/api';
-
 import { useConfirmation } from '../hooks/useConfirmation';
 import ConfirmationModal from './ConfirmationModal';
-
 
 const UserManagementPage = ({ departmentFilter = null }) => {
   const { admin, isSuperAdmin, isDepartmentAdmin, hasPermission } = useAdminAuth();
@@ -25,6 +23,10 @@ const UserManagementPage = ({ departmentFilter = null }) => {
   const [filterDepartment, setFilterDepartment] = useState(departmentFilter || '');
   const [filterRole, setFilterRole] = useState('');
   
+  // Pagination
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage] = useState(10);
+  
   // Create user form state
   const [newUser, setNewUser] = useState({
     username: '',
@@ -33,46 +35,6 @@ const UserManagementPage = ({ departmentFilter = null }) => {
     department: departmentFilter || '',
     password: ''
   });
-
-const handleDeleteUser = async (userId, username, fullName) => {
-  // Güvenlik kontrolü
-  if (userId === admin.admin_id) {
-    showError('Cannot delete your own account');
-    return;
-  }
-
-  // Modern confirmation dialog
-  const confirmed = await showConfirmation({
-    title: '🗑️ Delete User Account',
-    message: `Are you sure you want to delete user "${fullName || username}"?\n\nThis action will:\n• Remove all role assignments\n• Deactivate the user account\n• This action cannot be easily undone`,
-    type: 'danger',
-    confirmText: 'Delete User',
-    cancelText: 'Cancel',
-    requireTextConfirmation: true,
-    confirmationText: 'DELETE'
-  });
-
-  if (!confirmed) return;
-
-  try {
-    const result = await apiService.deleteAdminUser(userId);
-    
-    if (result.data.success) {
-      showSuccess(`User "${username}" has been deleted successfully`);
-      loadData(); // Reload the user list
-    }
-  } catch (error) {
-    console.error('Error deleting user:', error);
-    if (error.response?.status === 403) {
-      showError('Access denied: You cannot delete this user');
-    } else if (error.response?.status === 400) {
-      showError(error.response.data.error || 'Cannot delete this user');
-    } else {
-      showError('Failed to delete user');
-    }
-  }
-};
-
 
   // Role assignment state
   const [selectedRoles, setSelectedRoles] = useState([]);
@@ -85,111 +47,149 @@ const handleDeleteUser = async (userId, username, fullName) => {
   }, [hasPermission]);
 
   const loadData = async () => {
-  try {
-    setLoading(true);
-    console.log('Loading user management data...');
-    
-    const [usersRes, rolesRes] = await Promise.allSettled([
-      apiService.rbacGetUsersWithRoles(),
-      apiService.rbacGetAllRoles()
-    ]);
-
-    // Handle users response
-    if (usersRes.status === 'fulfilled' && usersRes.value?.data?.success) {
-      let userData = usersRes.value.data.data || [];
+    try {
+      setLoading(true);
+      console.log('Loading user management data...');
       
-      // Apply department filter if not super admin
-      if (departmentFilter && !isSuperAdmin()) {
-        userData = userData.filter(user => user.department === departmentFilter);
+      const [usersRes, rolesRes] = await Promise.allSettled([
+        apiService.rbacGetUsersWithRoles(),
+        apiService.rbacGetAllRoles()
+      ]);
+
+      // Handle users response
+      if (usersRes.status === 'fulfilled' && usersRes.value?.data?.success) {
+        let userData = usersRes.value.data.data || [];
+        
+        // Apply department filter if not super admin
+        if (departmentFilter && !isSuperAdmin()) {
+          userData = userData.filter(user => user.department === departmentFilter);
+        }
+        
+        setUsers(userData);
+        console.log('Users loaded:', userData.length);
+      } else {
+        console.error('Failed to load users:', usersRes.reason);
+        setUsers([]);
+        showError('Failed to load users');
       }
       
-      setUsers(userData);
-      console.log('Users loaded:', userData.length);
-    } else {
-      console.error('Failed to load users:', usersRes.reason);
+      // Handle roles response
+      if (rolesRes.status === 'fulfilled' && rolesRes.value?.data?.success) {
+        setRoles(rolesRes.value.data.data || []);
+        console.log('Roles loaded:', rolesRes.value.data.data?.length || 0);
+      } else {
+        console.error('Failed to load roles:', rolesRes.reason);
+        setRoles([]);
+        showError('Failed to load roles');
+      }
+
+    } catch (error) {
+      console.error('Error loading user data:', error);
+      showError('Failed to load user data');
       setUsers([]);
-      showError('Failed to load users');
-    }
-    
-    
-    // Handle roles response
-    if (rolesRes.status === 'fulfilled' && rolesRes.value?.data?.success) {
-      setRoles(rolesRes.value.data.data || []);
-      console.log('Roles loaded:', rolesRes.value.data.data?.length || 0);
-    } else {
-      console.error('Failed to load roles:', rolesRes.reason);
       setRoles([]);
-      showError('Failed to load roles');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDeleteUser = async (userId, username, fullName) => {
+    // Güvenlik kontrolü
+    if (userId === admin.admin_id) {
+      showError('Cannot delete your own account');
+      return;
     }
 
-  } catch (error) {
-    console.error('Error loading user data:', error);
-    showError('Failed to load user data');
-    setUsers([]);
-    setRoles([]);
-  } finally {
-    setLoading(false);
-  }
-};
-
-  const handleRoleAssignment = async () => {
-  if (!selectedUser || selectedRoles.length === 0) {
-    showError('Please select user and roles');
-    return;
-  }
-
-  try {
-    console.log(' Starting role assignment:', {
-      user: selectedUser.admin_id,
-      roles: selectedRoles,
-      expiryDate: roleExpiryDate
+    // Modern confirmation dialog
+    const confirmed = await showConfirmation({
+      title: 'Delete User Account',
+      message: `Are you sure you want to delete user "${fullName || username}"?\n\nThis action will:\n• Remove all role assignments\n• Deactivate the user account\n• This action cannot be easily undone`,
+      type: 'danger',
+      confirmText: 'Delete User',
+      cancelText: 'Cancel',
+      requireTextConfirmation: true,
+      confirmationText: 'DELETE'
     });
 
-    // Tek tek rol ataması yap (bulk operations yerine)
-    const results = [];
-    for (const roleId of selectedRoles) {
-      try {
-        console.log(` Assigning role ${roleId} to user ${selectedUser.admin_id}`);
-        
-        const result = await apiService.rbacAssignRole(
-          selectedUser.admin_id, 
-          parseInt(roleId), // roleId'yi integer'a çevir
-          roleExpiryDate || null
-        );
-        
-        console.log('✅ Role assignment result:', result.data);
-        results.push({ roleId, success: true, result: result.data });
-      } catch (error) {
-        console.error(`❌ Failed to assign role ${roleId}:`, error);
-        results.push({ 
-          roleId, 
-          success: false, 
-          error: error.response?.data?.error || error.message 
-        });
+    if (!confirmed) return;
+
+    try {
+      const result = await apiService.deleteAdminUser(userId);
+      
+      if (result.data.success) {
+        showSuccess(`User "${username}" has been deleted successfully`);
+        loadData(); // Reload the user list
+      }
+    } catch (error) {
+      console.error('Error deleting user:', error);
+      if (error.response?.status === 403) {
+        showError('Access denied: You cannot delete this user');
+      } else if (error.response?.status === 400) {
+        showError(error.response.data.error || 'Cannot delete this user');
+      } else {
+        showError('Failed to delete user');
       }
     }
+  };
 
-    const successful = results.filter(r => r.success).length;
-    const failed = results.filter(r => !r.success).length;
-    
-    if (successful > 0) {
-      showSuccess(`✅ ${successful} roles assigned successfully${failed > 0 ? `, ${failed} failed` : ''}`);
-    } else {
-      showError(`❌ All role assignments failed`);
+  const handleRoleAssignment = async () => {
+    if (!selectedUser || selectedRoles.length === 0) {
+      showError('Please select user and roles');
+      return;
     }
-    
-    // Modal'ı kapat ve data'yı yenile
-    setShowRoleModal(false);
-    setSelectedUser(null);
-    setSelectedRoles([]);
-    setRoleExpiryDate('');
-    loadData();
-    
-  } catch (error) {
-    console.error('❌ Role assignment error:', error);
-    showError('Failed to assign roles: ' + (error.response?.data?.error || error.message));
-  }
-};
+
+    try {
+      console.log('Starting role assignment:', {
+        user: selectedUser.admin_id,
+        roles: selectedRoles,
+        expiryDate: roleExpiryDate
+      });
+
+      // Tek tek rol ataması yap (bulk operations yerine)
+      const results = [];
+      for (const roleId of selectedRoles) {
+        try {
+          console.log(`Assigning role ${roleId} to user ${selectedUser.admin_id}`);
+          
+          const result = await apiService.rbacAssignRole(
+            selectedUser.admin_id, 
+            parseInt(roleId), // roleId'yi integer'a çevir
+            roleExpiryDate || null
+          );
+          
+          console.log('Role assignment result:', result.data);
+          results.push({ roleId, success: true, result: result.data });
+        } catch (error) {
+          console.error(`Failed to assign role ${roleId}:`, error);
+          results.push({ 
+            roleId, 
+            success: false, 
+            error: error.response?.data?.error || error.message 
+          });
+        }
+      }
+
+      const successful = results.filter(r => r.success).length;
+      const failed = results.filter(r => !r.success).length;
+      
+      if (successful > 0) {
+        showSuccess(`${successful} roles assigned successfully${failed > 0 ? `, ${failed} failed` : ''}`);
+      } else {
+        showError(`All role assignments failed`);
+      }
+      
+      // Modal'ı kapat ve data'yı yenile
+      setShowRoleModal(false);
+      setSelectedUser(null);
+      setSelectedRoles([]);
+      setRoleExpiryDate('');
+      loadData();
+      
+    } catch (error) {
+      console.error('Role assignment error:', error);
+      showError('Failed to assign roles: ' + (error.response?.data?.error || error.message));
+    }
+  };
 
   const handleRoleRemoval = async (userId, roleId) => {
     try {
@@ -272,6 +272,78 @@ const handleDeleteUser = async (userId, username, fullName) => {
     return matchesSearch && matchesDepartment && matchesRole;
   });
 
+  // Pagination helpers
+  const getPaginatedData = (data, page, itemsPerPage) => {
+    const startIndex = (page - 1) * itemsPerPage;
+    return data.slice(startIndex, startIndex + itemsPerPage);
+  };
+
+  const getTotalPages = (dataLength, itemsPerPage) => {
+    return Math.ceil(dataLength / itemsPerPage);
+  };
+
+  const PaginationComponent = ({ currentPage, totalPages, onPageChange }) => {
+    if (totalPages <= 1) return null;
+
+    return (
+      <nav aria-label="Page navigation" className="mt-4">
+        <ul className="pagination justify-content-center">
+          <li className={`page-item ${currentPage === 1 ? 'disabled' : ''}`}>
+            <button 
+              className="page-link" 
+              onClick={() => onPageChange(currentPage - 1)}
+              disabled={currentPage === 1}
+              style={{
+                backgroundColor: isDark ? '#000000' : '#ffffff',
+                borderColor: isDark ? '#4a5568' : '#e2e8f0',
+                color: isDark ? '#ffffff' : '#000000'
+              }}
+            >
+              Previous
+            </button>
+          </li>
+          
+          {[...Array(totalPages)].map((_, index) => (
+            <li key={index + 1} className={`page-item ${currentPage === index + 1 ? 'active' : ''}`}>
+              <button 
+                className="page-link" 
+                onClick={() => onPageChange(index + 1)}
+                style={{
+                  backgroundColor: currentPage === index + 1 
+                    ? '#dc2626' 
+                    : (isDark ? '#000000' : '#ffffff'),
+                  borderColor: currentPage === index + 1 
+                    ? '#dc2626' 
+                    : (isDark ? '#4a5568' : '#e2e8f0'),
+                  color: currentPage === index + 1 
+                    ? '#ffffff' 
+                    : (isDark ? '#ffffff' : '#000000')
+                }}
+              >
+                {index + 1}
+              </button>
+            </li>
+          ))}
+          
+          <li className={`page-item ${currentPage === totalPages ? 'disabled' : ''}`}>
+            <button 
+              className="page-link" 
+              onClick={() => onPageChange(currentPage + 1)}
+              disabled={currentPage === totalPages}
+              style={{
+                backgroundColor: isDark ? '#000000' : '#ffffff',
+                borderColor: isDark ? '#4a5568' : '#e2e8f0',
+                color: isDark ? '#ffffff' : '#000000'
+              }}
+            >
+              Next
+            </button>
+          </li>
+        </ul>
+      </nav>
+    );
+  };
+
   const getDepartments = () => {
     const departments = [...new Set(users.map(user => user.department))];
     return departments.filter(Boolean);
@@ -279,7 +351,7 @@ const handleDeleteUser = async (userId, username, fullName) => {
 
   const cardStyle = {
     backgroundColor: isDark ? '#000000' : '#ffffff',
-    borderColor: isDark ? '#333333' : '#dee2e6',
+    borderColor: isDark ? '#4a5568' : '#e2e8f0',
     color: isDark ? '#ffffff' : '#000000'
   };
 
@@ -294,10 +366,12 @@ const handleDeleteUser = async (userId, username, fullName) => {
     );
   }
 
+  const totalPages = getTotalPages(filteredUsers.length, itemsPerPage);
+  const paginatedUsers = getPaginatedData(filteredUsers, currentPage, itemsPerPage);
+
   return (
     <div>
- {/* Confirmation Modal */}
-    <ConfirmationModal {...confirmationState} />
+      <ConfirmationModal {...confirmationState} />
 
       {/* Header */}
       <div className="d-flex justify-content-between align-items-center mb-4">
@@ -315,10 +389,10 @@ const handleDeleteUser = async (userId, username, fullName) => {
         
         {hasPermission('users', 'create') && (
           <button 
-            className="btn btn-primary"
+            className="btn btn-danger"
             onClick={() => setShowCreateModal(true)}
           >
-             Create User
+            Create User
           </button>
         )}
       </div>
@@ -334,13 +408,11 @@ const handleDeleteUser = async (userId, username, fullName) => {
             onChange={(e) => setSearchTerm(e.target.value)}
             style={{
               backgroundColor: isDark ? '#000000' : '#ffffff',
-              borderColor: isDark ? '#333333' : '#ced4da',
+              borderColor: isDark ? '#4a5568' : '#cbd5e0',
               color: isDark ? '#ffffff' : '#000000'
             }}
           />
         </div>
-        
-            
 
         {isSuperAdmin() && (
           <div className="col-md-4">
@@ -350,7 +422,7 @@ const handleDeleteUser = async (userId, username, fullName) => {
               onChange={(e) => setFilterDepartment(e.target.value)}
               style={{
                 backgroundColor: isDark ? '#000000' : '#ffffff',
-                borderColor: isDark ? '#333333' : '#ced4da',
+                borderColor: isDark ? '#4a5568' : '#cbd5e0',
                 color: isDark ? '#ffffff' : '#000000'
               }}
             >
@@ -369,7 +441,7 @@ const handleDeleteUser = async (userId, username, fullName) => {
             onChange={(e) => setFilterRole(e.target.value)}
             style={{
               backgroundColor: isDark ? '#000000' : '#ffffff',
-              borderColor: isDark ? '#333333' : '#ced4da',
+              borderColor: isDark ? '#4a5568' : '#cbd5e0',
               color: isDark ? '#ffffff' : '#000000'
             }}
           >
@@ -381,74 +453,83 @@ const handleDeleteUser = async (userId, username, fullName) => {
         </div>
       </div>
 
-      {/* Users List */}
-      <div className="row">
-        {filteredUsers.length === 0 ? (
-          <div className="col-12">
-            <div className="alert alert-info">
-              <h5>No users found</h5>
-              <p>No users match your current filters.</p>
-            </div>
-          </div>
-        ) : (
-          filteredUsers.map((user) => (
-            <div key={user.admin_id} className="col-lg-6 mb-3">
-              <div className="card" style={cardStyle}>
-                <div className="card-body">
-                  <div className="d-flex justify-content-between align-items-start">
-                    <div>
-                      <h6 className={`card-title ${isDark ? 'text-light' : 'text-dark'}`}>
-                        {user.full_name || user.username}
-                        {user.is_super_admin && (
-                          <span className="badge bg-danger ms-2">Super Admin</span>
-                        )}
-                        {!user.is_active && (
-                          <span className="badge bg-secondary ms-2">Inactive</span>
-                        )}
-                      </h6>
-                      
-                      <p className={`card-text ${isDark ? 'text-light' : 'text-muted'}`}>
-                        <strong>Username:</strong> {user.username}<br />
-                        <strong>Email:</strong> {user.email}<br />
-                        <strong>Department:</strong> {user.department}
-                      </p>
-                      
-                      <div className="mb-2">
-                        <strong className={isDark ? 'text-light' : 'text-dark'}>Roles:</strong>
-                        <div className="mt-1">
+      {/* Users Table */}
+      <div className="card" style={cardStyle}>
+        <div className="card-body">
+          <div className="table-responsive">
+            <table className="table table-hover">
+              <thead className={isDark ? 'table-dark' : 'table-light'}>
+                <tr>
+                  <th>User</th>
+                  <th>Email</th>
+                  <th>Department</th>
+                  <th>Roles</th>
+                  <th>Status</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {paginatedUsers.length === 0 ? (
+                  <tr>
+                    <td colSpan="6" className="text-center py-4">
+                      <div className={`text-muted ${isDark ? 'text-light' : ''}`}>
+                        <h5>No users found</h5>
+                        <p>No users match your current filters.</p>
+                      </div>
+                    </td>
+                  </tr>
+                ) : (
+                  paginatedUsers.map((user) => (
+                    <tr key={user.admin_id} className={isDark ? 'text-light' : ''}>
+                      <td>
+                        <div>
+                          <div className="fw-semibold">
+                            {user.full_name || user.username}
+                          </div>
+                          <small className={isDark ? 'text-light' : 'text-muted'}>
+                            @{user.username}
+                          </small>
+                        </div>
+                      </td>
+                      <td>{user.email}</td>
+                      <td>
+                        <span className="badge bg-secondary">
+                          {user.department}
+                        </span>
+                      </td>
+                      <td>
+                        <div className="d-flex flex-wrap gap-1">
                           {user.roles && user.roles.length > 0 ? (
-                            user.role_display_names.map((roleName, index) => (
-                              <span key={index} className="badge bg-primary me-1">
+                            user.role_display_names.slice(0, 2).map((roleName, index) => (
+                              <span key={index} className="badge bg-primary">
                                 {roleName}
                               </span>
                             ))
                           ) : (
-                            <span className="text-muted">No roles assigned</span>
+                            <span className="text-muted">No roles</span>
+                          )}
+                          {user.role_display_names && user.role_display_names.length > 2 && (
+                            <span className="badge bg-secondary">
+                              +{user.role_display_names.length - 2}
+                            </span>
                           )}
                         </div>
-                      </div>
-                      
-                      {user.last_role_update && (
-                        <small className={isDark ? 'text-light' : 'text-muted'}>
-                          Last updated: {apiService.rbacHelpers.formatLastUpdated(user.last_role_update)}
-                        </small>
-                      )}
-                    </div>
-                    
-                    <div className="dropdown">
-                      <button 
-                        className="btn btn-outline-secondary btn-sm dropdown-toggle"
-                        type="button"
-                        data-bs-toggle="dropdown"
-                        disabled={!hasPermission('users', 'manage_roles')}
-                      >
-                        Actions
-                      </button>
-                      <ul className="dropdown-menu">
-                        {hasPermission('users', 'manage_roles') && (
-                          <li>
+                      </td>
+                      <td>
+                        <div className="d-flex flex-column gap-1">
+                          {user.is_super_admin && (
+                            <span className="badge bg-danger">Super Admin</span>
+                          )}
+                          <span className={`badge ${user.is_active ? 'bg-success' : 'bg-secondary'}`}>
+                            {user.is_active ? 'Active' : 'Inactive'}
+                          </span>
+                        </div>
+                      </td>
+                      <td>
+                        <div className="btn-group" role="group">
+                          {hasPermission('users', 'manage_roles') && (
                             <button 
-                              className="dropdown-item"
+                              className="btn btn-outline-info btn-sm"
                               onClick={() => {
                                 setSelectedUser(user);
                                 setShowRoleModal(true);
@@ -456,50 +537,44 @@ const handleDeleteUser = async (userId, username, fullName) => {
                             >
                               Manage Roles
                             </button>
-                          </li>
-                        )}
-                        
-                        {isSuperAdmin() && user.admin_id !== admin.admin_id && (
-                          <li>
+                          )}
+                          
+                          {isSuperAdmin() && user.admin_id !== admin.admin_id && (
                             <button 
-                              className="dropdown-item"
+                              className="btn btn-outline-warning btn-sm"
                               onClick={() => handleToggleSuperAdmin(user.admin_id, user.is_super_admin)}
                             >
-                              {user.is_super_admin ? ' Revoke Super Admin' : ' Make Super Admin'}
+                              {user.is_super_admin ? 'Revoke Super' : 'Make Super'}
                             </button>
-                          </li>
-                        )}
-                        
-                       
-                       
+                          )}
 
-                            {hasPermission('users', 'delete') && (
-  <>
-    <li><hr className="dropdown-divider" /></li>
-    <li>
-      <button 
-        className="dropdown-item text-danger"
-        onClick={() => handleDeleteUser(
-          user.admin_id, 
-          user.username, 
-          user.full_name
-        )}
-        disabled={user.admin_id === admin.admin_id}
-      >
-         Delete User
-      </button>
-    </li>
-  </>
-)}
-
-                      </ul>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          ))
-        )}
+                          {hasPermission('users', 'delete') && user.admin_id !== admin.admin_id && (
+                            <button 
+                              className="btn btn-outline-danger btn-sm"
+                              onClick={() => handleDeleteUser(
+                                user.admin_id, 
+                                user.username, 
+                                user.full_name
+                              )}
+                            >
+                              Delete
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+          
+          <PaginationComponent 
+            currentPage={currentPage}
+            totalPages={totalPages}
+            onPageChange={setCurrentPage}
+          />
+        </div>
       </div>
 
       {/* Role Assignment Modal */}
@@ -568,7 +643,7 @@ const handleDeleteUser = async (userId, username, fullName) => {
                         onChange={(e) => setSelectedRoles(Array.from(e.target.selectedOptions, option => option.value))}
                         style={{
                           backgroundColor: isDark ? '#000000' : '#ffffff',
-                          borderColor: isDark ? '#333333' : '#ced4da',
+                          borderColor: isDark ? '#4a5568' : '#cbd5e0',
                           color: isDark ? '#ffffff' : '#000000'
                         }}
                       >
@@ -597,7 +672,7 @@ const handleDeleteUser = async (userId, username, fullName) => {
                         onChange={(e) => setRoleExpiryDate(e.target.value)}
                         style={{
                           backgroundColor: isDark ? '#000000' : '#ffffff',
-                          borderColor: isDark ? '#333333' : '#ced4da',
+                          borderColor: isDark ? '#4a5568' : '#cbd5e0',
                           color: isDark ? '#ffffff' : '#000000'
                         }}
                       />
@@ -620,7 +695,7 @@ const handleDeleteUser = async (userId, username, fullName) => {
                 {hasPermission('users', 'manage_roles') && (
                   <button 
                     type="button" 
-                    className="btn btn-primary"
+                    className="btn btn-danger"
                     onClick={handleRoleAssignment}
                     disabled={selectedRoles.length === 0}
                   >
@@ -660,7 +735,7 @@ const handleDeleteUser = async (userId, username, fullName) => {
                       required
                       style={{
                         backgroundColor: isDark ? '#000000' : '#ffffff',
-                        borderColor: isDark ? '#333333' : '#ced4da',
+                        borderColor: isDark ? '#4a5568' : '#cbd5e0',
                         color: isDark ? '#ffffff' : '#000000'
                       }}
                     />
@@ -678,7 +753,7 @@ const handleDeleteUser = async (userId, username, fullName) => {
                       required
                       style={{
                         backgroundColor: isDark ? '#000000' : '#ffffff',
-                        borderColor: isDark ? '#333333' : '#ced4da',
+                        borderColor: isDark ? '#4a5568' : '#cbd5e0',
                         color: isDark ? '#ffffff' : '#000000'
                       }}
                     />
@@ -696,7 +771,7 @@ const handleDeleteUser = async (userId, username, fullName) => {
                       required
                       style={{
                         backgroundColor: isDark ? '#000000' : '#ffffff',
-                        borderColor: isDark ? '#333333' : '#ced4da',
+                        borderColor: isDark ? '#4a5568' : '#cbd5e0',
                         color: isDark ? '#ffffff' : '#000000'
                       }}
                     />
@@ -714,7 +789,7 @@ const handleDeleteUser = async (userId, username, fullName) => {
                         required
                         style={{
                           backgroundColor: isDark ? '#000000' : '#ffffff',
-                          borderColor: isDark ? '#333333' : '#ced4da',
+                          borderColor: isDark ? '#4a5568' : '#cbd5e0',
                           color: isDark ? '#ffffff' : '#000000'
                         }}
                       >
@@ -741,7 +816,7 @@ const handleDeleteUser = async (userId, username, fullName) => {
                       minLength="6"
                       style={{
                         backgroundColor: isDark ? '#000000' : '#ffffff',
-                        borderColor: isDark ? '#333333' : '#ced4da',
+                        borderColor: isDark ? '#4a5568' : '#cbd5e0',
                         color: isDark ? '#ffffff' : '#000000'
                       }}
                     />
@@ -758,7 +833,7 @@ const handleDeleteUser = async (userId, username, fullName) => {
                   >
                     Cancel
                   </button>
-                  <button type="submit" className="btn btn-primary">
+                  <button type="submit" className="btn btn-danger">
                     Create User
                   </button>
                 </div>
@@ -767,8 +842,6 @@ const handleDeleteUser = async (userId, username, fullName) => {
           </div>
         </div>
       )}
-
-      
     </div>
   );
 };

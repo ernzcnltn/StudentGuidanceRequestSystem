@@ -1,24 +1,31 @@
-// frontend/src/pages/RequestsPage.js - FIXED VERSION
+// frontend/src/pages/RequestsPage.js - UPDATED WITH TABLE AND MODAL
 import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { apiService } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 import { useTranslation } from '../hooks/useTranslation';
+import { useTheme } from '../contexts/ThemeContext';
 import AttachmentViewer from '../components/AttachmentViewer';
 
 const RequestsPage = () => {
   const { user } = useAuth();
   const { t, translateRequestType } = useTranslation();
+  const { isDark } = useTheme();
 
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [filter, setFilter] = useState('all');
-  const [expandedRequests, setExpandedRequests] = useState(new Set());
   const [selectedRequestId, setSelectedRequestId] = useState(null);
   const [showAttachments, setShowAttachments] = useState(false);
   const [selectedRequestForResponses, setSelectedRequestForResponses] = useState(null);
   const [showResponsesModal, setShowResponsesModal] = useState(false);
+  const [selectedRequestDetails, setSelectedRequestDetails] = useState(null);
+  const [showDetailsModal, setShowDetailsModal] = useState(false);
+
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage] = useState(10);
 
   // Rejection details state
   const [rejectionDetails, setRejectionDetails] = useState({});
@@ -33,7 +40,6 @@ const RequestsPage = () => {
       try {
         setLoading(true);
         const response = await apiService.getStudentRequests(studentId);
-        // Sort requests by submission date (newest first)
         const sortedRequests = response.data.data.sort((a, b) => 
           new Date(b.submitted_at) - new Date(a.submitted_at)
         );
@@ -49,7 +55,6 @@ const RequestsPage = () => {
     loadRequests();
   }, [studentId]);
 
-  // FIXED: Fetch rejection details for students
   const fetchRejectionDetails = async (requestId) => {
     if (rejectionDetails[requestId]) {
       return rejectionDetails[requestId];
@@ -57,9 +62,8 @@ const RequestsPage = () => {
 
     try {
       setLoadingRejectionDetails(true);
-      console.log(' Fetching rejection details for request:', requestId);
+      console.log('Fetching rejection details for request:', requestId);
       
-      // Use the student API endpoint for rejection details
       const response = await apiService.getStudentRejectionDetails(requestId);
 
       if (response.data.success) {
@@ -107,34 +111,14 @@ const RequestsPage = () => {
     return statusStyles[status] || 'bg-secondary text-white';
   };
 
-  const getStatusIcon = (status) => {
-    const statusIcons = {
-      'Pending': '⏳',
-      'Informed': '💬',
-      'Completed': '✅',
-      'Rejected': '🚫'
-    };
-    return statusIcons[status] || '';
-  };
-
   const getPriorityBadge = (priority) => {
     const priorityStyles = {
       'Urgent': 'bg-danger text-white',
-      'High': 'bg-warning text-dark',
+      'High': 'bg-danger text-white',
       'Medium': 'bg-info text-white',
       'Low': 'bg-secondary text-white'
     };
     return priorityStyles[priority] || 'bg-secondary text-white';
-  };
-
-  const getPriorityIcon = (priority) => {
-    const icons = {
-      'Urgent': '',
-      'High': '',
-      'Medium': '',
-      'Low': ''
-    };
-    return icons[priority] || '';
   };
 
   const filteredRequests = requests
@@ -143,16 +127,6 @@ const RequestsPage = () => {
       return request.status === filter;
     })
     .sort((a, b) => new Date(b.submitted_at) - new Date(a.submitted_at));
-
-  const toggleExpanded = (requestId) => {
-    const newExpanded = new Set(expandedRequests);
-    if (newExpanded.has(requestId)) {
-      newExpanded.delete(requestId);
-    } else {
-      newExpanded.add(requestId);
-    }
-    setExpandedRequests(newExpanded);
-  };
 
   const formatDate = (dateString) => {
     const date = new Date(dateString);
@@ -169,7 +143,277 @@ const RequestsPage = () => {
     };
   };
 
-  // FIXED: Student Response Viewer Component
+  // Pagination helper functions
+  const getPaginatedData = (data, page, itemsPerPage) => {
+    const startIndex = (page - 1) * itemsPerPage;
+    return data.slice(startIndex, startIndex + itemsPerPage);
+  };
+
+  const getTotalPages = (dataLength, itemsPerPage) => {
+    return Math.ceil(dataLength / itemsPerPage);
+  };
+
+  const PaginationComponent = ({ currentPage, totalPages, onPageChange }) => {
+    if (totalPages <= 1) return null;
+
+    return (
+      <nav aria-label="Page navigation" className="mt-4">
+        <ul className="pagination justify-content-center">
+          <li className={`page-item ${currentPage === 1 ? 'disabled' : ''}`}>
+            <button 
+              className="page-link" 
+              onClick={() => onPageChange(currentPage - 1)}
+              disabled={currentPage === 1}
+              style={{
+                backgroundColor: isDark ? '#2d3748' : '#ffffff',
+                borderColor: isDark ? '#718096' : '#dee2e6',
+                color: isDark ? '#ffffff' : '#000000'
+              }}
+            >
+              Previous
+            </button>
+          </li>
+          
+          {[...Array(totalPages)].map((_, index) => (
+            <li key={index + 1} className={`page-item ${currentPage === index + 1 ? 'active' : ''}`}>
+              <button 
+                className="page-link" 
+                onClick={() => onPageChange(index + 1)}
+                style={{
+                  backgroundColor: currentPage === index + 1 
+                    ? '#dc2626' 
+                    : (isDark ? '#2d3748' : '#ffffff'),
+                  borderColor: currentPage === index + 1 
+                    ? '#dc2626' 
+                    : (isDark ? '#718096' : '#dee2e6'),
+                  color: currentPage === index + 1 
+                    ? '#ffffff' 
+                    : (isDark ? '#ffffff' : '#000000')
+                }}
+              >
+                {index + 1}
+              </button>
+            </li>
+          ))}
+          
+          <li className={`page-item ${currentPage === totalPages ? 'disabled' : ''}`}>
+            <button 
+              className="page-link" 
+              onClick={() => onPageChange(currentPage + 1)}
+              disabled={currentPage === totalPages}
+              style={{
+                backgroundColor: isDark ? '#2d3748' : '#ffffff',
+                borderColor: isDark ? '#718096' : '#dee2e6',
+                color: isDark ? '#ffffff' : '#000000'
+              }}
+            >
+              Next
+            </button>
+          </li>
+        </ul>
+      </nav>
+    );
+  };
+
+  // Request Details Modal Component
+  const RequestDetailsModal = ({ request, onClose }) => {
+    if (!request) return null;
+
+    const submittedDate = formatDate(request.submitted_at);
+    const updatedDate = formatDate(request.updated_at);
+
+    return (
+      <>
+        <div
+          className="modal-backdrop fade show"
+          style={{ zIndex: 1040 }}
+          onClick={onClose}
+        ></div>
+
+        <div
+          className="modal fade show d-block"
+          tabIndex="-1"
+          style={{ zIndex: 1050 }}
+        >
+          <div className="modal-dialog modal-lg modal-dialog-scrollable">
+            <div 
+              className="modal-content"
+              style={{
+                backgroundColor: isDark ? '#2d3748' : '#ffffff',
+                borderColor: isDark ? '#718096' : '#e2e8f0',
+                color: isDark ? '#ffffff' : '#000000'
+              }}
+            >
+              <div 
+                className="modal-header"
+                style={{
+                  backgroundColor: isDark ? '#4a5568' : '#f7fafc',
+                  borderColor: isDark ? '#718096' : '#e2e8f0'
+                }}
+              >
+                <h5 className="modal-title">
+                  Request Details - #{request.request_id}
+                </h5>
+                <button 
+                  type="button" 
+                  className="btn-close" 
+                  onClick={onClose}
+                  style={{
+                    filter: isDark ? 'invert(1)' : 'none'
+                  }}
+                ></button>
+              </div>
+
+              <div className="modal-body">
+                <div className="row">
+                  <div className="col-md-6">
+                    <div className="mb-3">
+                      <label className="form-label fw-bold">Request Type:</label>
+                      <div 
+                        className="p-2 rounded border"
+                        style={{
+                          backgroundColor: isDark ? '#4a5568' : '#f8f9fa',
+                          borderColor: isDark ? '#718096' : '#e2e8f0'
+                        }}
+                      >
+                        {translateRequestType(request.type_name)}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="col-md-6">
+                    <div className="mb-3">
+                      <label className="form-label fw-bold">Priority:</label>
+                      <div>
+                        <span className={`badge ${getPriorityBadge(request.priority)}`}>
+                          {t(request.priority.toLowerCase())}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mb-3">
+                  <label className="form-label fw-bold">Status:</label>
+                  <div>
+                    <span className={`badge ${getStatusBadge(request.status)}`}>
+                      {t(request.status.toLowerCase())}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="mb-3">
+                  <label className="form-label fw-bold">Content:</label>
+                  <div 
+                    className="p-3 rounded border"
+                    style={{
+                      backgroundColor: isDark ? '#4a5568' : '#f8f9fa',
+                      borderColor: isDark ? '#718096' : '#e2e8f0',
+                      whiteSpace: 'pre-wrap',
+                      lineHeight: '1.6'
+                    }}
+                  >
+                    {request.content}
+                  </div>
+                </div>
+
+                <div className="row">
+                  <div className="col-md-6">
+                    <div className="mb-3">
+                      <label className="form-label fw-bold">Submitted:</label>
+                      <div className={isDark ? 'text-light' : 'text-muted'}>
+                        <div>{submittedDate.date}</div>
+                        <small>{submittedDate.time}</small>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="col-md-6">
+                    <div className="mb-3">
+                      <label className="form-label fw-bold">Last Updated:</label>
+                      <div className={isDark ? 'text-light' : 'text-muted'}>
+                        <div>{updatedDate.date}</div>
+                        <small>{updatedDate.time}</small>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {request.attachment_count > 0 && (
+                  <div className="mb-3">
+                    <label className="form-label fw-bold">Attachments:</label>
+                    <div>
+                      <button
+                        className="btn btn-outline-secondary btn-sm"
+                        onClick={() => {
+                          setSelectedRequestId(request.request_id);
+                          setShowAttachments(true);
+                          onClose();
+                        }}
+                      >
+                        View Files ({request.attachment_count})
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div 
+                className="modal-footer"
+                style={{
+                  backgroundColor: isDark ? '#4a5568' : '#f7fafc',
+                  borderColor: isDark ? '#718096' : '#e2e8f0'
+                }}
+              >
+                <button type="button" className="btn btn-secondary" onClick={onClose}>
+                  Close
+                </button>
+                
+                {(request.status === 'Informed' || request.status === 'Completed') && (
+                  <button
+                    className="btn btn-info"
+                    onClick={() => {
+                      setSelectedRequestForResponses({
+                        id: request.request_id,
+                        title: `#${request.request_id} - ${request.type_name}`
+                      });
+                      setShowResponsesModal(true);
+                      onClose();
+                    }}
+                  >
+                    View Responses
+                  </button>
+                )}
+
+                {request.status === 'Rejected' && (
+                  <button
+                    className="btn btn-danger"
+                    onClick={async () => {
+                      const details = await fetchRejectionDetails(request.request_id);
+                      if (details) {
+                        setSelectedRequestForRejectionDetails({
+                          requestId: request.request_id,
+                          reason: details.reason,
+                          additional_info: details.additional_info || '',
+                          rejected_at: details.rejected_at,
+                          admin_name: details.admin_name || 'Unknown Admin'
+                        });
+                        setShowRejectionDetailsModal(true);
+                        onClose();
+                      }
+                    }}
+                    disabled={loadingRejectionDetails}
+                  >
+                    {loadingRejectionDetails ? 'Loading...' : 'View Rejection Reason'}
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      </>
+    );
+  };
+
+  // Student Response Viewer Component
   const StudentResponseViewer = ({ requestId, requestTitle, onClose }) => {
     const [responses, setResponses] = useState([]);
     const [loading, setLoading] = useState(false);
@@ -180,22 +424,21 @@ const RequestsPage = () => {
         setLoading(true);
         setError(null);
         
-        console.log(' Fetching student responses for request:', requestId);
+        console.log('Fetching student responses for request:', requestId);
         
-        // Use the correct student API endpoint
         const response = await apiService.getRequestResponses(requestId);
         
-        console.log(' Student responses response:', response.data);
+        console.log('Student responses response:', response.data);
         
         if (response.data.success) {
           setResponses(response.data.data || []);
-          console.log(` Loaded ${response.data.data.length} responses`);
+          console.log(`Loaded ${response.data.data.length} responses`);
         } else {
           setError('Failed to load responses');
-          console.error('❌ Failed to load responses:', response.data);
+          console.error('Failed to load responses:', response.data);
         }
       } catch (error) {
-        console.error('❌ Error fetching student responses:', error);
+        console.error('Error fetching student responses:', error);
         setError('Failed to load responses: ' + error.message);
       } finally {
         setLoading(false);
@@ -214,90 +457,124 @@ const RequestsPage = () => {
 
     return (
       <>
-        {/* Modal Backdrop */}
         <div
           className="modal-backdrop fade show"
           style={{ zIndex: 1040 }}
           onClick={handleBackdropClick}
         ></div>
 
-        {/* Modal */}
         <div
           className="modal fade show d-block"
           tabIndex="-1"
           style={{ zIndex: 1050 }}
         >
           <div className="modal-dialog modal-lg modal-dialog-scrollable">
-            <div className="modal-content">
-              <div className="modal-header">
+            <div 
+              className="modal-content"
+              style={{
+                backgroundColor: isDark ? '#2d3748' : '#ffffff',
+                borderColor: isDark ? '#718096' : '#e2e8f0',
+                color: isDark ? '#ffffff' : '#000000'
+              }}
+            >
+              <div 
+                className="modal-header"
+                style={{
+                  backgroundColor: isDark ? '#4a5568' : '#f7fafc',
+                  borderColor: isDark ? '#718096' : '#e2e8f0'
+                }}
+              >
                 <h5 className="modal-title">
-                  💬 {t('responsesFor', 'Responses for')}: {requestTitle}
+                  Responses for: {requestTitle}
                 </h5>
-                <button type="button" className="btn-close" onClick={onClose}></button>
+                <button 
+                  type="button" 
+                  className="btn-close" 
+                  onClick={onClose}
+                  style={{
+                    filter: isDark ? 'invert(1)' : 'none'
+                  }}
+                ></button>
               </div>
 
               <div className="modal-body">
                 {loading ? (
                   <div className="text-center py-4">
-                    <div className="spinner-border text-primary" role="status"></div>
-                    <p className="mt-3">{t('loadingResponses', 'Loading responses...')}</p>
+                    <div className="spinner-border text-danger" role="status"></div>
+                    <p className="mt-3">Loading responses...</p>
                   </div>
                 ) : error ? (
                   <div className="alert alert-danger">
-                    <h6>❌ Error Loading Responses</h6>
+                    <h6>Error Loading Responses</h6>
                     <p className="mb-2">{error}</p>
                     <button className="btn btn-outline-danger btn-sm" onClick={fetchResponses}>
-                      🔄 Try Again
+                      Try Again
                     </button>
                   </div>
                 ) : responses.length === 0 ? (
                   <div className="text-center py-5">
-                    <div className="text-muted">
+                    <div className={isDark ? 'text-light' : 'text-muted'}>
                       <div style={{ fontSize: '4rem' }}>💬</div>
-                      <h5 className="mt-3">{t('noResponsesYet', 'No responses yet')}</h5>
-                      <p>{t('adminHasntResponded', 'The admin hasn\'t responded to this request yet.')}</p>
+                      <h5 className="mt-3">No responses yet</h5>
+                      <p>The admin hasn't responded to this request yet.</p>
                     </div>
                   </div>
                 ) : (
                   <div>
                     <div className="d-flex justify-content-between align-items-center mb-3">
                       <h6 className="mb-0">
-                         {t('adminResponses', 'Admin Responses')} ({responses.length})
+                        Admin Responses ({responses.length})
                       </h6>
-                      <button className="btn btn-outline-primary btn-sm" onClick={fetchResponses}>
-                        🔄 Refresh
+                      <button className="btn btn-outline-danger btn-sm" onClick={fetchResponses}>
+                        Refresh
                       </button>
                     </div>
                     
                     {responses.map((response, index) => (
-                      <div key={response.response_id || index} className="card mb-3 shadow-sm">
+                      <div 
+                        key={response.response_id || index} 
+                        className="card mb-3 shadow-sm"
+                        style={{
+                          backgroundColor: isDark ? '#4a5568' : '#ffffff',
+                          borderColor: isDark ? '#718096' : '#e2e8f0'
+                        }}
+                      >
                         <div className="card-body">
                           <div className="d-flex justify-content-between align-items-start mb-3">
                             <div className="d-flex align-items-center">
-                              <span className="badge bg-primary me-2">#{index + 1}</span>
+                              <span className="badge bg-danger me-2">#{index + 1}</span>
                               <div>
-                                <strong className="text-primary d-block">
-                                   {response.created_by_admin || 'Admin'}
+                                <strong className="text-danger d-block">
+                                  {response.created_by_admin || 'Admin'}
                                 </strong>
-                                <small className="text-muted">
-                                   {new Date(response.created_at).toLocaleDateString()}
-                                  {' '}🕐 {new Date(response.created_at).toLocaleTimeString()}
+                                <small className={isDark ? 'text-light' : 'text-muted'}>
+                                  {new Date(response.created_at).toLocaleDateString()}
+                                  {' '}{new Date(response.created_at).toLocaleTimeString()}
                                 </small>
                               </div>
                             </div>
                           </div>
                           
-                          <div className="bg-light p-3 rounded border-start border-primary border-4">
+                          <div 
+                            className="p-3 rounded border-start border-danger border-4"
+                            style={{
+                              backgroundColor: isDark ? '#2d3748' : '#f8f9fa'
+                            }}
+                          >
                             <p className="mb-0" style={{ whiteSpace: 'pre-wrap', lineHeight: '1.6' }}>
                               {response.response_content}
                             </p>
                           </div>
                           
-                          {/* Show response attachments if any */}
                           {response.attachments && response.attachments.length > 0 && (
-                            <div className="mt-3 p-2 bg-info bg-opacity-10 rounded">
+                            <div 
+                              className="mt-3 p-2 rounded"
+                              style={{
+                                backgroundColor: isDark ? 'rgba(59, 130, 246, 0.1)' : 'rgba(59, 130, 246, 0.1)'
+                              }}
+                            >
                               <small className="text-info fw-bold">
-                                📎 Attachments ({response.attachments.length}):
+                                Attachments ({response.attachments.length}):
                               </small>
                               <div className="d-flex flex-wrap gap-1 mt-1">
                                 {response.attachments.map((file, fileIndex) => (
@@ -315,12 +592,18 @@ const RequestsPage = () => {
                 )}
               </div>
 
-              <div className="modal-footer">
-                <div className="text-muted small me-auto">
-                  {error ? 'Error loading responses' : `${responses.length} ${t('responsesFound', 'responses found')}`}
+              <div 
+                className="modal-footer"
+                style={{
+                  backgroundColor: isDark ? '#4a5568' : '#f7fafc',
+                  borderColor: isDark ? '#718096' : '#e2e8f0'
+                }}
+              >
+                <div className={`small me-auto ${isDark ? 'text-light' : 'text-muted'}`}>
+                  {error ? 'Error loading responses' : `${responses.length} responses found`}
                 </div>
                 <button type="button" className="btn btn-secondary" onClick={onClose}>
-                  {t('close', 'Close')}
+                  Close
                 </button>
               </div>
             </div>
@@ -333,10 +616,10 @@ const RequestsPage = () => {
   if (loading) {
     return (
       <div className="text-center py-5">
-        <div className="spinner-border text-primary" role="status">
-          <span className="visually-hidden">{t('loading')}</span>
+        <div className="spinner-border text-danger" role="status">
+          <span className="visually-hidden">Loading</span>
         </div>
-        <p className="mt-3 text-muted">{t('loading')} your requests...</p>
+        <p className="mt-3 text-muted">Loading your requests...</p>
       </div>
     );
   }
@@ -344,7 +627,7 @@ const RequestsPage = () => {
   if (error) {
     return (
       <div className="alert alert-danger" role="alert">
-        <h4 className="alert-heading">{t('error')}!</h4>
+        <h4 className="alert-heading">Error!</h4>
         <p>{error}</p>
         <hr />
         <button className="btn btn-outline-danger" onClick={fetchRequests}>
@@ -354,286 +637,311 @@ const RequestsPage = () => {
     );
   }
 
+  // Pagination calculations
+  const totalPages = getTotalPages(filteredRequests.length, itemsPerPage);
+  const paginatedRequests = getPaginatedData(filteredRequests, currentPage, itemsPerPage);
+
   return (
     <div>
       {/* Header */}
       <div className="d-flex justify-content-between align-items-center mb-4">
         <div>
-          <h2 className="mb-1">{t('myRequests')}</h2>
-          <p className="text-muted mb-0">{t('trackAndManage')}</p>
+          <h2 className="mb-1">My Requests</h2>
+          <p className={`mb-0 ${isDark ? 'text-light' : 'text-muted'}`}>Track and manage your requests</p>
         </div>
-        <Link to="/create-request" className="btn btn-primary">
+        <Link to="/create-request" className="btn btn-danger">
           <i className="bi bi-plus-circle me-2"></i>
-          {t('createRequest')}
+          Create Request
         </Link>
       </div>
 
       {/* Stats */}
       <div className="row mb-4">
-        <div className="col-md-3">
-          <div className="card text-center">
+        <div className="col-md-2">
+          <div 
+            className="card text-center"
+            style={{
+              backgroundColor: isDark ? '#2d3748' : '#ffffff',
+              borderColor: isDark ? '#718096' : '#e2e8f0'
+            }}
+          >
             <div className="card-body">
-              <h3 className="text-primary mb-1">{requests.length}</h3>
-              <small className="text-muted">{t('totalRequests')}</small>
+              <h3 className="text-danger mb-1">{requests.length}</h3>
+              <small className={isDark ? 'text-light' : 'text-muted'}>Total Requests</small>
             </div>
           </div>
         </div>
         <div className="col-md-2">
-          <div className="card text-center">
+          <div 
+            className="card text-center"
+            style={{
+              backgroundColor: isDark ? '#2d3748' : '#ffffff',
+              borderColor: isDark ? '#718096' : '#e2e8f0'
+            }}
+          >
             <div className="card-body">
               <h3 className="text-warning mb-1">{requests.filter(r => r.status === 'Pending').length}</h3>
-              <small className="text-muted">{t('pending')}</small>
+              <small className={isDark ? 'text-light' : 'text-muted'}>Pending</small>
             </div>
           </div>
         </div>
         <div className="col-md-2">
-          <div className="card text-center">
+          <div 
+            className="card text-center"
+            style={{
+              backgroundColor: isDark ? '#2d3748' : '#ffffff',
+              borderColor: isDark ? '#718096' : '#e2e8f0'
+            }}
+          >
             <div className="card-body">
               <h3 className="text-info mb-1">{requests.filter(r => r.status === 'Informed').length}</h3>
-              <small className="text-muted">{t('informed')}</small>
+              <small className={isDark ? 'text-light' : 'text-muted'}>Informed</small>
             </div>
           </div>
         </div>
         <div className="col-md-2">
-          <div className="card text-center">
+          <div 
+            className="card text-center"
+            style={{
+              backgroundColor: isDark ? '#2d3748' : '#ffffff',
+              borderColor: isDark ? '#718096' : '#e2e8f0'
+            }}
+          >
             <div className="card-body">
               <h3 className="text-success mb-1">{requests.filter(r => r.status === 'Completed').length}</h3>
-              <small className="text-muted">{t('completed')}</small>
+              <small className={isDark ? 'text-light' : 'text-muted'}>Completed</small>
             </div>
           </div>
         </div>
-        <div className="col-md-3">
-          <div className="card text-center">
+        <div className="col-md-2">
+          <div 
+            className="card text-center"
+            style={{
+              backgroundColor: isDark ? '#2d3748' : '#ffffff',
+              borderColor: isDark ? '#718096' : '#e2e8f0'
+            }}
+          >
             <div className="card-body">
               <h3 className="text-danger mb-1">{requests.filter(r => r.status === 'Rejected').length}</h3>
-              <small className="text-muted">{t('rejected', 'Rejected')}</small>
+              <small className={isDark ? 'text-light' : 'text-muted'}>Rejected</small>
+            </div>
+          </div>
+        </div>
+        <div className="col-md-2">
+          <div 
+            className="card text-center"
+            style={{
+              backgroundColor: isDark ? '#2d3748' : '#ffffff',
+              borderColor: isDark ? '#718096' : '#e2e8f0'
+            }}
+          >
+            <div className="card-body">
+              <button 
+                className="btn btn-outline-danger btn-sm w-100"
+                onClick={fetchRequests}
+                disabled={loading}
+              >
+                {loading ? (
+                  <>
+                    <span className="spinner-border spinner-border-sm me-1" role="status"></span>
+                    Loading...
+                  </>
+                ) : (
+                  'Refresh'
+                )}
+              </button>
             </div>
           </div>
         </div>
       </div>
 
       {/* Filters */}
-      <div className="mb-4">
+      <div className="d-flex justify-content-between align-items-center mb-4">
         <div className="btn-group" role="group">
           <button
             type="button"
-            className={`btn ${filter === 'all' ? 'btn-primary' : 'btn-outline-primary'}`}
-            onClick={() => setFilter('all')}
+            className={`btn ${filter === 'all' ? 'btn-danger' : 'btn-outline-danger'}`}
+            onClick={() => {
+              setFilter('all');
+              setCurrentPage(1);
+            }}
           >
-            {t('viewAll')} ({requests.length})
+            View All ({requests.length})
           </button>
           <button
             type="button"
             className={`btn ${filter === 'Pending' ? 'btn-warning' : 'btn-outline-warning'}`}
-            onClick={() => setFilter('Pending')}
+            onClick={() => {
+              setFilter('Pending');
+              setCurrentPage(1);
+            }}
           >
-            {t('pending')} ({requests.filter(r => r.status === 'Pending').length})
+            Pending ({requests.filter(r => r.status === 'Pending').length})
           </button>
           <button
             type="button"
             className={`btn ${filter === 'Informed' ? 'btn-info' : 'btn-outline-info'}`}
-            onClick={() => setFilter('Informed')}
+            onClick={() => {
+              setFilter('Informed');
+              setCurrentPage(1);
+            }}
           >
-            {t('informed')} ({requests.filter(r => r.status === 'Informed').length})
+            Informed ({requests.filter(r => r.status === 'Informed').length})
           </button>
           <button
             type="button"
             className={`btn ${filter === 'Completed' ? 'btn-success' : 'btn-outline-success'}`}
-            onClick={() => setFilter('Completed')}
+            onClick={() => {
+              setFilter('Completed');
+              setCurrentPage(1);
+            }}
           >
-            {t('completed')} ({requests.filter(r => r.status === 'Completed').length})
+            Completed ({requests.filter(r => r.status === 'Completed').length})
           </button>
           <button
             type="button"
             className={`btn ${filter === 'Rejected' ? 'btn-danger' : 'btn-outline-danger'}`}
-            onClick={() => setFilter('Rejected')}
+            onClick={() => {
+              setFilter('Rejected');
+              setCurrentPage(1);
+            }}
           >
-             {t('rejected', 'Rejected')} ({requests.filter(r => r.status === 'Rejected').length})
+            Rejected ({requests.filter(r => r.status === 'Rejected').length})
           </button>
+        </div>
+
+        <div className={`text-sm ${isDark ? 'text-light' : 'text-muted'}`}>
+          Showing {paginatedRequests.length} of {filteredRequests.length} requests
         </div>
       </div>
 
-      {/* Requests List */}
-      {filteredRequests.length === 0 ? (
-        <div className="text-center py-5">
-          <div className="mb-4">
-            <i className="bi bi-inbox display-1 text-muted"></i>
-          </div>
-          <h4 className="text-muted">
-            {filter === 'all' ? t('noRequests') : `${t('noRequestsFound')} (${t(filter.toLowerCase())})`}
-          </h4>
-          <p className="text-muted mb-4"></p>
-        </div>
-      ) : (
-        <div className="row">
-          {filteredRequests.map((request) => {
-            const isExpanded = expandedRequests.has(request.request_id);
-            const submittedDate = formatDate(request.submitted_at);
-            const updatedDate = formatDate(request.updated_at);
+      {/* Requests Table */}
+      <div 
+        className="card"
+        style={{
+          backgroundColor: isDark ? '#2d3748' : '#ffffff',
+          borderColor: isDark ? '#718096' : '#e2e8f0'
+        }}
+      >
+        <div className="card-body">
+          {filteredRequests.length === 0 ? (
+            <div className="text-center py-5">
+              <div className="mb-4">
+                <i className="bi bi-inbox display-1 text-muted"></i>
+              </div>
+              <h4 className={isDark ? 'text-light' : 'text-muted'}>
+                {filter === 'all' ? 'No Requests' : `No Requests Found (${filter})`}
+              </h4>
+              <p className={`mb-4 ${isDark ? 'text-light' : 'text-muted'}`}>
+                {filter === 'all' ? 'You haven\'t submitted any requests yet.' : `No ${filter.toLowerCase()} requests found.`}
+              </p>
+              {filter === 'all' && (
+                <Link to="/create-request" className="btn btn-danger">
+                  Create Your First Request
+                </Link>
+              )}
+            </div>
+          ) : (
+            <>
+              <div className="table-responsive">
+                <table className="table table-hover">
+                  <thead className={isDark ? 'table-dark' : 'table-light'}>
+                    <tr>
+                      <th>ID</th>
+                      <th>Type</th>
+                      <th>Content</th>
+                      <th>Priority</th>
+                      <th>Status</th>
+                      <th>Submitted</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {paginatedRequests.map((request) => {
+                      const submittedDate = formatDate(request.submitted_at);
 
-            return (
-              <div key={request.request_id} className="col-12 mb-3">
-                <div className="card shadow-sm">
-                  <div className="card-header d-flex justify-content-between align-items-center">
-                    <div>
-                      <h6 className="mb-1">
-                        <span className="me-2">{getStatusIcon(request.status)}</span>
-                        {translateRequestType(request.type_name)}
-                      </h6>
-                    </div>
-                    <div className="d-flex align-items-center gap-2">
-                      {request.priority && (
-                        <span className={`badge ${getPriorityBadge(request.priority)}`}>
-                          {getPriorityIcon(request.priority)} {t(request.priority.toLowerCase())}
-                        </span>
-                      )}
-                      <span className={`badge ${getStatusBadge(request.status)}`}>
-                        {t(request.status.toLowerCase())}
-                      </span>
-                      <button
-                        className="btn btn-sm btn-outline-secondary"
-                        onClick={() => toggleExpanded(request.request_id)}
-                      >
-                        {isExpanded ? t('less', 'Less') : t('more', 'More')}
-                      </button>
-                    </div>
-                  </div>
-
-                  <div className="card-body">
-                    {/* Content */}
-                    <div className="mb-3">
-                      <p className="card-text">
-                        {isExpanded
-                          ? request.content
-                          : request.content.length > 100
-                          ? request.content.substring(0, 100) + '...'
-                          : request.content}
-                      </p>
-                    </div>
-
-                    {/* Basic Info */}
-                    <div className="row text-sm">
-                      <div className="col-md-4">
-                        <strong className="text-muted">{t('submitted')}:</strong>
-                        <br />
-                        <span>{submittedDate.date}</span>
-                        <br />
-                        <small className="text-muted">{submittedDate.time}</small>
-                      </div>
-                      <div className="col-md-4">
-                        <strong className="text-muted">{t('updated')}:</strong>
-                        <br />
-                        <span>{updatedDate.date}</span>
-                        <br />
-                        <small className="text-muted">{updatedDate.time}</small>
-                      </div>
-                      <div className="col-md-4">
-                        <strong className="text-muted">{t('attachments')}:</strong>
-                        <br />
-                        <span className={request.attachment_count > 0 ? 'text-success' : 'text-muted'}>
-                          {request.attachment_count} file(s)
-                          {request.attachment_count > 0 && <i className="ms-1 bi bi-paperclip"></i>}
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Expanded Information */}
-                    {isExpanded && (
-                      <div className="mt-4 pt-3 border-top">
-                        <div className="row">
-                          <div className="col-md-6">
-                            <h6>{t('timeline')}</h6>
-                            <div className="timeline">
-                              <div className="timeline-item">
-                                <span className="badge bg-primary">{t('created')}</span>
-                                <span className="ms-2">
-                                  {submittedDate.date} at {submittedDate.time}
-                                </span>
-                              </div>
-                              {request.updated_at !== request.submitted_at && (
-                                <div className="timeline-item mt-2">
-                                  <span className="badge bg-info">{t('updated')}</span>
-                                  <span className="ms-2">
-                                    {updatedDate.date} at {updatedDate.time}
-                                  </span>
-                                </div>
-                              )}
-                              {request.status === 'Rejected' && request.rejected_at && (
-                                <div className="timeline-item mt-2 d-flex align-items-center gap-2">
-                                  <span className="badge bg-danger">{t('rejected', 'Rejected')}</span>
-                                  <span className="ms-2">
-                                    {formatDate(request.rejected_at).date} at {formatDate(request.rejected_at).time}
-                                  </span>
-
-                                  {/* FIXED: Rejection reason button */}
-                                  <button
-                                    className="btn btn-sm btn-outline-danger"
-                                    onClick={async () => {
-                                      console.log(' Loading rejection details for request:', request.request_id);
-                                      const details = await fetchRejectionDetails(request.request_id);
-                                      if (details) {
-                                        console.log('✅ Rejection details loaded:', details);
-                                        setSelectedRequestForRejectionDetails({
-                                          requestId: request.request_id,
-                                          reason: details.reason,
-                                          additional_info: details.additional_info || '',
-                                          rejected_at: details.rejected_at,
-                                          admin_name: details.admin_name || 'Unknown Admin'
-                                        });
-                                        setShowRejectionDetailsModal(true);
-                                      } else {
-                                        console.error('❌ Failed to load rejection details');
-                                        alert('Failed to load rejection details. Please try again.');
-                                      }
-                                    }}
-                                    disabled={loadingRejectionDetails}
-                                  >
-                                    {loadingRejectionDetails ? (
-                                      <>
-                                        <span className="spinner-border spinner-border-sm me-1"></span>
-                                        Loading...
-                                      </>
-                                    ) : (
-                                      <>
-                                        🚫 {t('viewRejectionReason', 'View Rejection Reason')}
-                                      </>
-                                    )}
-                                  </button>
-                                </div>
-                              )}
-                              {request.resolved_at && (
-                                <div className="timeline-item mt-2">
-                                  <span className="badge bg-success">{t('resolved')}</span>
-                                  <span className="ms-2">
-                                    {formatDate(request.resolved_at).date} at {formatDate(request.resolved_at).time}
-                                  </span>
-                                </div>
-                              )}
+                      return (
+                        <tr 
+                          key={request.request_id}
+                          className={isDark ? 'text-light' : ''}
+                          style={{
+                            backgroundColor: isDark ? 'transparent' : '#ffffff',
+                            cursor: 'pointer'
+                          }}
+                          onClick={() => {
+                            setSelectedRequestDetails(request);
+                            setShowDetailsModal(true);
+                          }}
+                        >
+                          <td>
+                            <span className="fw-bold text-danger">
+                              #{request.request_id}
+                            </span>
+                          </td>
+                          <td>
+                            <div className="fw-semibold">
+                              {translateRequestType(request.type_name)}
                             </div>
-                          </div>
+                          </td>
+                          <td>
+                            <div 
+                              className="text-truncate" 
+                              style={{ maxWidth: '200px' }}
+                              title={request.content}
+                            >
+                              {request.content}
+                            </div>
+                          </td>
+                          <td>
+                            <span className={`badge ${getPriorityBadge(request.priority)}`}>
+                              {t(request.priority.toLowerCase())}
+                            </span>
+                          </td>
+                          <td>
+                            <span className={`badge ${getStatusBadge(request.status)}`}>
+                              {t(request.status.toLowerCase())}
+                            </span>
+                          </td>
+                          <td>
+                            <div>
+                              <div className="fw-semibold">{submittedDate.date}</div>
+                              <small className={isDark ? 'text-light' : 'text-muted'}>
+                                {submittedDate.time}
+                              </small>
+                            </div>
+                          </td>
+                          <td>
+                            <div className="btn-group btn-group-sm" role="group">
+                              <button
+                                className="btn btn-outline-primary btn-sm"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setSelectedRequestDetails(request);
+                                  setShowDetailsModal(true);
+                                }}
+                              >
+                                View
+                              </button>
 
-                          <div className="col-md-6">
-                            <h6>{t('actions')}</h6>
-                            <div className="d-flex gap-2 flex-wrap">
-                              {/* File Attachments */}
                               {request.attachment_count > 0 && (
                                 <button
-                                  className="btn btn-sm btn-outline-primary"
-                                  onClick={() => {
+                                  className="btn btn-outline-secondary btn-sm"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
                                     setSelectedRequestId(request.request_id);
                                     setShowAttachments(true);
                                   }}
                                 >
-                                  📎 {t('viewFiles')} ({request.attachment_count})
+                                  Files ({request.attachment_count})
                                 </button>
                               )}
 
-                              {/* FIXED: View Responses - Updated conditions */}
                               {(request.status === 'Informed' || request.status === 'Completed') && (
                                 <button
-                                  className="btn btn-sm btn-outline-info"
-                                  onClick={() => {
-                                    console.log('💬 Opening responses modal for request:', request.request_id);
+                                  className="btn btn-outline-info btn-sm"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    console.log('Opening responses modal for request:', request.request_id);
                                     setSelectedRequestForResponses({
                                       id: request.request_id,
                                       title: `#${request.request_id} - ${request.type_name}`
@@ -641,31 +949,61 @@ const RequestsPage = () => {
                                     setShowResponsesModal(true);
                                   }}
                                 >
-                                  💬 {t('viewResponse', 'View Responses')}
+                                  Responses
                                 </button>
                               )}
                             </div>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
               </div>
-            );
-          })}
+              
+              {/* Pagination */}
+              <PaginationComponent 
+                currentPage={currentPage}
+                totalPages={totalPages}
+                onPageChange={setCurrentPage}
+              />
+            </>
+          )}
         </div>
-      )}
+      </div>
 
       {/* Help Section */}
-      <div className="mt-5 pt-4 border-top">
+      <div className="mt-5 pt-4 border-top" style={{
+        borderColor: isDark ? '#718096' : '#e2e8f0'
+      }}>
         <div className="row">
           <div className="col-md-6">
-            <h5>{t('needHelp')}</h5>
-            <p className="text-muted">{t('needHelpDesc')}</p>
+            <h5 className={isDark ? 'text-light' : 'text-dark'}>Need Help?</h5>
+            <p className={isDark ? 'text-light' : 'text-muted'}>If you need assistance, please feel free to contact us</p>
+          </div>
+          <div className="col-md-6">
+            <div className="d-flex gap-2">
+              <Link to="/create-request" className="btn btn-danger">
+                Create New Request
+              </Link>
+              <button className="btn btn-outline-danger" onClick={fetchRequests}>
+                Refresh All
+              </button>
+            </div>
           </div>
         </div>
       </div>
+
+      {/* Request Details Modal */}
+      {showDetailsModal && selectedRequestDetails && (
+        <RequestDetailsModal
+          request={selectedRequestDetails}
+          onClose={() => {
+            setShowDetailsModal(false);
+            setSelectedRequestDetails(null);
+          }}
+        />
+      )}
 
       {/* Attachment Viewer Modal */}
       {showAttachments && selectedRequestId && (
@@ -678,7 +1016,7 @@ const RequestsPage = () => {
         />
       )}
 
-      {/* FIXED: Student Response Viewer Modal */}
+      {/* Student Response Viewer Modal */}
       {showResponsesModal && selectedRequestForResponses && (
         <StudentResponseViewer
           requestId={selectedRequestForResponses.id}
@@ -690,32 +1028,46 @@ const RequestsPage = () => {
         />
       )}
 
-      {/* FIXED: Rejection Details Modal */}
+      {/* Rejection Details Modal */}
       {showRejectionDetailsModal && selectedRequestForRejectionDetails && (
         <>
-          {/* Modal Backdrop */}
           <div
             className="modal-backdrop fade show"
             style={{ zIndex: 1040 }}
             onClick={() => setShowRejectionDetailsModal(false)}
           ></div>
 
-          {/* Modal */}
           <div
             className="modal fade show d-block"
             tabIndex="-1"
             style={{ zIndex: 1050 }}
           >
             <div className="modal-dialog modal-lg modal-dialog-scrollable">
-              <div className="modal-content">
-                <div className="modal-header">
+              <div 
+                className="modal-content"
+                style={{
+                  backgroundColor: isDark ? '#2d3748' : '#ffffff',
+                  borderColor: isDark ? '#718096' : '#e2e8f0',
+                  color: isDark ? '#ffffff' : '#000000'
+                }}
+              >
+                <div 
+                  className="modal-header"
+                  style={{
+                    backgroundColor: isDark ? '#4a5568' : '#f7fafc',
+                    borderColor: isDark ? '#718096' : '#e2e8f0'
+                  }}
+                >
                   <h5 className="modal-title text-danger">
-                    🚫 {t('rejectionDetails', 'Rejection Details')} 
+                    Rejection Details
                   </h5>
                   <button
                     type="button"
                     className="btn-close"
                     onClick={() => setShowRejectionDetailsModal(false)}
+                    style={{
+                      filter: isDark ? 'invert(1)' : 'none'
+                    }}
                   ></button>
                 </div>
                 
@@ -723,20 +1075,31 @@ const RequestsPage = () => {
                   {loadingRejectionDetails ? (
                     <div className="text-center py-4">
                       <div className="spinner-border text-danger" role="status"></div>
-                      <p className="mt-3">{t('loading', 'Loading...')}</p>
+                      <p className="mt-3">Loading...</p>
                     </div>
                   ) : (
-                    <div className="card border-danger">
+                    <div 
+                      className="card border-danger"
+                      style={{
+                        backgroundColor: isDark ? '#4a5568' : '#ffffff',
+                        borderColor: '#dc3545'
+                      }}
+                    >
                       <div className="card-header bg-danger text-white">
                         <h6 className="mb-0">
-                          <span className="me-2"></span>
                           Why was this request rejected?
                         </h6>
                       </div>
                       <div className="card-body">
                         <div className="mb-3">
                           <label className="form-label fw-bold">Rejection Reason:</label>
-                          <div className="p-3 bg-light rounded border">
+                          <div 
+                            className="p-3 rounded border"
+                            style={{
+                              backgroundColor: isDark ? '#2d3748' : '#f8f9fa',
+                              borderColor: isDark ? '#718096' : '#e2e8f0'
+                            }}
+                          >
                             {selectedRequestForRejectionDetails.reason || 'No reason provided'}
                           </div>
                         </div>
@@ -744,7 +1107,13 @@ const RequestsPage = () => {
                         {selectedRequestForRejectionDetails.additional_info && (
                           <div className="mb-3">
                             <label className="form-label fw-bold">Additional Information:</label>
-                            <div className="p-3 bg-light rounded border">
+                            <div 
+                              className="p-3 rounded border"
+                              style={{
+                                backgroundColor: isDark ? '#2d3748' : '#f8f9fa',
+                                borderColor: isDark ? '#718096' : '#e2e8f0'
+                              }}
+                            >
                               {selectedRequestForRejectionDetails.additional_info}
                             </div>
                           </div>
@@ -753,7 +1122,7 @@ const RequestsPage = () => {
                         <div className="row">
                           <div className="col-md-6">
                             <label className="form-label fw-bold">Rejected Date:</label>
-                            <p className="text-muted">
+                            <p className={isDark ? 'text-light' : 'text-muted'}>
                               {selectedRequestForRejectionDetails.rejected_at 
                                 ? new Date(selectedRequestForRejectionDetails.rejected_at).toLocaleString()
                                 : 'Unknown'
@@ -762,7 +1131,7 @@ const RequestsPage = () => {
                           </div>
                           <div className="col-md-6">
                             <label className="form-label fw-bold">Rejected By:</label>
-                            <p className="text-muted">
+                            <p className={isDark ? 'text-light' : 'text-muted'}>
                               {selectedRequestForRejectionDetails.admin_name || 'Unknown Admin'}
                             </p>
                           </div>
@@ -771,9 +1140,15 @@ const RequestsPage = () => {
                     </div>
                   )}
 
-                  <div className="alert alert-info mt-3">
+                  <div 
+                    className="alert alert-info mt-3"
+                    style={{
+                      backgroundColor: isDark ? 'rgba(59, 130, 246, 0.1)' : 'rgba(59, 130, 246, 0.1)',
+                      borderColor: '#3b82f6',
+                      color: isDark ? '#ffffff' : '#000000'
+                    }}
+                  >
                     <h6 className="alert-heading">
-                      <span className="me-2">ℹ️</span>
                       What can you do next?
                     </h6>
                     <ul className="mb-0">
@@ -785,23 +1160,29 @@ const RequestsPage = () => {
                   </div>
                 </div>
                 
-                <div className="modal-footer">
-                  <div className="text-muted small me-auto">
-                    
+                <div 
+                  className="modal-footer"
+                  style={{
+                    backgroundColor: isDark ? '#4a5568' : '#f7fafc',
+                    borderColor: isDark ? '#718096' : '#e2e8f0'
+                  }}
+                >
+                  <div className={`small me-auto ${isDark ? 'text-light' : 'text-muted'}`}>
+                    Request #{selectedRequestForRejectionDetails.requestId}
                   </div>
                   <button
                     type="button"
                     className="btn btn-secondary"
                     onClick={() => setShowRejectionDetailsModal(false)}
                   >
-                    {t('close', 'Close')}
+                    Close
                   </button>
                   <Link 
                     to="/create-request" 
-                    className="btn btn-primary"
+                    className="btn btn-danger"
                     onClick={() => setShowRejectionDetailsModal(false)}
                   >
-                     Submit New Request
+                    Submit New Request
                   </Link>
                 </div>
               </div>
@@ -809,6 +1190,45 @@ const RequestsPage = () => {
           </div>
         </>
       )}
+
+      {/* Custom CSS for better table styling */}
+      <style jsx>{`
+        .table-hover tbody tr:hover {
+          background-color: ${isDark ? 'rgba(113, 128, 150, 0.1)' : 'rgba(0, 0, 0, 0.05)'} !important;
+        }
+        
+        .text-truncate {
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+        
+        .btn-group .btn {
+          border-radius: 0.25rem !important;
+          margin-right: 2px;
+        }
+        
+        .btn-group .btn:last-child {
+          margin-right: 0;
+        }
+        
+        @media (max-width: 768px) {
+          .btn-group {
+            flex-direction: column;
+            width: 100%;
+          }
+          
+          .btn-group .btn {
+            width: 100%;
+            margin-bottom: 2px;
+            margin-right: 0;
+          }
+          
+          .table-responsive {
+            font-size: 0.875rem;
+          }
+        }
+      `}</style>
     </div>
   );
 };

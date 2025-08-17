@@ -2,11 +2,11 @@ import React, { useContext } from 'react';
 import { LanguageContext } from '../contexts/LanguageContext';
 
 const LANGUAGES = [
-  { code: 'tr', flag: '🇹🇷' },
-  { code: 'en', flag: '🇬🇧' },
-  { code: 'ar', flag: '🇸🇦' },
-  { code: 'ru', flag: '🇷🇺' },
-  { code: 'fr', flag: '🇫🇷' },
+  { code: 'tr', flag: '' },
+  { code: 'en', flag: '' },
+  { code: 'ar', flag: '' },
+  { code: 'ru', flag: '' },
+  { code: 'fr', flag: '' },
 ];
 
 const LanguageSelector = () => {

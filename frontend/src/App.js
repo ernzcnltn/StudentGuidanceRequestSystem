@@ -1,13 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route, Link, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Link, Navigate, useLocation } from 'react-router-dom';
 import 'bootstrap/dist/css/bootstrap.min.css';
+import 'bootstrap-icons/font/bootstrap-icons.css';
 import 'bootstrap/dist/js/bootstrap.bundle.min.js';
 import './darkmode.css';
 import './fiu-theme.css';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { AdminAuthProvider, useAdminAuth } from './contexts/AdminAuthContext';
 import { ToastProvider } from './contexts/ToastContext';
-import { ThemeProvider } from './contexts/ThemeContext';
+import { ThemeProvider, useTheme } from './contexts/ThemeContext';
 import { LanguageProvider, useLanguage } from './contexts/LanguageContext';
 import { useTranslation } from './hooks/useTranslation';
 import { apiService } from './services/api';
@@ -181,11 +182,134 @@ const SimpleLanguageSelector = () => {
   return <LanguageDropdown variant="navbar" />;
 };
 
+// Sidebar Component
+const Sidebar = ({ isOpen, toggleSidebar }) => {
+  const { t } = useTranslation();
+  const { isDark } = useTheme();
+  const location = useLocation();
+
+  const menuItems = [
+    { path: '/', label: t('home'), icon: 'bi-house-door' },
+    { path: '/requests', label: t('myRequests'), icon: 'bi-file-earmark-text' },
+    { path: '/create-request', label: t('createRequest'), icon: 'bi-plus-circle' }
+  ];
+
+  return (
+    <>
+      {/* Overlay */}
+      {isOpen && (
+        <div 
+          className="sidebar-overlay"
+          onClick={toggleSidebar}
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            width: '100%',
+            height: '100%',
+            backgroundColor: 'rgba(0, 0, 0, 0.5)',
+            zIndex: 1040
+          }}
+        />
+      )}
+      
+      {/* Sidebar */}
+      <div 
+        className={`sidebar ${isOpen ? 'sidebar-open' : ''}`}
+        style={{
+          position: 'fixed',
+          top: 0,
+          left: isOpen ? 0 : '-280px',
+          width: '280px',
+          height: '100vh',
+          backgroundColor: isDark ? '#2d3748' : '#ffffff',
+          borderRight: `1px solid ${isDark ? '#4a5568' : '#e2e8f0'}`,
+          transition: 'left 0.3s ease-in-out',
+          zIndex: 1050,
+          boxShadow: isOpen ? '0 0 20px rgba(0,0,0,0.1)' : 'none'
+        }}
+      >
+        {/* Sidebar Header */}
+        <div 
+          className="sidebar-header p-3 border-bottom"
+          style={{
+            borderColor: isDark ? '#4a5568' : '#e2e8f0',
+            backgroundColor: isDark ? '#4a5568' : '#f8f9fa'
+          }}
+        >
+          <div className="d-flex align-items-center justify-content-between">
+            <div className="d-flex align-items-center">
+              <FIULogo size="sm" className="me-2" />
+              <span className={`fw-bold ${isDark ? 'text-white' : 'text-dark'}`}>
+                {t('systemTitle')}
+              </span>
+            </div>
+            <button
+              className="btn btn-sm"
+              onClick={toggleSidebar}
+              style={{ border: 'none', background: 'none' }}
+            >
+              <i className={`bi bi-x-lg ${isDark ? 'text-white' : 'text-dark'}`}></i>
+            </button>
+          </div>
+        </div>
+
+        {/* Sidebar Menu */}
+        <div className="sidebar-menu p-3">
+          <ul className="list-unstyled mb-0">
+            {menuItems.map((item) => (
+              <li key={item.path} className="mb-2">
+                <Link
+                  to={item.path}
+                  onClick={toggleSidebar}
+                  className={`d-flex align-items-center p-3 rounded text-decoration-none sidebar-item ${
+                    location.pathname === item.path ? 'active' : ''
+                  }`}
+                  style={{
+                    color: isDark ? '#e2e8f0' : '#4a5568',
+                    backgroundColor: location.pathname === item.path 
+                      ? (isDark ? '#dc2626' : '#dc2626') 
+                      : 'transparent',
+                    transition: 'all 0.2s ease-in-out'
+                  }}
+                >
+                  <i className={`${item.icon} me-3`} style={{ fontSize: '1.2rem' }}></i>
+                  <span className="fw-medium">{item.label}</span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </div>
+
+      <style jsx>{`
+        .sidebar-item:hover {
+          background-color: ${isDark ? '#4a5568' : '#f8f9fa'} !important;
+          transform: translateX(5px);
+        }
+        
+        .sidebar-item.active {
+          color: white !important;
+        }
+        
+        .sidebar-item.active:hover {
+          background-color: #b91c1c !important;
+        }
+      `}</style>
+    </>
+  );
+};
+
 // Ana uygulama component'i (student sayfaları)
 const MainApp = () => {
   const { user, logout } = useAuth();
   const { t } = useTranslation();
   const { confirmationState, showConfirmation } = useConfirmation();
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  const toggleSidebar = () => {
+    setSidebarOpen(!sidebarOpen);
+  };
 
   const handleLogoutClick = async () => {
     console.log('Navbar logout button clicked!');
@@ -206,52 +330,58 @@ const MainApp = () => {
 
   return (
     <>
+      {/* Sidebar */}
+      <Sidebar isOpen={sidebarOpen} toggleSidebar={toggleSidebar} />
+
       {/* Navigation with FIU Logo */}
-      <nav className="navbar navbar-expand-lg navbar-dark bg-primary">
+      <nav className="navbar navbar-dark bg-primary">
         <div className="container">
-          <Link className="navbar-brand d-flex align-items-center" to="/">
-            <FIULogo size="sm" className="me-2" />
-            <span>{t('systemTitle')}</span>
-          </Link>
-          <button
-            className="navbar-toggler"
-            type="button"
-            data-bs-toggle="collapse"
-            data-bs-target="#navbarNav"
-          >
-            <span className="navbar-toggler-icon"></span>
-          </button>
-          <div className="collapse navbar-collapse" id="navbarNav">
-            <ul className="navbar-nav me-auto">
-              <li className="nav-item">
-                <Link className="nav-link" to="/">{t('home')}</Link>
-              </li>
-              <li className="nav-item">
-                <Link className="nav-link" to="/requests">{t('myRequests')}</Link>
-              </li>
-              <li className="nav-item">
-                <Link className="nav-link" to="/create-request">{t('createRequest')}</Link>
-              </li>
-            </ul>
+          <div className="d-flex align-items-center">
+            {/* Hamburger Menu Button */}
+            <button
+              className="btn me-3 hamburger-menu-btn"
+              onClick={toggleSidebar}
+              style={{ 
+                background: 'transparent',
+                border: '2px solid white',
+                color: 'white',
+                padding: '8px 12px',
+                fontSize: '1.2rem',
+                borderRadius: '6px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: '44px',
+                height: '44px'
+              }}
+              type="button"
+            >
+              <i className="bi bi-list" style={{ fontSize: '1.4rem' }}></i>
+            </button>
             
-            {/* User Info, Language Dropdown ve Logout */}
-            <div className="d-flex align-items-center gap-3">
-              <span className="text-white d-none d-md-inline">
-                {t('welcome')}, <strong>{user?.name}</strong>
-              </span>
-              
-              {/* Language Dropdown */}
-              <SimpleLanguageSelector />
-              
-              <button 
-                className="btn btn-outline-light btn-sm" 
-                onClick={handleLogoutClick}
-                title={t('logout')}
-              >
-                <span className="d-none d-md-inline">{t('logout')}</span>
-                <span className="d-md-none"></span>
-              </button>
-            </div>
+            <Link className="navbar-brand d-flex align-items-center mb-0" to="/">
+              <FIULogo size="sm" className="me-2" />
+              <span>{t('systemTitle')}</span>
+            </Link>
+          </div>
+          
+          {/* User Info, Language Dropdown ve Logout */}
+          <div className="d-flex align-items-center gap-3">
+            <span className="text-white d-none d-md-inline">
+              {t('welcome')}, <strong>{user?.name}</strong>
+            </span>
+            
+            {/* Language Dropdown */}
+            <SimpleLanguageSelector />
+            
+            <button 
+              className="btn btn-outline-light btn-sm" 
+              onClick={handleLogoutClick}
+              title={t('logout')}
+            >
+              <span className="d-none d-md-inline">{t('logout')}</span>
+              <i className="bi bi-box-arrow-right d-md-none"></i>
+            </button>
           </div>
         </div>
       </nav>

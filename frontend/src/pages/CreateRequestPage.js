@@ -57,92 +57,6 @@ const CreateRequestPage = () => {
   }, [showError]);
 
 
-  useEffect(() => {
-  const checkAvailabilityWithRetry = async (retryCount = 0) => {
-    try {
-      console.log(' Checking academic calendar availability...');
-      
-      const response = await apiService.checkCurrentAvailability();
-      
-      if (response.success) {
-        setAcademicCalendarStatus(response);
-        
-        if (!response.canCreateRequest) {
-          let message = ` ${response.message}`;
-          if (response.reason === 'academic_holiday') {
-            message += '\nAkademik tatil döneminde talep oluşturamazsınız.';
-          } else if (response.reason === 'weekend') {
-            message += '\nHaftasonları talep oluşturamazsınız.';
-          } else if (response.reason === 'outside_working_hours') {
-            message += '\nSadece mesai saatleri içinde talep oluşturabilirsiniz.';
-          }
-          showWarning(message);
-        }
-      } else {
-        // Hata durumunda retry
-        if (retryCount < 2) {
-          console.log(` Availability check failed, retrying... (${retryCount + 1}/3)`);
-          setTimeout(() => checkAvailabilityWithRetry(retryCount + 1), 2000);
-        } else {
-          console.warn(' Availability check failed after retries, assuming available');
-          setAcademicCalendarStatus({
-            success: true,
-            canCreateRequest: true,
-            reason: 'error_fallback',
-            message: 'Calendar check failed, but allowing requests'
-          });
-        }
-      }
-    } catch (error) {
-      console.error('❌ Availability check error:', error);
-      
-      if (retryCount < 2) {
-        setTimeout(() => checkAvailabilityWithRetry(retryCount + 1), 2000);
-      } else {
-        setAcademicCalendarStatus({
-          success: true,
-          canCreateRequest: true,
-          reason: 'error_fallback',
-          message: 'Calendar check unavailable'
-        });
-      }
-    }
-  };
-
-  checkAvailabilityWithRetry();
-}, [showWarning]);
-
-
-  // ⭐ NEW: Check academic calendar status
-  useEffect(() => {
-    const checkAcademicCalendarStatus = async () => {
-      try {
-        console.log(' Checking academic calendar status...');
-        
-        const response = await apiService.checkCurrentAvailability();
-        
-        if (response.success) {
-          setAcademicCalendarStatus(response);
-          console.log(' Academic calendar status:', response);
-          
-          if (!response.canCreateRequest) {
-            showWarning(` ${response.message}`);
-          }
-        }
-      } catch (error) {
-        console.error('❌ Academic calendar check error:', error);
-        // Don't show error to user as this is background check
-        setAcademicCalendarStatus({
-          success: false,
-          canCreateRequest: true, // Default to allowing if check fails
-          reason: 'error',
-          message: 'Unable to check academic calendar'
-        });
-      }
-    };
-
-    checkAcademicCalendarStatus();
-  }, [showWarning]);
 
   // ⭐ UPDATED: Check student's recent requests for 24-hour limit
   useEffect(() => {
@@ -549,7 +463,7 @@ const CreateRequestPage = () => {
               {!canActuallyCreateRequest() && (() => {
                 const restriction = getRestrictionReason();
                 return restriction ? (
-                  <div className="alert alert-warning mb-4">
+                  <div className="alert alert-danger mb-4">
                     <h6 className="alert-heading"> Request Creation Restricted</h6>
                     <p className="mb-2">{restriction.message}</p>
                     
@@ -579,7 +493,7 @@ const CreateRequestPage = () => {
               })()}
 
               {/* Important Notes */}
-              <div className="alert alert-warning">
+              <div className="alert alert-danger">
                 <h6>{t('guidelines')}:</h6>
                 <ul className="mb-0">
                   <li>{t('guideline1')}</li>
@@ -855,7 +769,7 @@ const CreateRequestPage = () => {
              <div className="mt-4">
                <h5>{t('guidelines')}</h5>
                <div className="card">
-                 <div className="alert alert-warning">
+                 <div className="alert alert-danger">
                    <h6>{t('beforeSubmitting')}:</h6>
                    <ul>
                      <li>{t('checkIfResolvable')}</li>
@@ -933,32 +847,7 @@ const CreateRequestPage = () => {
          </div>
        </div>
 
-       {/* ⭐ NEW: Academic Calendar Status Display */}
-       {academicCalendarStatus && !academicCalendarStatus.canCreateRequest && (
-         <div className="card mt-4">
-           <div className="card-header bg-warning text-dark">
-             <h6 className="mb-0"> Academic Calendar Notice</h6>
-           </div>
-           <div className="card-body">
-             <div className="alert alert-info mb-0">
-               <h6>Current Status</h6>
-               <p className="mb-2">{academicCalendarStatus.message}</p>
-               
-               {academicCalendarStatus.details?.holidayNames && (
-                 <p className="mb-2">
-                   <strong>Active Holiday:</strong> {academicCalendarStatus.details.holidayNames}
-                 </p>
-               )}
-               
-               {academicCalendarStatus.details?.nextAvailable && (
-                 <p className="mb-0">
-                   <strong>Next Available Date:</strong> {academicCalendarStatus.details.nextAvailable}
-                 </p>
-               )}
-             </div>
-           </div>
-         </div>
-       )}
+     
      </div>
    </div>
  );

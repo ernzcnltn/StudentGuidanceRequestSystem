@@ -9,6 +9,8 @@ const AcademicCalendarManager = () => {
   const { admin, isSuperAdmin } = useAdminAuth();
   const { showSuccess, showError, showInfo, showWarning } = useToast();
   const { t } = useTranslation();
+const [eventsCurrentPage, setEventsCurrentPage] = useState(1);
+const [eventsPerPage] = useState(10);
 
   const [calendarStatus, setCalendarStatus] = useState(null);
   const [uploadHistory, setUploadHistory] = useState([]);
@@ -746,90 +748,141 @@ const AcademicCalendarManager = () => {
         </div>
       )}
 
-      {/* Events Modal */}
-      {showEventsModal && (
-        <div className="modal-backdrop fade show" style={{ zIndex: 1040 }}>
-          <div className="modal fade show d-block" style={{ zIndex: 1050 }}>
-            <div className="modal-dialog modal-xl">
-              <div className="modal-content">
-                <div className="modal-header">
-                  <h5 className="modal-title"> Calendar Events</h5>
-                  <button 
-                    type="button" 
-                    className="btn-close"
-                    onClick={() => setShowEventsModal(false)}
-                  ></button>
+     
+{/* Events Modal */}
+{showEventsModal && (
+  <div className="modal-backdrop fade show" style={{ zIndex: 1040 }}>
+    <div className="modal fade show d-block" style={{ zIndex: 1050 }}>
+      <div className="modal-dialog modal-xl">
+        <div className="modal-content">
+          <div className="modal-header">
+            <h5 className="modal-title"> Calendar Events</h5>
+            <button 
+              type="button" 
+              className="btn-close"
+              onClick={() => {
+                setShowEventsModal(false);
+                setEventsCurrentPage(1); // Reset pagination when modal closes
+              }}
+            ></button>
+          </div>
+          <div className="modal-body">
+            {currentEvents.length === 0 ? (
+              <div className="text-center py-4">
+                <p className="text-muted">No events found</p>
+              </div>
+            ) : (
+              <>
+                {/* Events Info */}
+                <div className="d-flex justify-content-between align-items-center mb-3">
+                  <span className="text-muted">
+                    Showing {Math.min((eventsCurrentPage - 1) * eventsPerPage + 1, currentEvents.length)}-{Math.min(eventsCurrentPage * eventsPerPage, currentEvents.length)} of {currentEvents.length} events
+                  </span>
                 </div>
-                <div className="modal-body">
-                  {currentEvents.length === 0 ? (
-                    <div className="text-center py-4">
-                      <p className="text-muted">No events found</p>
-                    </div>
-                  ) : (
-                    <div className="table-responsive">
-                      <table className="table table-hover">
-                        <thead>
-                          <tr>
-                            <th>Event</th>
-                            <th>Type</th>
-                            <th>Start Date</th>
-                            <th>End Date</th>
-                            <th>Duration</th>
-                            <th>Affects Requests</th>
-                          
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {currentEvents.map((event, index) => (
-                            <tr key={index}>
-                              <td>
-                                <div className="d-flex align-items-center">
-                                  <span className="me-2">{getEventTypeIcon(event.event_type)}</span>
-                                  <div>
-                                    <strong>{event.event_name}</strong>
-                                    {event.description && (
-                                      <>
-                                        <br />
-                                        <small className="text-muted">{event.description}</small>
-                                      </>
-                                    )}
-                                  </div>
-                                </div>
-                              </td>
-                              <td>
-                                <span className="badge bg-secondary">
-                                  {event.event_type.replace('_', ' ')}
-                                </span>
-                                
-                                
-                              </td>
-                              <td>{event.start_date}</td>
-                              <td>{event.end_date}</td>
-                              <td>
-                                {Math.ceil((new Date(event.end_date) - new Date(event.start_date)) / (1000 * 60 * 60 * 24)) + 1} days
-                              </td>
-                              <td>
-                                <span className={`badge ${event.affects_request_creation ? 'bg-danger' : 'bg-success'}`}>
-                                  {event.affects_request_creation ? 'Yes' : 'No'}
-                                </span>
-                              </td>
-                              <td>
-                                
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  )}
+
+                <div className="table-responsive">
+                  <table className="table table-hover">
+                    <thead>
+                      <tr>
+                        <th>Event</th>
+                        <th>Type</th>
+                        <th>Start Date</th>
+                        <th>End Date</th>
+                        <th>Duration</th>
+                        <th>Affects Requests</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {/* Sadece mevcut sayfadaki eventları göster */}
+                      {currentEvents
+                        .slice((eventsCurrentPage - 1) * eventsPerPage, eventsCurrentPage * eventsPerPage)
+                        .map((event, index) => (
+                        <tr key={index}>
+                          <td>
+                            <div className="d-flex align-items-center">
+                              <span className="me-2">{getEventTypeIcon(event.event_type)}</span>
+                              <div>
+                                <strong>{event.event_name}</strong>
+                                {event.description && (
+                                  <>
+                                    <br />
+                                    <small className="text-muted">{event.description}</small>
+                                  </>
+                                )}
+                              </div>
+                            </div>
+                          </td>
+                          <td>
+                            <span className="badge bg-secondary">
+                              {event.event_type.replace('_', ' ')}
+                            </span>
+                          </td>
+                          <td>{event.start_date}</td>
+                          <td>{event.end_date}</td>
+                          <td>
+                            {Math.ceil((new Date(event.end_date) - new Date(event.start_date)) / (1000 * 60 * 60 * 24)) + 1} days
+                          </td>
+                          <td>
+                            <span className={`badge ${event.affects_request_creation ? 'bg-danger' : 'bg-success'}`}>
+                              {event.affects_request_creation ? 'Yes' : 'No'}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
-                <div className="modal-footer">
-                  <button 
-                    type="button" 
-                    className="btn btn-secondary"
-                    onClick={() => setShowEventsModal(false)}
-                  >
-                    Close
+
+                {/* Pagination */}
+                {Math.ceil(currentEvents.length / eventsPerPage) > 1 && (
+                  <nav aria-label="Events pagination" className="mt-3">
+                    <ul className="pagination justify-content-center">
+                      <li className={`page-item ${eventsCurrentPage === 1 ? 'disabled' : ''}`}>
+                        <button 
+                          className="page-link" 
+                          onClick={() => setEventsCurrentPage(eventsCurrentPage - 1)}
+                          disabled={eventsCurrentPage === 1}
+                        >
+                          Previous
+                        </button>
+                      </li>
+                      
+                      {[...Array(Math.ceil(currentEvents.length / eventsPerPage))].map((_, index) => (
+                        <li key={index + 1} className={`page-item ${eventsCurrentPage === index + 1 ? 'active' : ''}`}>
+                          <button 
+                            className="page-link" 
+                            onClick={() => setEventsCurrentPage(index + 1)}
+                          >
+                            {index + 1}
+                          </button>
+                        </li>
+                      ))}
+                      
+                      <li className={`page-item ${eventsCurrentPage === Math.ceil(currentEvents.length / eventsPerPage) ? 'disabled' : ''}`}>
+                        <button 
+                          className="page-link" 
+                          onClick={() => setEventsCurrentPage(eventsCurrentPage + 1)}
+                          disabled={eventsCurrentPage === Math.ceil(currentEvents.length / eventsPerPage)}
+                        >
+                          Next
+                        </button>
+                      </li>
+                    </ul>
+                  </nav>
+                )}
+              </>
+            )}
+          </div>
+          <div className="modal-footer">
+            <button 
+              type="button" 
+              className="btn btn-secondary"
+              onClick={() => {
+                setShowEventsModal(false);
+                setEventsCurrentPage(1); // Reset pagination when modal closes
+              }}
+            >
+              Close
                   </button>
                 </div>
               </div>

@@ -1,4 +1,4 @@
-// frontend/src/components/PermissionManagementPage.js
+// frontend/src/components/RoleManagementPage.js
 import React, { useState, useEffect } from 'react';
 import { useAdminAuth } from '../contexts/AdminAuthContext';
 import { useTheme } from '../contexts/ThemeContext';
@@ -7,31 +7,40 @@ import { apiService } from '../services/api';
 import { useConfirmation } from '../hooks/useConfirmation';
 import ConfirmationModal from './ConfirmationModal';
 
-
-const PermissionManagementPage = () => {
+const RoleManagementPage = () => {
   const { admin, isSuperAdmin } = useAdminAuth();
   const { isDark } = useTheme();
   const { showSuccess, showError, showInfo } = useToast();
   const { confirmationState, showConfirmation } = useConfirmation();
   const [loading, setLoading] = useState(true);
-  const [permissions, setPermissions] = useState({});
   const [roles, setRoles] = useState([]);
+  const [permissions, setPermissions] = useState({});
+  const [selectedRole, setSelectedRole] = useState(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
-  const [showDetailsModal, setShowDetailsModal] = useState(false);
-  const [selectedPermission, setSelectedPermission] = useState(null);
+  const [showPermissionModal, setShowPermissionModal] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
-  const [filterResource, setFilterResource] = useState('');
-  const [filterSystemOnly, setFilterSystemOnly] = useState(false);
   
-  // Create permission form state
-  const [newPermission, setNewPermission] = useState({
-    permission_name: '',
+  // Pagination
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage] = useState(10);
+  
+  // Create role form state
+  const [newRole, setNewRole] = useState({
+    role_name: '',
     display_name: '',
     description: '',
-    resource: '',
-    action: '',
-    is_system_permission: false
+    is_system_role: false
   });
+
+  // Permission assignment state
+  const [selectedPermissions, setSelectedPermissions] = useState([]);
+  const [permissionFilter, setPermissionFilter] = useState('');
+
+  // DÜZELTİLMİŞ VERSİYON:
+  const getSelectedPermissionsSummary = () => {
+    const selectedPerms = allPermissions.filter(p => selectedPermissions.includes(p.permission_id));
+    return apiService.rbacHelpers.createPermissionSummary(selectedPerms);
+  };
 
   useEffect(() => {
     if (isSuperAdmin()) {
@@ -43,147 +52,223 @@ const PermissionManagementPage = () => {
     try {
       setLoading(true);
       
-      const [permissionsRes, rolesRes] = await Promise.all([
-        apiService.rbacGetAllPermissions(),
-        apiService.rbacGetAllRoles()
+      const [rolesRes, permissionsRes] = await Promise.all([
+        apiService.rbacGetAllRoles(),
+        apiService.rbacGetAllPermissions()
       ]);
 
-      if (permissionsRes.data.success) {
-        setPermissions(permissionsRes.data.data);
-      }
-      
       if (rolesRes.data.success) {
         setRoles(rolesRes.data.data);
       }
+      
+      if (permissionsRes.data.success) {
+        setPermissions(permissionsRes.data.data);
+      }
 
     } catch (error) {
-      console.error('Error loading permission data:', error);
-      showError('Failed to load permission data');
+      console.error('Error loading role data:', error);
+      showError('Failed to load role data');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleCreatePermission = async (e) => {
+  const handleCreateRole = async (e) => {
     e.preventDefault();
     
-    if (!apiService.rbacHelpers.validatePermissionData(newPermission)) {
+    if (!apiService.rbacHelpers.validateRoleData(newRole)) {
       showError('Please fill in all required fields');
       return;
     }
 
-    // Generate permission_name if not provided
-    if (!newPermission.permission_name) {
-      const generatedName = `${newPermission.resource}.${newPermission.action}`;
-      setNewPermission(prev => ({ ...prev, permission_name: generatedName }));
-    }
-
     try {
-      const result = await apiService.rbacCreatePermission(newPermission);
+      const result = await apiService.rbacCreateRole(newRole);
       
       if (result.data.success) {
-        showSuccess('Permission created successfully');
+        showSuccess('Role created successfully');
         setShowCreateModal(false);
-        setNewPermission({
-          permission_name: '',
+        setNewRole({
+          role_name: '',
           display_name: '',
           description: '',
-          resource: '',
-          action: '',
-          is_system_permission: false
+          is_system_role: false
         });
         loadData();
       }
     } catch (error) {
-      console.error('Error creating permission:', error);
+      console.error('Error creating role:', error);
       if (error.response?.status === 409) {
-        showError('Permission with this name already exists');
+        showError('Role with this name already exists');
       } else {
-        showError('Failed to create permission');
+        showError('Failed to create role');
       }
     }
   };
 
-  const handleDeletePermission = async (permissionId, permissionName) => {
-  const confirmed = await showConfirmation({
-    title: '🗑️ Delete Permission',
-    message: `Are you sure you want to delete the permission "${permissionName}"?`,
-    type: 'warning',
-    confirmText: 'Delete Permission',
-    cancelText: 'Cancel'
-  });
-
-  if (!confirmed) return;
-
-  try {
-    const result = await apiService.rbacDeletePermission(permissionId);
-    
-    if (result.data.success) {
-      showSuccess('Permission deleted successfully');
-      loadData();
+  const handlePermissionUpdate = async () => {
+    if (!selectedRole) {
+      showError('No role selected');
+      return;
     }
-  } catch (error) {
-    console.error('Error deleting permission:', error);
-    if (error.response?.status === 400) {
-      showError('Cannot delete system permissions');
-    } else {
-      showError('Failed to delete permission');
-    }
-  }
-};
 
-  const handleViewDetails = async (permission) => {
-    setSelectedPermission(permission);
-    setShowDetailsModal(true);
+    try {
+      const result = await apiService.rbacUpdateRolePermissions(
+        selectedRole.role_id, 
+        selectedPermissions
+      );
+      
+      if (result.data.success) {
+        showSuccess('Role permissions updated successfully');
+        setShowPermissionModal(false);
+        setSelectedRole(null);
+        setSelectedPermissions([]);
+        loadData();
+      }
+    } catch (error) {
+      console.error('Error updating permissions:', error);
+      showError('Failed to update role permissions');
+    }
   };
 
-  // Get all permissions as flat array for filtering
+  const handleViewPermissions = async (role) => {
+    try {
+      const result = await apiService.rbacGetRolePermissions(role.role_id);
+      
+      if (result.data.success) {
+        const currentPermissionIds = result.data.data.map(p => p.permission_id);
+        setSelectedPermissions(currentPermissionIds);
+        setSelectedRole(role);
+        setShowPermissionModal(true);
+      }
+    } catch (error) {
+      console.error('Error loading role permissions:', error);
+      showError('Failed to load role permissions');
+    }
+  };
+
+  const handleDeleteRole = async (roleId, roleName) => {
+    const confirmed = await showConfirmation({
+      title: 'Delete Role',
+      message: `Are you sure you want to delete the role "${roleName}"?\n\nThis action cannot be undone.`,
+      type: 'danger',
+      confirmText: 'Delete Role',
+      cancelText: 'Cancel',
+      requireTextConfirmation: true,
+      confirmationText: 'DELETE'
+    });
+
+    if (!confirmed) return;
+
+    try {
+      await apiService.deleteRole(roleId);
+      showSuccess('Role deleted successfully');
+      loadData();
+    } catch (error) {
+      console.error('Error deleting role:', error);
+      showError('Failed to delete role');
+    }
+  };
+
+  // Filter roles based on search
+  const filteredRoles = roles.filter(role => 
+    role.role_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    role.display_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    role.description?.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  // Get all permissions as flat array for modal
   const allPermissions = Object.values(permissions).flat();
 
-  // Filter permissions
-  const filteredPermissions = allPermissions.filter(permission => {
-    const matchesSearch = 
-      permission.permission_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      permission.display_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      permission.description?.toLowerCase().includes(searchTerm.toLowerCase());
-    
-    const matchesResource = !filterResource || permission.resource === filterResource;
-    
-    const matchesSystemFilter = !filterSystemOnly || permission.is_system_permission;
-    
-    return matchesSearch && matchesResource && matchesSystemFilter;
-  });
+  // Filter permissions for modal
+  const filteredPermissions = allPermissions.filter(permission =>
+    permission.permission_name.toLowerCase().includes(permissionFilter.toLowerCase()) ||
+    permission.display_name.toLowerCase().includes(permissionFilter.toLowerCase()) ||
+    permission.resource.toLowerCase().includes(permissionFilter.toLowerCase())
+  );
 
-  // Get unique resources
-  const getResources = () => {
-    return [...new Set(allPermissions.map(p => p.resource))].sort();
+  // Pagination helpers
+  const getPaginatedData = (data, page, itemsPerPage) => {
+    const startIndex = (page - 1) * itemsPerPage;
+    return data.slice(startIndex, startIndex + itemsPerPage);
   };
 
-  // Get common actions
-  const getCommonActions = () => {
-    return ['view', 'create', 'update', 'delete', 'manage', 'export', 'import'];
+  const getTotalPages = (dataLength, itemsPerPage) => {
+    return Math.ceil(dataLength / itemsPerPage);
   };
 
-  // Group filtered permissions by resource
-  const groupedPermissions = filteredPermissions.reduce((acc, permission) => {
-    if (!acc[permission.resource]) {
-      acc[permission.resource] = [];
-    }
-    acc[permission.resource].push(permission);
-    return acc;
-  }, {});
+  const PaginationComponent = ({ currentPage, totalPages, onPageChange }) => {
+    if (totalPages <= 1) return null;
+
+    return (
+      <nav aria-label="Page navigation" className="mt-4">
+        <ul className="pagination justify-content-center">
+          <li className={`page-item ${currentPage === 1 ? 'disabled' : ''}`}>
+            <button 
+              className="page-link" 
+              onClick={() => onPageChange(currentPage - 1)}
+              disabled={currentPage === 1}
+              style={{
+                backgroundColor: isDark ? '#000000' : '#ffffff',
+                borderColor: isDark ? '#4a5568' : '#e2e8f0',
+                color: isDark ? '#ffffff' : '#000000'
+              }}
+            >
+              Previous
+            </button>
+          </li>
+          
+          {[...Array(totalPages)].map((_, index) => (
+            <li key={index + 1} className={`page-item ${currentPage === index + 1 ? 'active' : ''}`}>
+              <button 
+                className="page-link" 
+                onClick={() => onPageChange(index + 1)}
+                style={{
+                  backgroundColor: currentPage === index + 1 
+                    ? '#dc2626' 
+                    : (isDark ? '#000000' : '#ffffff'),
+                  borderColor: currentPage === index + 1 
+                    ? '#dc2626' 
+                    : (isDark ? '#4a5568' : '#e2e8f0'),
+                  color: currentPage === index + 1 
+                    ? '#ffffff' 
+                    : (isDark ? '#ffffff' : '#000000')
+                }}
+              >
+                {index + 1}
+              </button>
+            </li>
+          ))}
+          
+          <li className={`page-item ${currentPage === totalPages ? 'disabled' : ''}`}>
+            <button 
+              className="page-link" 
+              onClick={() => onPageChange(currentPage + 1)}
+              disabled={currentPage === totalPages}
+              style={{
+                backgroundColor: isDark ? '#000000' : '#ffffff',
+                borderColor: isDark ? '#4a5568' : '#e2e8f0',
+                color: isDark ? '#ffffff' : '#000000'
+              }}
+            >
+              Next
+            </button>
+          </li>
+        </ul>
+      </nav>
+    );
+  };
 
   const cardStyle = {
     backgroundColor: isDark ? '#000000' : '#ffffff',
-    borderColor: isDark ? '#333333' : '#dee2e6',
+    borderColor: isDark ? '#4a5568' : '#e2e8f0',
     color: isDark ? '#ffffff' : '#000000'
   };
 
   if (!isSuperAdmin()) {
     return (
       <div className="alert alert-warning">
-        <h5>🔒 Access Denied</h5>
-        <p>Permission Management is only available for Super Administrators.</p>
+        <h5>Access Denied</h5>
+        <p>Role Management is only available for Super Administrators.</p>
       </div>
     );
   }
@@ -193,11 +278,14 @@ const PermissionManagementPage = () => {
       <div className="text-center py-5">
         <div className="spinner-border text-danger" role="status"></div>
         <p className={`mt-3 ${isDark ? 'text-light' : 'text-dark'}`}>
-          Loading permissions...
+          Loading roles...
         </p>
       </div>
     );
   }
+
+  const totalPages = getTotalPages(filteredRoles.length, itemsPerPage);
+  const paginatedRoles = getPaginatedData(filteredRoles, currentPage, itemsPerPage);
 
   return (
     <div>
@@ -205,282 +293,192 @@ const PermissionManagementPage = () => {
       <div className="d-flex justify-content-between align-items-center mb-4">
         <div>
           <h3 className={isDark ? 'text-light' : 'text-dark'}>
-             Permission Management
+            Role Management
           </h3>
           <p className={isDark ? 'text-light' : 'text-muted'}>
-            Create and manage system permissions for role-based access control
+            Create and manage system roles and their permissions
           </p>
         </div>
         
         <button 
-          className="btn btn-primary"
+          className="btn btn-danger"
           onClick={() => setShowCreateModal(true)}
         >
-           Create Permission
+          Create Role
         </button>
       </div>
 
-      {/* Filters */}
+      {/* Search */}
       <div className="row mb-4">
-        <div className="col-md-4">
+        <div className="col-md-6">
           <input
             type="text"
             className="form-control"
-            placeholder="Search permissions..."
+            placeholder="Search roles..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             style={{
               backgroundColor: isDark ? '#000000' : '#ffffff',
-              borderColor: isDark ? '#333333' : '#ced4da',
+              borderColor: isDark ? '#4a5568' : '#cbd5e0',
               color: isDark ? '#ffffff' : '#000000'
             }}
           />
         </div>
-        
-        <div className="col-md-3">
-          <select
-            className="form-select"
-            value={filterResource}
-            onChange={(e) => setFilterResource(e.target.value)}
-            style={{
-              backgroundColor: isDark ? '#000000' : '#ffffff',
-              borderColor: isDark ? '#333333' : '#ced4da',
-              color: isDark ? '#ffffff' : '#000000'
-            }}
-          >
-            <option value="">All Resources</option>
-            {getResources().map(resource => (
-              <option key={resource} value={resource}>{resource}</option>
-            ))}
-          </select>
-        </div>
-        
-        <div className="col-md-3">
-          <div className="form-check form-switch mt-2">
-            <input
-              className="form-check-input"
-              type="checkbox"
-              checked={filterSystemOnly}
-              onChange={(e) => setFilterSystemOnly(e.target.checked)}
-            />
-            <label className={`form-check-label ${isDark ? 'text-light' : 'text-dark'}`}>
-              System permissions only
-            </label>
+        <div className="col-md-6">
+          <div className="d-flex gap-2">
+            <button 
+              className="btn btn-outline-secondary"
+              onClick={loadData}
+            >
+              Refresh
+            </button>
           </div>
-        </div>
-        
-        <div className="col-md-2">
-          <button 
-            className="btn btn-outline-secondary w-100"
-            onClick={loadData}
-          >
-            Refresh
-          </button>
         </div>
       </div>
 
-      {/* Permissions by Resource */}
-      {Object.keys(groupedPermissions).length === 0 ? (
-        <div className="alert alert-info">
-          <h5>No permissions found</h5>
-          <p>No permissions match your current filters.</p>
-        </div>
-      ) : (
-        Object.keys(groupedPermissions).sort().map((resource) => (
-          <div key={resource} className="mb-4">
-            <div className="card" style={cardStyle}>
-              <div className="card-header">
-                <h5 className="mb-0">
-                  {apiService.rbacHelpers.getPermissionIcon(resource)} {resource.toUpperCase()}
-                  <span className="badge bg-secondary ms-2">
-                    
-                  </span>
-                </h5>
-              </div>
-              <div className="card-body">
-                <div className="row">
-                  {groupedPermissions[resource].map((permission) => (
-                    <div key={permission.permission_id} className="col-lg-6 mb-3">
-                      <div 
-                        className="p-3 rounded border"
-                        style={{ 
-                          backgroundColor: isDark ? '#111111' : '#f8f9fa',
-                          borderColor: isDark ? '#333333' : '#e5e7eb'
-                        }}
-                      >
-                        <div className="d-flex justify-content-between align-items-start">
-                          <div>
-                            <h6 className={`mb-1 ${isDark ? 'text-light' : 'text-dark'}`}>
-                              {permission.display_name}
-                              
-                            </h6>
-                            <p className={`mb-1 ${isDark ? 'text-light' : 'text-muted'}`}>
-                              <code>{permission.resource}:{permission.action}</code>
-                            </p>
-                            {permission.description && (
-                              <p className={`mb-2 ${isDark ? 'text-light' : 'text-muted'}`}>
-                                {permission.description}
-                              </p>
-                            )}
-                            <small className={isDark ? 'text-light' : 'text-muted'}>
-                         
-                            </small>
-                          </div>
-                          
-                          <div className="dropdown">
-                            <button 
-                              className="btn btn-outline-secondary btn-sm dropdown-toggle"
-                              type="button"
-                              data-bs-toggle="dropdown"
-                            >
-                              Actions
-                            </button>
-                            <ul className="dropdown-menu">
-                              <li>
-                                <button 
-                                  className="dropdown-item"
-                                  onClick={() => handleViewDetails(permission)}
-                                >
-                                   View Details
-                                </button>
-                              </li>
-                              <li>
-                                
-                              </li>
-                              {!permission.is_system_permission && (
-                                <>
-                                  <li><hr className="dropdown-divider" /></li>
-                                  <li>
-                                    <button 
-                                      className="dropdown-item text-danger"
-                                      onClick={() => handleDeletePermission(permission.permission_id, permission.display_name)}
-                                    >
-                                       Delete Permission
-                                    </button>
-                                  </li>
-                                </>
-                              )}
-                            </ul>
-                          </div>
-                        </div>
+      {/* Roles Table */}
+      <div className="card" style={cardStyle}>
+        <div className="card-body">
+          <div className="table-responsive">
+            <table className="table table-hover">
+              <thead className={isDark ? 'table-dark' : 'table-light'}>
+                <tr>
+                  <th>Role Name</th>
+                  <th>Display Name</th>
+                  <th>Description</th>
+                  <th>Type</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {paginatedRoles.length === 0 ? (
+                  <tr>
+                    <td colSpan="5" className="text-center py-4">
+                      <div className={`text-muted ${isDark ? 'text-light' : ''}`}>
+                        <h5>No roles found</h5>
+                        <p>No roles match your search criteria.</p>
                       </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
+                    </td>
+                  </tr>
+                ) : (
+                  paginatedRoles.map((role) => (
+                    <tr key={role.role_id} className={isDark ? 'text-light' : ''}>
+                      <td>
+                        <code className={isDark ? 'text-info' : 'text-primary'}>
+                          {role.role_name}
+                        </code>
+                      </td>
+                      <td>
+                        <div className="fw-semibold">
+                          {role.display_name}
+                        </div>
+                      </td>
+                      <td>
+                        <span className={isDark ? 'text-light' : 'text-muted'}>
+                          {role.description || 'No description'}
+                        </span>
+                      </td>
+                      <td>
+                        {role.is_system_role ? (
+                          <span className="badge bg-warning text-dark">System Role</span>
+                        ) : (
+                          <span className="badge bg-success">Custom Role</span>
+                        )}
+                      </td>
+                      <td>
+                        <div className="btn-group" role="group">
+                          <button 
+                            className="btn btn-outline-info btn-sm"
+                            onClick={() => handleViewPermissions(role)}
+                          >
+                            View Permissions
+                          </button>
+                          <button 
+                            className="btn btn-outline-primary btn-sm"
+                            onClick={() => handleViewPermissions(role)}
+                          >
+                            Edit Permissions
+                          </button>
+                          {!role.is_system_role && (
+                            <button 
+                              className="btn btn-outline-danger btn-sm"
+                              onClick={() => handleDeleteRole(role.role_id, role.display_name)}
+                            >
+                              Delete Role
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
           </div>
-        ))
-      )}
+          
+          <PaginationComponent 
+            currentPage={currentPage}
+            totalPages={totalPages}
+            onPageChange={setCurrentPage}
+          />
+        </div>
+      </div>
 
-      {/* Create Permission Modal */}
+      {/* Create Role Modal */}
       {showCreateModal && (
         <div className="modal show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
           <div className="modal-dialog">
             <div className="modal-content" style={cardStyle}>
               <div className="modal-header">
-                <h5 className="modal-title">Create New Permission</h5>
+                <h5 className="modal-title">Create New Role</h5>
                 <button 
                   type="button" 
                   className="btn-close"
                   onClick={() => setShowCreateModal(false)}
                 ></button>
               </div>
-              <form onSubmit={handleCreatePermission}>
+              <form onSubmit={handleCreateRole}>
                 <div className="modal-body">
                   <div className="mb-3">
                     <label className={`form-label ${isDark ? 'text-light' : 'text-dark'}`}>
-                      Display Name *
+                      Role Name * (Technical name)
                     </label>
                     <input
                       type="text"
                       className="form-control"
-                      value={newPermission.display_name}
-                      onChange={(e) => setNewPermission({...newPermission, display_name: e.target.value})}
-                      placeholder="e.g., View Department Requests"
+                      value={newRole.role_name}
+                      onChange={(e) => setNewRole({...newRole, role_name: e.target.value})}
+                      placeholder="e.g., department_manager"
+                      pattern="[a-z_]+"
                       required
                       style={{
                         backgroundColor: isDark ? '#000000' : '#ffffff',
-                        borderColor: isDark ? '#333333' : '#ced4da',
-                        color: isDark ? '#ffffff' : '#000000'
-                      }}
-                    />
-                  </div>
-
-                  <div className="row">
-                    <div className="col-md-6">
-                      <div className="mb-3">
-                        <label className={`form-label ${isDark ? 'text-light' : 'text-dark'}`}>
-                          Resource *
-                        </label>
-                        <input
-                          type="text"
-                          className="form-control"
-                          value={newPermission.resource}
-                          onChange={(e) => setNewPermission({...newPermission, resource: e.target.value})}
-                          placeholder="e.g., requests"
-                          list="resources-list"
-                          required
-                          style={{
-                            backgroundColor: isDark ? '#000000' : '#ffffff',
-                            borderColor: isDark ? '#333333' : '#ced4da',
-                            color: isDark ? '#ffffff' : '#000000'
-                          }}
-                        />
-                        <datalist id="resources-list">
-                          {getResources().map(resource => (
-                            <option key={resource} value={resource} />
-                          ))}
-                        </datalist>
-                      </div>
-                    </div>
-                    <div className="col-md-6">
-                      <div className="mb-3">
-                        <label className={`form-label ${isDark ? 'text-light' : 'text-dark'}`}>
-                          Action *
-                        </label>
-                        <input
-                          type="text"
-                          className="form-control"
-                          value={newPermission.action}
-                          onChange={(e) => setNewPermission({...newPermission, action: e.target.value})}
-                          placeholder="e.g., view_department"
-                          list="actions-list"
-                          required
-                          style={{
-                            backgroundColor: isDark ? '#000000' : '#ffffff',
-                            borderColor: isDark ? '#333333' : '#ced4da',
-                            color: isDark ? '#ffffff' : '#000000'
-                          }}
-                        />
-                        <datalist id="actions-list">
-                          {getCommonActions().map(action => (
-                            <option key={action} value={action} />
-                          ))}
-                        </datalist>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="mb-3">
-                    <label className={`form-label ${isDark ? 'text-light' : 'text-dark'}`}>
-                      Permission Name (Auto-generated)
-                    </label>
-                    <input
-                      type="text"
-                      className="form-control"
-                      value={newPermission.permission_name || `${newPermission.resource}.${newPermission.action}`}
-                      onChange={(e) => setNewPermission({...newPermission, permission_name: e.target.value})}
-                      placeholder="Auto-generated from resource:action"
-                      style={{
-                        backgroundColor: isDark ? '#000000' : '#ffffff',
-                        borderColor: isDark ? '#333333' : '#ced4da',
+                        borderColor: isDark ? '#4a5568' : '#cbd5e0',
                         color: isDark ? '#ffffff' : '#000000'
                       }}
                     />
                     <small className={isDark ? 'text-light' : 'text-muted'}>
-                      Leave blank to auto-generate from resource and action
+                      Only lowercase letters and underscores
                     </small>
+                  </div>
+
+                  <div className="mb-3">
+                    <label className={`form-label ${isDark ? 'text-light' : 'text-dark'}`}>
+                      Display Name * (Human-readable)
+                    </label>
+                    <input
+                      type="text"
+                      className="form-control"
+                      value={newRole.display_name}
+                      onChange={(e) => setNewRole({...newRole, display_name: e.target.value})}
+                      placeholder="e.g., Department Manager"
+                      required
+                      style={{
+                        backgroundColor: isDark ? '#000000' : '#ffffff',
+                        borderColor: isDark ? '#4a5568' : '#cbd5e0',
+                        color: isDark ? '#ffffff' : '#000000'
+                      }}
+                    />
                   </div>
 
                   <div className="mb-3">
@@ -489,13 +487,13 @@ const PermissionManagementPage = () => {
                     </label>
                     <textarea
                       className="form-control"
-                      value={newPermission.description}
-                      onChange={(e) => setNewPermission({...newPermission, description: e.target.value})}
-                      placeholder="Describe what this permission allows"
+                      value={newRole.description}
+                      onChange={(e) => setNewRole({...newRole, description: e.target.value})}
+                      placeholder="Describe the role's purpose and responsibilities"
                       rows="3"
                       style={{
                         backgroundColor: isDark ? '#000000' : '#ffffff',
-                        borderColor: isDark ? '#333333' : '#ced4da',
+                        borderColor: isDark ? '#4a5568' : '#cbd5e0',
                         color: isDark ? '#ffffff' : '#000000'
                       }}
                     />
@@ -506,11 +504,11 @@ const PermissionManagementPage = () => {
                       <input
                         className="form-check-input"
                         type="checkbox"
-                        checked={newPermission.is_system_permission}
-                        onChange={(e) => setNewPermission({...newPermission, is_system_permission: e.target.checked})}
+                        checked={newRole.is_system_role}
+                        onChange={(e) => setNewRole({...newRole, is_system_role: e.target.checked})}
                       />
                       <label className={`form-check-label ${isDark ? 'text-light' : 'text-dark'}`}>
-                        System Permission (Protected from deletion)
+                        System Role (Protected from deletion)
                       </label>
                     </div>
                   </div>
@@ -523,8 +521,8 @@ const PermissionManagementPage = () => {
                   >
                     Cancel
                   </button>
-                  <button type="submit" className="btn btn-primary">
-                    Create Permission
+                  <button type="submit" className="btn btn-danger">
+                    Create Role
                   </button>
                 </div>
               </form>
@@ -533,71 +531,97 @@ const PermissionManagementPage = () => {
         </div>
       )}
 
-      {/* Permission Details Modal */}
-      {showDetailsModal && selectedPermission && (
+      {/* Permission Management Modal */}
+      {showPermissionModal && selectedRole && (
         <div className="modal show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
-          <div className="modal-dialog">
+          <div className="modal-dialog modal-xl">
             <div className="modal-content" style={cardStyle}>
               <div className="modal-header">
-                <h5 className="modal-title">Permission Details</h5>
+                <h5 className="modal-title">
+                  Manage Permissions - {selectedRole.display_name}
+                </h5>
                 <button 
                   type="button" 
                   className="btn-close"
                   onClick={() => {
-                    setShowDetailsModal(false);
-                    setSelectedPermission(null);
+                    setShowPermissionModal(false);
+                    setSelectedRole(null);
+                    setSelectedPermissions([]);
                   }}
                 ></button>
               </div>
               <div className="modal-body">
-                <table className="table table-borderless">
-                  <tbody>
-                    <tr>
-                      <td><strong>Display Name:</strong></td>
-                      <td>{selectedPermission.display_name}</td>
-                    </tr>
-                    <tr>
-                      <td><strong>Permission Name:</strong></td>
-                      <td><code>{selectedPermission.permission_name}</code></td>
-                    </tr>
-                    <tr>
-                      <td><strong>Resource:</strong></td>
-                      <td>{selectedPermission.resource}</td>
-                    </tr>
-                    <tr>
-                      <td><strong>Action:</strong></td>
-                      <td>{selectedPermission.action}</td>
-                    </tr>
-                    <tr>
-                      <td><strong>Description:</strong></td>
-                      <td>{selectedPermission.description || 'No description'}</td>
-                    </tr>
-                    <tr>
-                      <td><strong>System Permission:</strong></td>
-                      <td>
-                        {selectedPermission.is_system_permission ? (
-                          <span className="badge bg-warning text-dark">Yes</span>
-                        ) : (
-                          <span className="badge bg-success">No</span>
-                        )}
-                      </td>
-                    </tr>
-                    <tr>
-                      <td><strong>Permission ID:</strong></td>
-                      <td>{selectedPermission.permission_id}</td>
-                    </tr>
-                  </tbody>
-                </table>
+                {/* Permission Filter */}
+                <div className="mb-3">
+                  <input
+                    type="text"
+                    className="form-control"
+                    placeholder="Filter permissions..."
+                    value={permissionFilter}
+                    onChange={(e) => setPermissionFilter(e.target.value)}
+                    style={{
+                      backgroundColor: isDark ? '#000000' : '#ffffff',
+                      borderColor: isDark ? '#4a5568' : '#cbd5e0',
+                      color: isDark ? '#ffffff' : '#000000'
+                    }}
+                  />
+                </div>
 
-                {/* Roles using this permission */}
-                <div className="mt-4">
-                  <h6 className={isDark ? 'text-light' : 'text-dark'}>
-                    
-                  </h6>
-                  <div className="d-flex flex-wrap gap-2">
-                    {/* This would need to be fetched from API */}
-                    <span className="badge bg-info"></span>
+                {/* Permissions by Resource */}
+                {Object.keys(permissions).map((resource) => (
+                  <div key={resource} className="mb-4">
+                    <h6 className={`border-bottom pb-2 ${isDark ? 'text-light' : 'text-dark'}`}>
+                      {apiService.rbacHelpers.getPermissionIcon(resource)} {resource.toUpperCase()}
+                    </h6>
+                    <div className="row">
+                      {permissions[resource]
+                        .filter(permission => 
+                          !permissionFilter || 
+                          permission.permission_name.toLowerCase().includes(permissionFilter.toLowerCase()) ||
+                          permission.display_name.toLowerCase().includes(permissionFilter.toLowerCase())
+                        )
+                        .map((permission) => (
+                          <div key={permission.permission_id} className="col-md-6 mb-2">
+                            <div className="form-check">
+                              <input
+                                className="form-check-input"
+                                type="checkbox"
+                                checked={selectedPermissions.includes(permission.permission_id)}
+                                onChange={(e) => {
+                                  if (e.target.checked) {
+                                    setSelectedPermissions([...selectedPermissions, permission.permission_id]);
+                                  } else {
+                                    setSelectedPermissions(selectedPermissions.filter(id => id !== permission.permission_id));
+                                  }
+                                }}
+                              />
+                              <label className={`form-check-label ${isDark ? 'text-light' : 'text-dark'}`}>
+                                <strong>{permission.display_name}</strong>
+                                <br />
+                                <small className={isDark ? 'text-light' : 'text-muted'}>
+                                  {permission.resource}:{permission.action}
+                                  {permission.is_system_permission && ' (System)'}
+                                </small>
+                              </label>
+                            </div>
+                          </div>
+                        ))}
+                    </div>
                   </div>
+                ))}
+
+                {/* Permission Summary */}
+                <div className="mt-4 p-3 rounded" style={{ 
+                  backgroundColor: isDark ? '#1a202c' : '#f7fafc',
+                  border: isDark ? '1px solid #4a5568' : '1px solid #e2e8f0'
+                }}>
+                  <strong className={isDark ? 'text-light' : 'text-dark'}>
+                    Selected: {selectedPermissions.length} permissions
+                  </strong>
+                  <br />
+                  <small className={isDark ? 'text-light' : 'text-muted'}>
+                    {getSelectedPermissionsSummary()}
+                  </small>
                 </div>
               </div>
               <div className="modal-footer">
@@ -605,19 +629,43 @@ const PermissionManagementPage = () => {
                   type="button" 
                   className="btn btn-secondary"
                   onClick={() => {
-                    setShowDetailsModal(false);
-                    setSelectedPermission(null);
+                    setShowPermissionModal(false);
+                    setSelectedRole(null);
+                    setSelectedPermissions([]);
                   }}
                 >
-                  Close
-              </button>
+                  Cancel
+                </button>
+                <button 
+                  type="button" 
+                  className="btn btn-warning me-2"
+                  onClick={() => setSelectedPermissions([])}
+                >
+                  Clear All
+                </button>
+                <button 
+                  type="button" 
+                  className="btn btn-info me-2"
+                  onClick={() => setSelectedPermissions(allPermissions.map(p => p.permission_id))}
+                >
+                  Select All
+                </button>
+                <button 
+                  type="button" 
+                  className="btn btn-danger"
+                  onClick={handlePermissionUpdate}
+                >
+                  Update Permissions
+                </button>
+              </div>
             </div>
           </div>
         </div>
-      </div>
-    )}
-  </div>
-);
+      )}
+
+      <ConfirmationModal {...confirmationState} />
+    </div>
+  );
 };
 
-export default PermissionManagementPage;
+export default RoleManagementPage;

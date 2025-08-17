@@ -9,28 +9,25 @@ import AdminResponseModal from '../components/AdminResponseModal';
 import AdminNotificationCenter from '../components/AdminNotificationCenter';
 import FIULogo from '../components/FIULogo';
 import RequestRejectModal from '../components/RequestRejectModal';
-
 import AdminStatisticsPage from '../components/AdminStatisticsPage';
-
 import LanguageDropdown from '../components/LanguageDropdown';
 import RoleManagementPage from '../components/RoleManagementPage';
 import UserManagementPage from '../components/UserManagementPage';
 import PermissionManagementPage from '../components/PermissionManagementPage';
 import RBACDashboard from '../components/RBACDashboard';
+import AcademicCalendarManager from '../components/AcademicCalendarManager';
 import 'bootstrap/dist/js/bootstrap.bundle.min.js';
 import { useToast } from '../contexts/ToastContext';
-
 import { useConfirmation } from '../hooks/useConfirmation';
 import ConfirmationModal from '../components/ConfirmationModal';
-
-
-
-import AcademicCalendarManager from '../components/AcademicCalendarManager';
-
 
 const AdminDashboardPage = () => {
   const [selectedRequestForResponse, setSelectedRequestForResponse] = useState(null);
   const [showResponseModal, setShowResponseModal] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage] = useState(10);
+  
   const { 
     admin, 
     logout, 
@@ -48,13 +45,11 @@ const AdminDashboardPage = () => {
     isSuperAdmin,
     isDepartmentAdmin,
     getAccessibleDepartments,
-    
-
   } = useAdminAuth();
   
   const [showRejectModal, setShowRejectModal] = useState(false);
-const [selectedRequestForReject, setSelectedRequestForReject] = useState(null);
-const [rejectLoading, setRejectLoading] = useState(false);
+  const [selectedRequestForReject, setSelectedRequestForReject] = useState(null);
+  const [rejectLoading, setRejectLoading] = useState(false);
 
   const { confirmationState, showConfirmation } = useConfirmation();
   const { isDark, toggleTheme } = useTheme();
@@ -73,11 +68,10 @@ const [rejectLoading, setRejectLoading] = useState(false);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const { showSuccess, showError, showInfo } = useToast();
 
-const [showRejectionDetailsModal, setShowRejectionDetailsModal] = useState(false);
-const [selectedRejectionDetails, setSelectedRejectionDetails] = useState(null);
-const [rejectionDetailsLoading, setRejectionDetailsLoading] = useState(false);
+  const [showRejectionDetailsModal, setShowRejectionDetailsModal] = useState(false);
+  const [selectedRejectionDetails, setSelectedRejectionDetails] = useState(null);
+  const [rejectionDetailsLoading, setRejectionDetailsLoading] = useState(false);
 
-  
   // Add Request Type Form State
   const [showAddForm, setShowAddForm] = useState(false);
   const [newTypeData, setNewTypeData] = useState({
@@ -86,16 +80,11 @@ const [rejectionDetailsLoading, setRejectionDetailsLoading] = useState(false);
     is_document_required: false
   });
 
-  // RBAC Debug Info
-  const [showRBACDebug, setShowRBACDebug] = useState(false);
-
-
-
   const handleLogoutClick = async () => {
     console.log('Logout button clicked!');
     
     const confirmed = await showConfirmation({
-      title: ' Logout Confirmation',
+      title: 'Logout Confirmation',
       message: 'Are you sure you want to logout from the admin panel?',
       type: 'danger',
       confirmText: 'Logout',
@@ -109,32 +98,30 @@ const [rejectionDetailsLoading, setRejectionDetailsLoading] = useState(false);
   };
 
   // Rejection details fetch fonksiyonu
-const fetchRejectionDetails = async (requestId) => {
-  try {
-    setRejectionDetailsLoading(true);
-    const response = await apiService.getAdminRejectionDetails(requestId);
-    
-    if (response.data.success) {
-      setSelectedRejectionDetails({
-        requestId,
-        ...response.data.data
-      });
-      setShowRejectionDetailsModal(true);
+  const fetchRejectionDetails = async (requestId) => {
+    try {
+      setRejectionDetailsLoading(true);
+      const response = await apiService.getAdminRejectionDetails(requestId);
+      
+      if (response.data.success) {
+        setSelectedRejectionDetails({
+          requestId,
+          ...response.data.data
+        });
+        setShowRejectionDetailsModal(true);
+      }
+    } catch (error) {
+      console.error('Error fetching rejection details:', error);
+      showError('Failed to load rejection details');
+    } finally {
+      setRejectionDetailsLoading(false);
     }
-  } catch (error) {
-    console.error('Error fetching rejection details:', error);
-    showError('Failed to load rejection details');
-  } finally {
-    setRejectionDetailsLoading(false);
-  }
-};
+  };
 
   // Admin Language Dropdown
   const AdminLanguageSelector = () => {
     return <LanguageDropdown variant="admin" />;
   };
-
-
 
   const handleLogoutConfirm = () => {
     setShowLogoutModal(false);
@@ -152,25 +139,24 @@ const fetchRejectionDetails = async (requestId) => {
     }
 
     try {
-       setLoading(true);
-    // BU KONTROLÜ EKLE:
-    const isPureSuperAdmin = isSuperAdmin() && !department;
-    const dashboardParams = isPureSuperAdmin ? {} : { department };
-    
-    const response = await apiService.getAdminDashboard(dashboardParams);
-    
-    if (response.data && response.data.success) {
-      setDashboardData(response.data.data);
+      setLoading(true);
+      const isPureSuperAdmin = isSuperAdmin() && !department;
+      const dashboardParams = isPureSuperAdmin ? {} : { department };
+      
+      const response = await apiService.getAdminDashboard(dashboardParams);
+      
+      if (response.data && response.data.success) {
+        setDashboardData(response.data.data);
+      }
+    } catch (error) {
+      console.error('Error fetching dashboard data:', error);
+      if (error.response?.status === 403) {
+        showError('Access denied: Insufficient permissions for dashboard');
+      }
+    } finally {
+      setLoading(false);
     }
-  } catch (error) {
-    console.error('Error fetching dashboard data:', error);
-    if (error.response?.status === 403) {
-      showError('Access denied: Insufficient permissions for dashboard');
-    }
-  } finally {
-    setLoading(false);
-  }
-}, [canViewAnalytics, showError, department, isSuperAdmin]);
+  }, [canViewAnalytics, showError, department, isSuperAdmin]);
 
   const fetchRequests = useCallback(async () => {
     if (!canViewRequests()) {
@@ -260,64 +246,61 @@ const fetchRejectionDetails = async (requestId) => {
     });
   };
 
-  // ADD THIS FUNCTION TO AdminDashboardPage component
-const handleRejectRequest = async (rejectionReason) => {
-  if (!selectedRequestForReject) {
-    showError('No request selected for rejection');
-    return;
-  }
+  const handleRejectRequest = async (rejectionReason) => {
+    if (!selectedRequestForReject) {
+      showError('No request selected for rejection');
+      return;
+    }
 
-  try {
-    setRejectLoading(true);
-    
-    console.log('🚫 Starting reject process:', {
-      requestId: selectedRequestForReject.request_id,
-      reasonLength: rejectionReason.length
-    });
-    
-    const response = await apiService.rejectRequest(
-      selectedRequestForReject.request_id, 
-      { rejection_reason: rejectionReason }
-    );
-    
-    console.log('✅ Reject response received:', response.data);
-    
-    if (response.data && response.data.success) {
-      showSuccess(`Request #${selectedRequestForReject.request_id} rejected successfully`);
-      setShowRejectModal(false);
-      setSelectedRequestForReject(null);
+    try {
+      setRejectLoading(true);
       
-      // Refresh the requests list
-      if (typeof fetchRequests === 'function') {
-        fetchRequests();
+      console.log('Starting reject process:', {
+        requestId: selectedRequestForReject.request_id,
+        reasonLength: rejectionReason.length
+      });
+      
+      const response = await apiService.rejectRequest(
+        selectedRequestForReject.request_id, 
+        { rejection_reason: rejectionReason }
+      );
+      
+      console.log('Reject response received:', response.data);
+      
+      if (response.data && response.data.success) {
+        showSuccess(`Request #${selectedRequestForReject.request_id} rejected successfully`);
+        setShowRejectModal(false);
+        setSelectedRequestForReject(null);
+        
+        if (typeof fetchRequests === 'function') {
+          fetchRequests();
+        }
+      } else {
+        throw new Error(response.data?.error || 'Unknown error occurred');
       }
-    } else {
-      throw new Error(response.data?.error || 'Unknown error occurred');
+      
+    } catch (error) {
+      console.error('Error rejecting request:', error);
+      
+      let errorMessage = 'Failed to reject request. Please try again.';
+      
+      if (error.response?.status === 403) {
+        errorMessage = 'Access denied: Insufficient permissions to reject requests';
+      } else if (error.response?.status === 400) {
+        errorMessage = error.response.data?.error || 'Invalid rejection request';
+      } else if (error.response?.status === 404) {
+        errorMessage = 'Request not found';
+      } else if (error.message === 'Network error: Could not reach server') {
+        errorMessage = 'Cannot connect to server. Please check your connection.';
+      } else if (error.response?.data?.error) {
+        errorMessage = error.response.data.error;
+      }
+      
+      showError(errorMessage);
+    } finally {
+      setRejectLoading(false);
     }
-    
-  } catch (error) {
-    console.error('❌ Error rejecting request:', error);
-    
-    let errorMessage = 'Failed to reject request. Please try again.';
-    
-    if (error.response?.status === 403) {
-      errorMessage = 'Access denied: Insufficient permissions to reject requests';
-    } else if (error.response?.status === 400) {
-      errorMessage = error.response.data?.error || 'Invalid rejection request';
-    } else if (error.response?.status === 404) {
-      errorMessage = 'Request not found';
-    } else if (error.message === 'Network error: Could not reach server') {
-      errorMessage = 'Cannot connect to server. Please check your connection.';
-    } else if (error.response?.data?.error) {
-      errorMessage = error.response.data.error;
-    }
-    
-    showError(errorMessage);
-  } finally {
-    setRejectLoading(false);
-  }
-};
-
+  };
 
   useEffect(() => {
     if (activeTab === 'dashboard') {
@@ -343,9 +326,9 @@ const handleRejectRequest = async (rejectionReason) => {
       fetchRequests();
       
       if (newStatus === 'Completed') {
-        showSuccess(`✅ Request #${requestId} marked as completed`);
+        showSuccess(`Request #${requestId} marked as completed`);
       } else {
-        showSuccess(`📊 Request #${requestId} status updated to ${newStatus}`);
+        showSuccess(`Request #${requestId} status updated to ${newStatus}`);
       }
     } catch (error) {
       console.error('Error updating request status:', error);
@@ -400,8 +383,6 @@ const handleRejectRequest = async (rejectionReason) => {
     }, 300);
   };
 
-  
-
   const handleAddRequestType = async (e) => {
     e.preventDefault();
     
@@ -444,14 +425,14 @@ const handleRejectRequest = async (rejectionReason) => {
   };
 
   const getStatusBadge = (status) => {
-  const statusStyles = {
-    'Pending': 'bg-warning text-dark',
-    'Informed': 'bg-info text-white',
-    'Completed': 'bg-success text-white',
-    'Rejected': 'bg-danger text-white'  // ADD THIS LINE
+    const statusStyles = {
+      'Pending': 'bg-warning text-dark',
+      'Informed': 'bg-info text-white',
+      'Completed': 'bg-success text-white',
+      'Rejected': 'bg-danger text-white'
+    };
+    return statusStyles[status] || 'bg-secondary text-white';
   };
-  return statusStyles[status] || 'bg-secondary text-white';
-};
 
   const getPriorityBadge = (priority) => {
     const priorityStyles = {
@@ -463,141 +444,114 @@ const handleRejectRequest = async (rejectionReason) => {
     return priorityStyles[priority] || 'bg-info text-white';
   };
 
-  const getPriorityIcon = (priority) => {
-    const icons = {
-      'Urgent': '',
-      'High': '',
-      'Medium': '', 
-      'Low': ''
-    };
-    return icons[priority] || '';
-  };
-
-  const getDepartmentIcon = (dept) => {
-    const icons = {
-      'Accounting': '',
-      'Academic': '',
-      'Dormitory': '',
-      'Student Affairs': '',
-      'Campus Services': ''
-    };
-    return icons[dept] || '';
-  };
-
   // Tab visibility control based on permissions
   const getVisibleTabs = () => {
     const tabs = [];
     
     if (canViewAnalytics()) {
-      tabs.push({ key: 'dashboard', label: ' Dashboard', icon: '' });
+      tabs.push({ key: 'dashboard', label: 'Dashboard', icon: 'fas fa-chart-line' });
     }
     
     if (canViewRequests()) {
-      tabs.push({ key: 'requests', label: ' Manage Requests', icon: '' });
+      tabs.push({ key: 'requests', label: 'Manage Requests', icon: 'fas fa-tasks' });
     }
-    
-
 
     if (canManageSettings()) {
-      tabs.push({ key: 'settings', label: ' Settings', icon: '' });
+      tabs.push({ key: 'settings', label: 'Settings', icon: 'fas fa-cog' });
     }
-
-
-
-    
-
-    // STATISTICS TAB - Department Admin ve Super Admin için
-  if ((isDepartmentAdmin() || isSuperAdmin()) && canViewAnalytics()) {
-    tabs.push({ 
-      key: 'statistics', 
-      label: ' Performance Stats', 
-      icon: '',
-     
-    });
-  }
     
     // RBAC Management Tabs (Super Admin only)
     if (isSuperAdmin()) {
-     
-      tabs.push({ key: 'users', label: ' Users', icon: '' });
-      tabs.push({ key: 'roles', label: ' Roles', icon: '' });
-      tabs.push({ key: 'permissions', label: ' Permissions', icon: '' });
+      tabs.push({ key: 'users', label: 'Users', icon: 'fas fa-users' });
+      tabs.push({ key: 'roles', label: 'Roles', icon: 'fas fa-user-tag' });
+      tabs.push({ key: 'permissions', label: 'Permissions', icon: 'fas fa-shield-alt' });
     }
     
     // Department Admin can see user management for their department
     if (isDepartmentAdmin() && !isSuperAdmin()) {
-      tabs.push({ key: 'dept-users', label: ' Dept Users', icon: '' });
+      tabs.push({ key: 'dept-users', label: 'Dept Users', icon: 'fas fa-user-friends' });
     }
-    
-   
 
-  // ⭐ YENİ TAB EKLE
-  if (isSuperAdmin()) {
-    tabs.push({ 
-      key: 'calendar', 
-      label: ' Academic Calendar', 
-      icon: '' 
-    });
-  }
-
- 
-
+    if (isSuperAdmin()) {
+      tabs.push({ 
+        key: 'calendar', 
+        label: 'Academic Calendar', 
+        icon: 'fas fa-calendar-alt' 
+      });
+    }
 
     return tabs;
   };
 
-  // RBAC Debug Component
-  const RBACDebugInfo = () => {
-    if (!showRBACDebug) return null;
-    
+  // Pagination helper functions
+  const getPaginatedData = (data, page, itemsPerPage) => {
+    const startIndex = (page - 1) * itemsPerPage;
+    return data.slice(startIndex, startIndex + itemsPerPage);
+  };
+
+  const getTotalPages = (dataLength, itemsPerPage) => {
+    return Math.ceil(dataLength / itemsPerPage);
+  };
+
+  const PaginationComponent = ({ currentPage, totalPages, onPageChange }) => {
+    if (totalPages <= 1) return null;
+
     return (
-      <div className="card border-warning mb-4">
-        <div className="card-header bg-warning text-dark">
-          <h6 className="mb-0">🔍 RBAC Debug Information</h6>
-        </div>
-        <div className="card-body">
-          <div className="row">
-            <div className="col-md-6">
-              <h6>User Info:</h6>
-              <ul className="list-unstyled">
-                <li><strong>Username:</strong> {admin?.username}</li>
-                <li><strong>Department:</strong> {admin?.department}</li>
-                <li><strong>Super Admin:</strong> {admin?.is_super_admin ? 'Yes' : 'No'}</li>
-                <li><strong>Admin ID:</strong> {admin?.admin_id}</li>
-              </ul>
-            </div>
-            <div className="col-md-6">
-              <h6>Permissions Check:</h6>
-              <ul className="list-unstyled">
-                <li>View Requests: {canViewRequests() ? '✅' : '❌'}</li>
-                <li>Manage Requests: {canManageRequests() ? '✅' : '❌'}</li>
-                <li>Create Responses: {canCreateResponses() ? '✅' : '❌'}</li>
-                <li>Manage Users: {canManageUsers() ? '✅' : '❌'}</li>
-                <li>View Analytics: {canViewAnalytics() ? '✅' : '❌'}</li>
-                <li>Manage Settings: {canManageSettings() ? '✅' : '❌'}</li>
-                <li>Manage Request Types: {canManageRequestTypes() ? '✅' : '❌'}</li>
-              </ul>
-            </div>
-          </div>
-          <div className="row mt-3">
-            <div className="col-md-6">
-              <h6>Role Checks:</h6>
-              <ul className="list-unstyled">
-                <li>Super Admin: {isSuperAdmin() ? '✅' : '❌'}</li>
-                <li>Department Admin: {isDepartmentAdmin() ? '✅' : '❌'}</li>
-              </ul>
-            </div>
-            <div className="col-md-6">
-              <h6>Accessible Departments:</h6>
-              <ul className="list-unstyled">
-                {getAccessibleDepartments().map(dept => (
-                  <li key={dept}>• {dept}</li>
-                ))}
-              </ul>
-            </div>
-          </div>
-        </div>
-      </div>
+      <nav aria-label="Page navigation" className="mt-4">
+        <ul className="pagination justify-content-center">
+          <li className={`page-item ${currentPage === 1 ? 'disabled' : ''}`}>
+            <button 
+              className="page-link" 
+              onClick={() => onPageChange(currentPage - 1)}
+              disabled={currentPage === 1}
+              style={{
+                backgroundColor: isDark ? '#000000' : '#ffffff',
+                borderColor: isDark ? '#6c757d' : '#dee2e6',
+                color: isDark ? '#ffffff' : '#000000'
+              }}
+            >
+              Previous
+            </button>
+          </li>
+          
+          {[...Array(totalPages)].map((_, index) => (
+            <li key={index + 1} className={`page-item ${currentPage === index + 1 ? 'active' : ''}`}>
+              <button 
+                className="page-link" 
+                onClick={() => onPageChange(index + 1)}
+                style={{
+                  backgroundColor: currentPage === index + 1 
+                    ? '#dc2626' 
+                    : (isDark ? '#000000' : '#ffffff'),
+                  borderColor: currentPage === index + 1 
+                    ? '#dc2626' 
+                    : (isDark ? '#6c757d' : '#dee2e6'),
+                  color: currentPage === index + 1 
+                    ? '#ffffff' 
+                    : (isDark ? '#ffffff' : '#000000')
+                }}
+              >
+                {index + 1}
+              </button>
+            </li>
+          ))}
+          
+          <li className={`page-item ${currentPage === totalPages ? 'disabled' : ''}`}>
+            <button 
+              className="page-link" 
+              onClick={() => onPageChange(currentPage + 1)}
+              disabled={currentPage === totalPages}
+              style={{
+                backgroundColor: isDark ? '#000000' : '#ffffff',
+                borderColor: isDark ? '#6c757d' : '#dee2e6',
+                color: isDark ? '#ffffff' : '#000000'
+              }}
+            >
+              Next
+            </button>
+          </li>
+        </ul>
+      </nav>
     );
   };
 
@@ -610,7 +564,7 @@ const handleRejectRequest = async (rejectionReason) => {
             style={{ 
               borderRadius: '12px',
               backgroundColor: isDark ? '#000000' : '#ffffff',
-              border: isDark ? '1px solid #333333' : '1px solid #e5e7eb'
+              border: isDark ? '1px solid #4a5568' : '1px solid #e2e8f0'
             }}
           >
             <div className="card-body p-4">
@@ -629,553 +583,436 @@ const handleRejectRequest = async (rejectionReason) => {
                     <small className="badge bg-primary">Department Admin</small>
                   )}
                 </div>
-                <div className="text-end">
-                 
-                </div>
               </div>
             </div>
           </div>
         </div>
       </div>
 
-      <RBACDebugInfo />
-
-      {loading ? (
-      <div className="text-center py-5">
-        <div className="spinner-border text-danger" role="status"></div>
-        <p className={`mt-3 ${isDark ? 'text-light' : 'text-dark'}`}>
-          {t('loading')} dashboard...
-        </p>
-      </div>
-    ) : dashboardData && dashboardData.totals ? (
-      <div className="row">
-       
-        
-      </div>
-    ) : (
-      <div 
-        className="card border-0 shadow-sm" 
-        style={{ 
-          borderRadius: '12px',
-          backgroundColor: isDark ? '#000000' : '#ffffff',
-          border: isDark ? '1px solid #333333' : '1px solid #e5e7eb'
-        }}
-      >
-        <div className="card-body text-center p-5">
-          <div className="text-danger mb-3" style={{ fontSize: '3rem' }}>⚠️</div>
-          <h5 className={isDark ? 'text-light' : 'text-dark'}>
-            {t('failedToLoadDashboard')}
-          </h5>
-          <p className={isDark ? 'text-light' : 'text-muted'}>
-            {t('pleaseCheckConnection')}
-          </p>
-          <button className="btn btn-danger" onClick={fetchDashboardData}>
-            🔄 {t('retry')}
-            </button>
-          </div>
-        </div>
-      )}
+      {/* Statistics Dashboard Integration */}
+      <AdminStatisticsPage />
     </div>
   );
 
-  const renderRequests = () => (
-    <div>
-      <div className="d-flex justify-content-between align-items-center mb-4">
-        <h3 className={isDark ? 'text-light' : 'text-dark'}>
-           {t('manageRequests')} - {department}
-          {!canManageRequests() && (
-            <small className="badge bg-warning ms-2">Read Only</small>
-          )}
-        </h3>
-        
-        <div className="d-flex gap-2">
-          <select
-            className="form-select form-select-sm"
-            value={filters.status}
-            onChange={(e) => setFilters({...filters, status: e.target.value})}
-            style={{
-              backgroundColor: isDark ? '#000000' : '#ffffff',
-              borderColor: isDark ? '#333333' : '#ced4da',
-              color: isDark ? '#ffffff' : '#000000'
-            }}
-          >
-            <option value="">{t('allStatus')}</option>
-            <option value="Pending">{t('pending')}</option>
-            <option value="Informed">{t('informed')}</option>
-            <option value="Completed">{t('completed')}</option>
-            <option value="Rejected">{t('rejected', 'Rejected')}</option>
-          </select>
-          
-          <button 
-            className="btn btn-outline-primary btn-sm"
-            onClick={refreshRequests}
-            disabled={loading}
-          >
-            {loading ? (
-              <>
-                <span className="spinner-border spinner-border-sm me-1" role="status"></span>
-                {t('loading')}...
-              </>
-            ) : (
-              <>
-                🔄 
-              </>
-            )}
-          </button>
-        </div>
-      </div>
-
-      {loading ? (
-        <div className="text-center">
-          <div className="spinner-border" role="status"></div>
-          <p className={isDark ? 'text-light' : 'text-dark'}>{t('loading')} requests...</p>
-        </div>
-      ) : (
-        <div className="row">
-          {!requests || requests.length === 0 ? (
-            <div className="col-12 text-center py-5">
-              <div 
-                className="alert" 
-                style={{
-                  backgroundColor: isDark ? '#000000' : '#d1ecf1',
-                  borderColor: isDark ? '#333333' : '#bee5eb',
-                  color: isDark ? '#ffffff' : '#0c5460'
-                }}
-              >
-                <h5 className={isDark ? 'text-light' : 'text-dark'}>{t('noRequests')}</h5>
-                <p className={`mb-0 ${isDark ? 'text-light' : 'text-muted'}`}>
-                  {filters.status 
-                    ? `No ${filters.status.toLowerCase()} requests found for ${department} department.`
-                    : `No requests have been submitted to ${department} department yet.`
-                  }
-                </p>
-              </div>
-            </div>
-          ) : (
-            requests.map((request) => (
-              <div 
-                key={request.request_id} 
-                id={`request-${request.request_id}`}
-                className="col-12 mb-3"
-              >
-                <div 
-                  className="card"
-                  style={{
-                    backgroundColor: isDark ? '#000000' : '#ffffff',
-                    borderColor: isDark ? '#333333' : '#dee2e6',
-                    color: isDark ? '#ffffff' : '#000000'
-                  }}
-                >
-                  <div 
-                    className="card-header d-flex justify-content-between align-items-center"
-                    style={{
-                      backgroundColor: isDark ? '#111111' : '#f8f9fa',
-                      borderColor: isDark ? '#333333' : '#dee2e6'
-                    }}
-                  >
-                    <div>
-                      <h6 className={`mb-1 ${isDark ? 'text-light' : 'text-dark'}`}>
-                        {translateRequestType(request.type_name)}
-                      </h6>
-                      <small className={isDark ? 'text-light' : 'text-muted'}>
-                        {request.student_name} ({request.student_number})
-                      </small>
-                    </div>
-                    <div className="d-flex align-items-center gap-2">
-                      <span className={`badge ${getPriorityBadge(request.priority)}`}>
-                        {getPriorityIcon(request.priority)} {request.priority || 'Medium'}
-                      </span>
-                      
-                      <span className={`badge ${getStatusBadge(request.status)}`}>
-                        {t(request.status.toLowerCase())}
-                      </span>
-                    </div>
-                  </div>
-                  
-                  <div className="card-body">
-                    <p className={`mb-3 ${isDark ? 'text-light' : 'text-dark'}`}>
-                      <strong>{t('content')}:</strong> {request.content}
-                    </p>
-                    
-                    <div className="row text-sm mb-3">
-                      <div className="col-md-4">
-                        <strong className={isDark ? 'text-light' : 'text-dark'}>{t('studentEmail')}:</strong><br/>
-                        <a 
-                          href={`mailto:${request.student_email}`}
-                          className={isDark ? 'text-info' : 'text-primary'}
-                        >
-                          {request.student_email}
-                        </a>
-                      </div>
-                      <div className="col-md-4">
-                        <strong className={isDark ? 'text-light' : 'text-dark'}>{t('submitted')}:</strong><br/>
-                        <span className={isDark ? 'text-light' : 'text-muted'}>
-                          {new Date(request.submitted_at).toLocaleDateString()} {new Date(request.submitted_at).toLocaleTimeString()}
-                        </span>
-                      </div>
-                      <div className="col-md-4">
-                        <strong className={isDark ? 'text-light' : 'text-dark'}>{t('attachments')}:</strong><br/>
-                        <span className={request.attachment_count > 0 ? 'text-success' : (isDark ? 'text-light' : 'text-muted')}>
-                          {request.attachment_count || 0} {t('files')}
-                        </span>
-                      </div>
-                    </div>
-                    
-                {/* Rejection Details Button - Sadece rejected request'ler için */}
-{request.status === 'Rejected' && (
-  <button
-    className="btn btn-outline-danger btn-sm"
-    onClick={() => fetchRejectionDetails(request.request_id)}
-    disabled={rejectionDetailsLoading}
-  >
-    {rejectionDetailsLoading ? (
-      <>
-        <span className="spinner-border spinner-border-sm me-1"></span>
-        Loading...
-      </>
-    ) : (
-      <>
-        🚫 View Rejection Details
-      </>
-    )}
-  </button>
-)}
-        
-        {/* Student info, submitted date etc. - no changes */}
-        <div className="row text-sm mb-3">
-          {/* existing student info */}
-        </div>
-        
-        {/* ACTION BUTTONS - Improved layout */}
-        <div className="d-flex gap-2 flex-wrap align-items-center">
-          {/* Response button */}
-          {canCreateResponses() && (
-            <button
-              className="btn btn-outline-info btn-sm"
-              onClick={() => {
-                setSelectedRequestForResponse({
-                  id: request.request_id,
-                  title: `#${request.request_id} - ${request.type_name}`,
-                  student: request.student_name
-                });
-                setShowResponseModal(true);
-              }}
-            >
-              💬 {request.status === 'Pending' ? t('addResponse') : t('viewResponse')}
-            </button>
-          )}
-
-          {/* Status action buttons */}
-          {canManageRequests() && request.status === 'Pending' && (
-            <>
-              <button
-                className="btn btn-success btn-sm"
-                onClick={() => updateRequestStatus(request.request_id, 'Completed')}
-              >
-                ✅ {t('markAsCompleted')}
-              </button>
-              
-              <button
-                className="btn btn-danger btn-sm"
-                onClick={() => {
-                  setSelectedRequestForReject(request);
-                  setShowRejectModal(true);
-                }}
-              >
-                🚫 {t('reject', 'Reject')}
-              </button>
-            </>
-          )}
-          
-          {canManageRequests() && request.status === 'Informed' && (
-            <>
-              <button
-                className="btn btn-success btn-sm"
-                onClick={() => updateRequestStatus(request.request_id, 'Completed')}
-              >
-                ✅ {t('markAsCompleted')}
-              </button>
-              
-              <button
-                className="btn btn-danger btn-sm"
-                onClick={() => {
-                  setSelectedRequestForReject(request);
-                  setShowRejectModal(true);
-                }}
-              >
-                🚫 {t('reject', 'Reject')}
-              </button>
-            </>
-          )}
-          
-          {/* File attachments */}
-          {request.attachment_count > 0 && (
-            <button 
-              className="btn btn-outline-secondary btn-sm"
-              onClick={() => {
-                setSelectedRequestId(request.request_id);
-                setShowAttachments(true);
-              }}
-            >
-              📎 {t('viewFiles')} ({request.attachment_count})
-            </button>
-          )}
-
-          {/* Status indicators - moved to end */}
-          {request.status === 'Completed' && (
-            <span className="badge bg-success ms-auto">
-              ✅ {t('completed')}
-            </span>
-          )}
-
-          {/* Permission warning */}
-          {!canManageRequests() && (
-            <small className="text-muted ms-auto">
-              <em>⚠️ Read-only access</em>
-            </small>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            ))
-          )}
-        </div>
-      )}
-    </div>
-  );
-
-  const renderSettings = () => (
-    <div>
-      <div className="d-flex justify-content-between align-items-center mb-4">
-        <div>
+  const renderRequests = () => {
+    const totalPages = getTotalPages(requests.length, itemsPerPage);
+    const paginatedRequests = getPaginatedData(requests, currentPage, itemsPerPage);
+    
+    return (
+      <div>
+        <div className="d-flex justify-content-between align-items-center mb-4">
           <h3 className={isDark ? 'text-light' : 'text-dark'}>
-            ⚙️ {t('settings')} - {department} {t('requestType')}
-            {!canManageRequestTypes() && (
+            {t('manageRequests')} - {department}
+            {!canManageRequests() && (
               <small className="badge bg-warning ms-2">Read Only</small>
             )}
           </h3>
-          <p className={isDark ? 'text-light' : 'text-muted'}>
-            {canManageRequestTypes() 
-              ? t('enableDisableRequestTypes')
-              : 'You can view request types but cannot modify them'
-            }
-          </p>
+          
+          <div className="d-flex gap-2">
+            <select
+              className="form-select form-select-sm"
+              value={filters.status}
+              onChange={(e) => setFilters({...filters, status: e.target.value})}
+              style={{
+                backgroundColor: isDark ? '#000000' : '#ffffff',
+                borderColor: isDark ? '#4a5568' : '#cbd5e0',
+                color: isDark ? '#ffffff' : '#000000'
+              }}
+            >
+              <option value="">{t('allStatus')}</option>
+              <option value="Pending">{t('pending')}</option>
+              <option value="Informed">{t('informed')}</option>
+              <option value="Completed">{t('completed')}</option>
+              <option value="Rejected">{t('rejected', 'Rejected')}</option>
+            </select>
+            
+            <button 
+              className="btn btn-outline-danger btn-sm"
+              onClick={refreshRequests}
+              disabled={loading}
+            >
+              {loading ? (
+                <>
+                  <span className="spinner-border spinner-border-sm me-1" role="status"></span>
+                  {t('loading')}...
+                </>
+              ) : (
+                'Refresh'
+              )}
+            </button>
+          </div>
         </div>
-        
-        {canManageRequestTypes() && (
-          <button 
-            className="btn btn-primary"
-            onClick={() => setShowAddForm(!showAddForm)}
-          >
-            ➕ {t('addNewType')}
-          </button>
-        )}
-      </div>
 
-      {showAddForm && canManageRequestTypes() && (
-        <div 
-          className="card mb-4"
-          style={{
-            backgroundColor: isDark ? '#000000' : '#ffffff',
-            borderColor: isDark ? '#333333' : '#dee2e6'
-          }}
-        >
+        {/* Requests Table */}
+        <div className="card" style={{
+          backgroundColor: isDark ? '#000000' : '#ffffff',
+          borderColor: isDark ? '#4a5568' : '#e2e8f0'
+        }}>
+          <div className="card-body">
+            {loading ? (
+              <div className="text-center">
+                <div className="spinner-border text-danger" role="status"></div>
+                <p className={isDark ? 'text-light' : 'text-dark'}>{t('loading')} requests...</p>
+              </div>
+            ) : (
+              <>
+                <div className="table-responsive">
+                  <table className="table table-hover">
+                    <thead className={isDark ? 'table-dark' : 'table-light'}>
+                      <tr>
+                        <th>ID</th>
+                        <th>Type</th>
+                        <th>Student</th>
+                        <th>Priority</th>
+                        <th>Status</th>
+                        <th>Submitted</th>
+                        <th>Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {paginatedRequests.length === 0 ? (
+                        <tr>
+                          <td colSpan="7" className="text-center py-4">
+                            <div className={`text-muted ${isDark ? 'text-light' : ''}`}>
+                              <h5>{t('noRequests')}</h5>
+                              <p>No requests found for the current filters.</p>
+                            </div>
+                          </td>
+                        </tr>
+                      ) : (
+                        paginatedRequests.map((request) => (
+                          <tr 
+                            key={request.request_id} 
+                            id={`request-${request.request_id}`}
+                            className={isDark ? 'text-light' : ''}
+                          >
+                            <td>{request.request_id}</td>
+                            <td>
+                              <div className="fw-semibold">
+                                {translateRequestType(request.type_name)}
+                              </div>
+                              <small className={isDark ? 'text-light' : 'text-muted'}>
+                                {request.content.substring(0, 50)}...
+                              </small>
+                            </td>
+                            <td>
+                              <div className="fw-semibold">{request.student_name}</div>
+                              <small className={isDark ? 'text-light' : 'text-muted'}>
+                                {request.student_number}
+                              </small>
+                            </td>
+                            <td>
+                              <span className={`badge ${getPriorityBadge(request.priority)}`}>
+                                {request.priority || 'Medium'}
+                              </span>
+                            </td>
+                            <td>
+                              <span className={`badge ${getStatusBadge(request.status)}`}>
+                                {t(request.status.toLowerCase())}
+                              </span>
+                            </td>
+                            <td>
+                              <small>
+                                {new Date(request.submitted_at).toLocaleDateString()}
+                                <br />
+                                {new Date(request.submitted_at).toLocaleTimeString()}
+                              </small>
+                            </td>
+                            <td>
+                              <div className="btn-group" role="group">
+                                {canCreateResponses() && (
+                                  <button
+                                    className="btn btn-outline-info btn-sm"
+                                    onClick={() => {
+                                      setSelectedRequestForResponse({
+                                        id: request.request_id,
+                                        title: `#${request.request_id} - ${request.type_name}`,
+                                        student: request.student_name
+                                      });
+                                      setShowResponseModal(true);
+                                    }}
+                                  >
+                                    Response
+                                  </button>
+                                )}
+
+                                {canManageRequests() && request.status !== 'Completed' && (
+                                  <button
+                                    className="btn btn-outline-success btn-sm"
+                                    onClick={() => updateRequestStatus(request.request_id, 'Completed')}
+                                  >
+                                    Complete
+                                  </button>
+                                )}
+
+                                {request.attachment_count > 0 && (
+                                  <button 
+                                    className="btn btn-outline-secondary btn-sm"
+                                    onClick={() => {
+                                      setSelectedRequestId(request.request_id);
+                                      setShowAttachments(true);
+                                    }}
+                                  >
+                                    Files ({request.attachment_count})
+                                  </button>
+                                )}
+
+                                {request.status === 'Rejected' && (
+                                  <button
+                                    className="btn btn-outline-danger btn-sm"
+                                    onClick={() => fetchRejectionDetails(request.request_id)}
+                                    disabled={rejectionDetailsLoading}
+                                  >
+                                    View Rejection
+                                  </button>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+                
+                <PaginationComponent 
+                  currentPage={currentPage}
+                  totalPages={totalPages}
+                  onPageChange={setCurrentPage}
+                />
+              </>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const renderSettings = () => {
+    const totalPages = getTotalPages(requestTypes.length, itemsPerPage);
+    const paginatedTypes = getPaginatedData(requestTypes, currentPage, itemsPerPage);
+    
+    return (
+      <div>
+        <div className="d-flex justify-content-between align-items-center mb-4">
+          <div>
+            <h3 className={isDark ? 'text-light' : 'text-dark'}>
+              {t('settings')} - {department} {t('requestType')}
+              {!canManageRequestTypes() && (
+                <small className="badge bg-warning ms-2">Read Only</small>
+              )}
+            </h3>
+            <p className={isDark ? 'text-light' : 'text-muted'}>
+              {canManageRequestTypes() 
+                ? t('enableDisableRequestTypes')
+                : 'You can view request types but cannot modify them'
+              }
+            </p>
+          </div>
+          
+          {canManageRequestTypes() && (
+            <button 
+              className="btn btn-danger"
+              onClick={() => setShowAddForm(!showAddForm)}
+            >
+              {t('addNewType')}
+            </button>
+          )}
+        </div>
+
+        {showAddForm && canManageRequestTypes() && (
           <div 
-            className="card-header"
+            className="card mb-4"
             style={{
-              backgroundColor: isDark ? '#111111' : '#f8f9fa',
-              borderColor: isDark ? '#333333' : '#dee2e6'
+              backgroundColor: isDark ? '#000000' : '#ffffff',
+              borderColor: isDark ? '#4a5568' : '#e2e8f0'
             }}
           >
-            <h6 className={isDark ? 'text-light' : 'text-dark'}>
-              {t('addNewTypeFor')} {department}
-            </h6>
-          </div>
-          <div className="card-body">
-            <form onSubmit={handleAddRequestType}>
-              <div className="row">
-                <div className="col-md-6">
-                  <div className="mb-3">
-                    <label className={`form-label ${isDark ? 'text-light' : 'text-dark'}`}>
-                      {t('typeName')}
-                    </label>
-                    <input
-                      type="text"
-                      className="form-control"
-                      value={newTypeData.type_name}
-                      onChange={(e) => setNewTypeData({...newTypeData, type_name: e.target.value})}
-                      placeholder={t('enterTypeName')}
-                      required
-                      style={{
-                        backgroundColor: isDark ? '#000000' : '#ffffff',
-                        borderColor: isDark ? '#333333' : '#ced4da',
-                        color: isDark ? '#ffffff' : '#000000'
-                      }}
-                    />
-                  </div>
-                </div>
-                <div className="col-md-6">
-                  <div className="mb-3">
-                    <label className={`form-label ${isDark ? 'text-light' : 'text-dark'}`}>
-                      {t('description')}
-                    </label>
-                    <input
-                      type="text"
-                      className="form-control"
-                      value={newTypeData.description_en}
-                      onChange={(e) => setNewTypeData({...newTypeData, description_en: e.target.value})}
-                      placeholder={t('briefDescription')}
-                      style={{
-                        backgroundColor: isDark ? '#000000' : '#ffffff',
-                        borderColor: isDark ? '#333333' : '#ced4da',
-                        color: isDark ? '#ffffff' : '#000000'
-                      }}
-                    />
-                  </div>
-                </div>
-              </div>
-              <div className="mb-3">
-                <div className="form-check">
-                  <input
-                    className="form-check-input"
-                    type="checkbox"
-                    checked={newTypeData.is_document_required}
-                    onChange={(e) => setNewTypeData({...newTypeData, is_document_required: e.target.checked})}
-                  />
-                  <label className={`form-check-label ${isDark ? 'text-light' : 'text-dark'}`}>
-                    📎 {t('documentUploadRequiredForType')}
-                  </label>
-                </div>
-              </div>
-              <div className="d-flex gap-2">
-                <button type="submit" className="btn btn-success">
-                  ✅ {t('addRequestType')}
-                </button>
-                <button 
-                  type="button" 
-                  className="btn btn-secondary"
-                  onClick={() => setShowAddForm(false)}
-                >
-                  {t('cancel')}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {loading ? (
-        <div className="text-center">
-          <div className="spinner-border" role="status"></div>
-          <p className={isDark ? 'text-light' : 'text-dark'}>{t('loading')} request types...</p>
-        </div>
-      ) : (
-        <div className="row">
-          {requestTypes.length === 0 ? (
-            <div className="col-12">
-              <div 
-                className="alert"
-                style={{
-                  backgroundColor: isDark ? '#000000' : '#d1ecf1',
-                  borderColor: isDark ? '#333333' : '#bee5eb',
-                  color: isDark ? '#ffffff' : '#0c5460'
-                }}
-              >
-                <h5 className={isDark ? 'text-light' : 'text-dark'}>{t('noRequestTypes')}</h5>
-                <p className={`mb-0 ${isDark ? 'text-light' : 'text-muted'}`}>
-                  No request types available for {department} department.
-                </p>
-              </div>
+            <div 
+              className="card-header"
+              style={{
+                backgroundColor: isDark ? '#1a202c' : '#f7fafc',
+                borderColor: isDark ? '#4a5568' : '#e2e8f0'
+              }}
+            >
+              <h6 className={isDark ? 'text-light' : 'text-dark'}>
+                {t('addNewTypeFor')} {department}
+              </h6>
             </div>
-          ) : (
-            requestTypes.map((type) => (
-              <div key={type.type_id} className="col-md-6 mb-3">
-                <div 
-                  className="card"
-                  style={{
-                    backgroundColor: isDark ? '#000000' : '#ffffff',
-                    borderColor: isDark ? '#333333' : '#dee2e6'
-                  }}
-                >
-                  <div className="card-body">
-                    <div className="d-flex justify-content-between align-items-start">
-                      <div>
-                        <h6 className={`card-title ${isDark ? 'text-light' : 'text-dark'}`}>
-                          {translateRequestType(type.type_name)}
-                        </h6>
-                        <p className={`card-text ${isDark ? 'text-light' : 'text-muted'}`}>
-                          {type.description_en || t('noDescriptionAvailable')}
-                        </p>
-                        {type.is_document_required && (
-                          <small className="text-warning">
-                            📎 {t('documentRequired')}
-                          </small>
-                        )}
-                      </div>
-                      <div className="text-end">
-                        {canManageRequestTypes() ? (
-                          <div className="form-check form-switch">
-                            <input
-                              className="form-check-input"
-                              type="checkbox"
-                              checked={!type.is_disabled}
-                              onChange={() => toggleRequestType(type.type_id)}
-                            />
-                            <label className={`form-check-label ${isDark ? 'text-light' : 'text-dark'}`}>
-                              {type.is_disabled ? t('disabled') : t('active')}
-                            </label>
-                          </div>
-                        ) : (
-                          <span className={`badge ${type.is_disabled ? 'bg-danger' : 'bg-success'}`}>
-                            {type.is_disabled ? t('disabled') : t('active')}
-                          </span>
-                        )}
-                      </div>
+            <div className="card-body">
+              <form onSubmit={handleAddRequestType}>
+                <div className="row">
+                  <div className="col-md-6">
+                    <div className="mb-3">
+                      <label className={`form-label ${isDark ? 'text-light' : 'text-dark'}`}>
+                        {t('typeName')}
+                      </label>
+                      <input
+                        type="text"
+                        className="form-control"
+                        value={newTypeData.type_name}
+                        onChange={(e) => setNewTypeData({...newTypeData, type_name: e.target.value})}
+                        placeholder={t('enterTypeName')}
+                        required
+                        style={{
+                          backgroundColor: isDark ? '#000000' : '#ffffff',
+                          borderColor: isDark ? '#4a5568' : '#cbd5e0',
+                          color: isDark ? '#ffffff' : '#000000'
+                        }}
+                      />
+                    </div>
+                  </div>
+                  <div className="col-md-6">
+                    <div className="mb-3">
+                      <label className={`form-label ${isDark ? 'text-light' : 'text-dark'}`}>
+                        {t('description')}
+                      </label>
+                      <input
+                        type="text"
+                        className="form-control"
+                        value={newTypeData.description_en}
+                        onChange={(e) => setNewTypeData({...newTypeData, description_en: e.target.value})}
+                        placeholder={t('briefDescription')}
+                        style={{
+                          backgroundColor: isDark ? '#000000' : '#ffffff',
+                          borderColor: isDark ? '#4a5568' : '#cbd5e0',
+                          color: isDark ? '#ffffff' : '#000000'
+                        }}
+                      />
                     </div>
                   </div>
                 </div>
-              </div>
-            ))
-          )}
-        </div>
-      )}
-    </div>
-  );
+                <div className="mb-3">
+                  <div className="form-check">
+                    <input
+                      className="form-check-input"
+                      type="checkbox"
+                      checked={newTypeData.is_document_required}
+                      onChange={(e) => setNewTypeData({...newTypeData, is_document_required: e.target.checked})}
+                    />
+                    <label className={`form-check-label ${isDark ? 'text-light' : 'text-dark'}`}>
+                      {t('documentUploadRequiredForType')}
+                    </label>
+                  </div>
+                </div>
+                <div className="d-flex gap-2">
+                  <button type="submit" className="btn btn-success">
+                    {t('addRequestType')}
+                  </button>
+                  <button 
+                    type="button" 
+                    className="btn btn-secondary"
+                    onClick={() => setShowAddForm(false)}
+                  >
+                    {t('cancel')}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
 
-  // 3. Add renderStatistics function
-  const renderStatistics = () => {
-  if (!canViewAnalytics() || (!isDepartmentAdmin() && !isSuperAdmin())) {
-    return (
-      <div className="alert alert-warning">
-        <h5>🔒 Access Denied</h5>
-        <p>Statistics are only available for Department Admins and Super Administrators.</p>
+        {/* Request Types Table */}
+        <div className="card" style={{
+          backgroundColor: isDark ? '#000000' : '#ffffff',
+          borderColor: isDark ? '#4a5568' : '#e2e8f0'
+        }}>
+          <div className="card-body">
+            {loading ? (
+              <div className="text-center">
+                <div className="spinner-border text-danger" role="status"></div>
+                <p className={isDark ? 'text-light' : 'text-dark'}>{t('loading')} request types...</p>
+              </div>
+            ) : (
+              <>
+                <div className="table-responsive">
+                  <table className="table table-hover">
+                    <thead className={isDark ? 'table-dark' : 'table-light'}>
+                      <tr>
+                        <th>Type Name</th>
+                        <th>Description</th>
+                        <th>Document Required</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {paginatedTypes.length === 0 ? (
+                        <tr>
+                          <td colSpan="5" className="text-center py-4">
+                            <div className={`text-muted ${isDark ? 'text-light' : ''}`}>
+                              <h5>{t('noRequestTypes')}</h5>
+                              <p>No request types available for {department} department.</p>
+                            </div>
+                          </td>
+                        </tr>
+                      ) : (
+                        paginatedTypes.map((type) => (
+                          <tr key={type.type_id} className={isDark ? 'text-light' : ''}>
+                            <td>
+                              <div className="fw-semibold">
+                                {translateRequestType(type.type_name)}
+                              </div>
+                            </td>
+                            <td>
+                              <span className={isDark ? 'text-light' : 'text-muted'}>
+                                {type.description_en || t('noDescriptionAvailable')}
+                              </span>
+                            </td>
+                            <td>
+                              {type.is_document_required ? (
+                                <span className="badge bg-warning text-dark">Required</span>
+                              ) : (
+                                <span className="badge bg-secondary">Optional</span>
+                              )}
+                            </td>
+                            <td>
+                              <span className={`badge ${type.is_disabled ? 'bg-danger' : 'bg-success'}`}>
+                                {type.is_disabled ? t('disabled') : t('active')}
+                              </span>
+                            </td>
+                            <td>
+                              {canManageRequestTypes() ? (
+                                <div className="form-check form-switch">
+                                  <input
+                                    className="form-check-input"
+                                    type="checkbox"
+                                    checked={!type.is_disabled}
+                                    onChange={() => toggleRequestType(type.type_id)}
+                                  />
+                                  <label className={`form-check-label ${isDark ? 'text-light' : 'text-dark'}`}>
+                                    {type.is_disabled ? 'Enable' : 'Disable'}
+                                  </label>
+                                </div>
+                              ) : (
+                                <span className="text-muted">Read Only</span>
+                              )}
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+                
+                <PaginationComponent 
+                  currentPage={currentPage}
+                  totalPages={totalPages}
+                  onPageChange={setCurrentPage}
+                />
+              </>
+            )}
+          </div>
+        </div>
       </div>
     );
-  }
-
-  return <AdminStatisticsPage />;
-};
-
-  // RBAC Management Tab Content
-  const renderRBACManagement = () => {
-    if (!isSuperAdmin()) {
-      return (
-        <div className="alert alert-warning">
-          <h5>🔒 Access Denied</h5>
-          <p>RBAC Management is only available for Super Administrators.</p>
-        </div>
-      );
-    }
-
-    return <RBACDashboard />;
   };
 
   const renderUserManagement = () => {
     if (!isSuperAdmin() && !isDepartmentAdmin()) {
       return (
         <div className="alert alert-warning">
-          <h5>🔒 Access Denied</h5>
+          <h5>Access Denied</h5>
           <p>User Management requires admin privileges.</p>
         </div>
       );
@@ -1188,7 +1025,7 @@ const handleRejectRequest = async (rejectionReason) => {
     if (!isSuperAdmin()) {
       return (
         <div className="alert alert-warning">
-          <h5>🔒 Access Denied</h5>
+          <h5>Access Denied</h5>
           <p>Role Management is only available for Super Administrators.</p>
         </div>
       );
@@ -1201,7 +1038,7 @@ const handleRejectRequest = async (rejectionReason) => {
     if (!isSuperAdmin()) {
       return (
         <div className="alert alert-warning">
-          <h5>🔒 Access Denied</h5>
+          <h5>Access Denied</h5>
           <p>Permission Management is only available for Super Administrators.</p>
         </div>
       );
@@ -1218,10 +1055,6 @@ const handleRejectRequest = async (rejectionReason) => {
         return renderRequests();
       case 'settings':
         return renderSettings();
-        case 'statistics':  // ADD THIS CASE
-      return renderStatistics();
-      case 'rbac':
-        return renderRBACManagement();
       case 'users':
       case 'dept-users':
         return renderUserManagement();
@@ -1229,22 +1062,108 @@ const handleRejectRequest = async (rejectionReason) => {
         return renderRoleManagement();
       case 'permissions':
         return renderPermissionManagement();
-        case 'calendar':
-      return <AcademicCalendarManager />;
+      case 'calendar':
+        return <AcademicCalendarManager />;
       default:
         return renderDashboard();
     }
   };
 
- return (
+  return (
     <div 
       className="min-vh-100" 
       style={{ 
-        backgroundColor: isDark ? '#000000' : '#f8f9fa',
-        color: isDark ? '#ffffff' : '#000000'
+        background: isDark 
+          ? 'linear-gradient(135deg, #1a202c 0%, #2d3748 50%, #4a5568 100%)' 
+          : '#f8f9fa',
+        color: isDark ? '#f7fafc' : '#000000',
+        minHeight: '100vh'
       }}
     >
-      {/* Modern Header - Kırmızı Tema (Her zaman kırmızı) */}
+      {/* Sidebar */}
+      <div 
+        className={`sidebar ${sidebarOpen ? 'sidebar-open' : ''}`}
+        style={{
+          position: 'fixed',
+          top: 0,
+          left: sidebarOpen ? 0 : '-280px',
+          width: '280px',
+          height: '100vh',
+          background: isDark 
+            ? 'linear-gradient(135deg, #1a202c 0%, #2d3748 50%, #4a5568 100%)' 
+            : '#ffffff',
+          borderRight: isDark ? '1px solid #4a5568' : '1px solid #e2e8f0',
+          transition: 'left 0.3s ease',
+          zIndex: 1050,
+          overflowY: 'auto',
+          boxShadow: isDark 
+            ? '4px 0 20px rgba(0, 0, 0, 0.3)' 
+            : '4px 0 20px rgba(0, 0, 0, 0.1)'
+        }}
+      >
+        <div className="p-3 border-bottom" style={{
+          borderColor: isDark ? '#4a5568' : '#e2e8f0',
+          background: isDark 
+            ? 'linear-gradient(135deg, #dc2626 0%, #b91c1c 100%)' 
+            : 'linear-gradient(135deg, #dc2626 0%, #b91c1c 100%)'
+        }}>
+          <h5 className="mb-0 text-white">
+            Admin Panel
+          </h5>
+          <small className="text-white opacity-90">
+            {department} Department
+          </small>
+        </div>
+        
+        <nav className="mt-3">
+          {getVisibleTabs().map((tab) => (
+            <button
+              key={tab.key}
+              className={`nav-link border-0 w-100 text-start px-3 py-3 ${
+                activeTab === tab.key 
+                  ? 'bg-danger text-white' 
+                  : isDark ? 'text-light hover-bg-gray-800' : 'text-dark hover-bg-gray-50'
+              }`}
+              onClick={() => {
+                setActiveTab(tab.key);
+                setSidebarOpen(false);
+                setCurrentPage(1); // Reset pagination when changing tabs
+              }}
+              style={{
+                backgroundColor: activeTab === tab.key 
+                  ? '#dc2626' 
+                  : 'transparent',
+                transition: 'all 0.3s ease'
+              }}
+            >
+              <i className={`${tab.icon} me-3`}></i>
+              {tab.label}
+              {tab.key === 'requests' && requests.length > 0 && (
+                <span className="badge bg-light text-dark ms-2">{requests.length}</span>
+              )}
+            </button>
+          ))}
+        </nav>
+      </div>
+
+      {/* Sidebar Overlay */}
+      {sidebarOpen && (
+        <div
+          className="sidebar-overlay"
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            width: '100vw',
+            height: '100vh',
+            backgroundColor: 'rgba(0, 0, 0, 0.5)',
+            zIndex: 1040
+          }}
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
+      {/* Header */}
       <div 
         className="shadow-sm"
         style={{
@@ -1256,8 +1175,27 @@ const handleRejectRequest = async (rejectionReason) => {
           <div className="row">
             <div className="col-12">
               <div className="d-flex justify-content-between align-items-center py-3">
-                {/* Sol taraf - Logo ve Başlık */}
+                {/* Sol taraf - Hamburger, Logo ve Başlık */}
                 <div className="d-flex align-items-center">
+                  {/* Hamburger Menu */}
+                  <button
+                    className="btn text-white me-3 p-2"
+                    onClick={() => setSidebarOpen(!sidebarOpen)}
+                    style={{
+                      border: 'none',
+                      fontSize: '1.25rem',
+                      backgroundColor: 'rgba(255,255,255,0.1)',
+                      borderRadius: '8px',
+                      width: '40px',
+                      height: '40px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center'
+                    }}
+                  >
+                    ☰
+                  </button>
+                  
                   <div className="me-3">
                     <FIULogo 
                       size="md" 
@@ -1292,8 +1230,6 @@ const handleRejectRequest = async (rejectionReason) => {
                   
                   {/* Language Dropdown */}
                   <AdminLanguageSelector />
-                      
-                  
                   
                   {/* Logout Button */}
                   <button 
@@ -1313,8 +1249,7 @@ const handleRejectRequest = async (rejectionReason) => {
                       e.target.style.transform = 'translateY(0)';
                     }}
                   >
-                    <span className="d-none d-md-inline">{t('logout')}</span>
-                    <span>🚪</span>
+                    <span>Logout</span>
                   </button>
                 </div>
               </div>
@@ -1323,53 +1258,15 @@ const handleRejectRequest = async (rejectionReason) => {
         </div>
       </div>
 
-      
-
-      {/* Navigation Tabs - Dark Mode Desteği + RBAC */}
-      <div 
-        className="shadow-sm" 
-        style={{ 
-          backgroundColor: isDark ? '#000000' : '#ffffff',
-          borderBottom: `1px solid ${isDark ? '#333333' : '#e5e7eb'}`
-        }}
-      >
-        <div className="container-fluid">
-          <ul className="nav nav-tabs border-0 pt-3" style={{ 
-  borderBottom: `2px solid ${isDark ? '#333333' : '#e5e7eb'}` 
-}}>
-  {getVisibleTabs().map((tab) => (
-    <li key={tab.key} className="nav-item">
-      <button
-        className={`nav-link border-0 px-4 py-3 fw-semibold position-relative ${
-          activeTab === tab.key 
-            ? 'text-danger border-bottom border-danger border-3' 
-            : isDark ? 'text-light' : 'text-muted'
-        }`}
-        onClick={() => setActiveTab(tab.key)}
-        style={{
-          backgroundColor: activeTab === tab.key 
-            ? 'rgba(220, 38, 38, 0.1)' 
-            : 'transparent',
-          borderRadius: '8px 8px 0 0',
-          transition: 'all 0.3s ease'
-        }}
-      >
-        {tab.icon} {tab.label}
-        {tab.key === 'requests' && requests.length > 0 && (
-          <span className="badge bg-danger ms-2">{requests.length}</span>
-        )}
-        {tab.badge && (
-          <span className="badge bg-success ms-2 text-xs">{tab.badge}</span>
-        )}
-      </button>
-    </li>
-  ))}
-</ul>
-        </div>
-      </div>
-
       {/* Main Content Area */}
-      <div className="container-fluid py-4">
+      <div 
+        className="main-content"
+        style={{
+          marginLeft: sidebarOpen ? '280px' : '0',
+          transition: 'margin-left 0.3s ease',
+          padding: '2rem'
+        }}
+      >
         {/* Tab Content */}
         {renderTabContent()}
       </div>
@@ -1400,20 +1297,6 @@ const handleRejectRequest = async (rejectionReason) => {
         />
       )}
 
-      {/* Logout Confirmation Modal */}
-      <ConfirmationModal
-        show={showLogoutModal}
-        title="FIU Admin Panel"
-        message={t('areYouSureLogoutAdmin')}
-        confirmText={t('ok')}
-        cancelText={t('cancel')}
-        type="warning"
-        onConfirm={handleLogoutConfirm}
-        onCancel={handleLogoutCancel}
-      />
-
-      
-
       {/* Request Reject Modal */}
       {showRejectModal && selectedRequestForReject && (
         <RequestRejectModal
@@ -1428,140 +1311,126 @@ const handleRejectRequest = async (rejectionReason) => {
         />
       )}
 
+      {/* Rejection Details Modal */}
+      {showRejectionDetailsModal && selectedRejectionDetails && (
+        <>
+          {/* Modal Backdrop */}
+          <div
+            className="modal-backdrop fade show"
+            style={{ zIndex: 1040 }}
+            onClick={() => setShowRejectionDetailsModal(false)}
+          ></div>
 
-
-
-{/* Rejection Details Modal */}
-{showRejectionDetailsModal && selectedRejectionDetails && (
-  <>
-    {/* Modal Backdrop */}
-    <div
-      className="modal-backdrop fade show"
-      style={{ zIndex: 1040 }}
-      onClick={() => setShowRejectionDetailsModal(false)}
-    ></div>
-
-    {/* Modal */}
-    <div
-      className="modal fade show d-block"
-      tabIndex="-1"
-      style={{ zIndex: 1050 }}
-    >
-      <div className="modal-dialog modal-lg modal-dialog-scrollable">
-        <div className="modal-content" style={{
-          backgroundColor: isDark ? '#000000' : '#ffffff',
-          borderColor: isDark ? '#333333' : '#dee2e6',
-          color: isDark ? '#ffffff' : '#000000'
-        }}>
-          <div className="modal-header" style={{
-            backgroundColor: isDark ? '#111111' : '#f8f9fa',
-            borderColor: isDark ? '#333333' : '#dee2e6'
-          }}>
-            <h5 className="modal-title text-danger">
-              🚫 Rejection Details 
-            </h5>
-            <button
-              type="button"
-              className="btn-close"
-              onClick={() => setShowRejectionDetailsModal(false)}
-              style={{
-                filter: isDark ? 'invert(1)' : 'none'
-              }}
-            ></button>
-          </div>
-
-          <div className="modal-body">
-            <div className="card border-danger mb-3" style={{
-              backgroundColor: isDark ? '#2d0a0a' : '#f8d7da',
-              borderColor: '#dc3545'
-            }}>
-              <div className="card-header bg-danger text-white">
-                <h6 className="mb-0">
-                  <span className="me-2">🚫</span>
-                  Rejection Information
-                </h6>
-              </div>
-              <div className="card-body">
-                <div className="mb-3">
-                  <label className="form-label fw-bold">
-                    Rejection Reason:
-                  </label>
-                  <div className="p-3 rounded border" style={{
-                    backgroundColor: isDark ? '#000000' : '#ffffff',
-                    borderColor: isDark ? '#555555' : '#ced4da'
-                  }}>
-                    {selectedRejectionDetails.reason || 'No reason provided'}
-                  </div>
+          {/* Modal */}
+          <div
+            className="modal fade show d-block"
+            tabIndex="-1"
+            style={{ zIndex: 1050 }}
+          >
+            <div className="modal-dialog modal-lg modal-dialog-scrollable">
+              <div className="modal-content" style={{
+                backgroundColor: isDark ? '#000000' : '#ffffff',
+                borderColor: isDark ? '#4a5568' : '#e2e8f0',
+                color: isDark ? '#ffffff' : '#000000'
+              }}>
+                <div className="modal-header" style={{
+                  backgroundColor: isDark ? '#1a202c' : '#f7fafc',
+                  borderColor: isDark ? '#4a5568' : '#e2e8f0'
+                }}>
+                  <h5 className="modal-title text-danger">
+                    Rejection Details 
+                  </h5>
+                  <button
+                    type="button"
+                    className="btn-close"
+                    onClick={() => setShowRejectionDetailsModal(false)}
+                    style={{
+                      filter: isDark ? 'invert(1)' : 'none'
+                    }}
+                  ></button>
                 </div>
 
-                {selectedRejectionDetails.additional_info && (
-                  <div className="mb-3">
-                    <label className="form-label fw-bold">
-                      Additional Information:
-                    </label>
-                    <div className="p-3 rounded border" style={{
-                      backgroundColor: isDark ? '#000000' : '#ffffff',
-                      borderColor: isDark ? '#555555' : '#ced4da'
-                    }}>
-                      {selectedRejectionDetails.additional_info}
+                <div className="modal-body">
+                  <div className="card border-danger mb-3" style={{
+                    backgroundColor: isDark ? '#2d0a0a' : '#f8d7da',
+                    borderColor: '#dc3545'
+                  }}>
+                    <div className="card-header bg-danger text-white">
+                      <h6 className="mb-0">
+                        Rejection Information
+                      </h6>
+                    </div>
+                    <div className="card-body">
+                      <div className="mb-3">
+                        <label className="form-label fw-bold">
+                          Rejection Reason:
+                        </label>
+                        <div className="p-3 rounded border" style={{
+                          backgroundColor: isDark ? '#000000' : '#ffffff',
+                          borderColor: isDark ? '#4a5568' : '#cbd5e0'
+                        }}>
+                          {selectedRejectionDetails.reason || 'No reason provided'}
+                        </div>
+                      </div>
+
+                      {selectedRejectionDetails.additional_info && (
+                        <div className="mb-3">
+                          <label className="form-label fw-bold">
+                            Additional Information:
+                          </label>
+                          <div className="p-3 rounded border" style={{
+                            backgroundColor: isDark ? '#000000' : '#ffffff',
+                            borderColor: isDark ? '#4a5568' : '#cbd5e0'
+                          }}>
+                            {selectedRejectionDetails.additional_info}
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="row">
+                        <div className="col-md-6">
+                          <label className="form-label fw-bold">
+                            Rejected Date:
+                          </label>
+                          <p className={isDark ? 'text-light' : 'text-muted'}>
+                            {selectedRejectionDetails.rejected_at 
+                              ? new Date(selectedRejectionDetails.rejected_at).toLocaleString()
+                              : 'Unknown'
+                            }
+                          </p>
+                        </div>
+                        <div className="col-md-6">
+                          <label className="form-label fw-bold">
+                            Rejected By:
+                          </label>
+                          <p className={isDark ? 'text-light' : 'text-muted'}>
+                            {selectedRejectionDetails.admin_name || 'Unknown Admin'}
+                          </p>
+                        </div>
+                      </div>
                     </div>
                   </div>
-                )}
+                </div>
 
-                <div className="row">
-                  <div className="col-md-6">
-                    <label className="form-label fw-bold">
-                      Rejected Date:
-                    </label>
-                    <p className={isDark ? 'text-light' : 'text-muted'}>
-                      {selectedRejectionDetails.rejected_at 
-                        ? new Date(selectedRejectionDetails.rejected_at).toLocaleString()
-                        : 'Unknown'
-                      }
-                    </p>
-                  </div>
-                  <div className="col-md-6">
-                    <label className="form-label fw-bold">
-                      Rejected By:
-                    </label>
-                    <p className={isDark ? 'text-light' : 'text-muted'}>
-                      {selectedRejectionDetails.admin_name || 'Unknown Admin'}
-                    </p>
-                  </div>
+                <div className="modal-footer" style={{
+                  backgroundColor: isDark ? '#1a202c' : '#f7fafc',
+                  borderColor: isDark ? '#4a5568' : '#e2e8f0'
+                }}>
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    onClick={() => setShowRejectionDetailsModal(false)}
+                  >
+                    {t('close')}
+                  </button>
                 </div>
               </div>
             </div>
-
-            
-              
-            
           </div>
+        </>
+      )}
 
-          <div className="modal-footer" style={{
-            backgroundColor: isDark ? '#111111' : '#f8f9fa',
-            borderColor: isDark ? '#333333' : '#dee2e6'
-          }}>
-            <div className="text-muted small me-auto">
-              
-              
-            </div>
-            <button
-              type="button"
-              className="btn btn-secondary"
-              onClick={() => setShowRejectionDetailsModal(false)}
-            >
-        {t('close')}
-            </button>
-            
-          </div>
-        </div>
-      </div>
-    </div>
-  </>
-)}
-
-
-      {/* Dark Mode Toggle - Modern */}
+      {/* Dark Mode Toggle */}
       <div 
         style={{
           position: 'fixed',
@@ -1591,7 +1460,32 @@ const handleRejectRequest = async (rejectionReason) => {
 
       {/* Confirmation Modal */}
       <ConfirmationModal {...confirmationState} />
-  
+
+      {/* Custom CSS */}
+      <style jsx>{`
+        .sidebar-open {
+          left: 0 !important;
+        }
+        
+        .nav-link:hover {
+          background-color: ${isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.05)'} !important;
+        }
+        
+        .hover-bg-gray-800:hover {
+          background-color: rgba(255, 255, 255, 0.1) !important;
+        }
+        
+        .hover-bg-gray-50:hover {
+          background-color: rgba(0, 0, 0, 0.05) !important;
+        }
+        
+        @media (max-width: 768px) {
+          .main-content {
+            margin-left: 0 !important;
+            padding: 1rem !important;
+          }
+        }
+      `}</style>
     </div>
   );
 };

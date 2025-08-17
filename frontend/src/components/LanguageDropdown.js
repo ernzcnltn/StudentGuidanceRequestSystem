@@ -18,7 +18,7 @@ const LanguageDropdown = ({ variant = 'navbar' }) => {
           style={{ minWidth: '80px' }}
         >
           <span style={{ fontSize: '16px' }}>{currentLang.flag}</span>
-          <span className="d-none d-md-inline">{currentLang.code.toUpperCase()}</span>
+          
         </button>
         <ul className="dropdown-menu dropdown-menu-end">
           {Object.entries(languages).map(([code, lang]) => (
@@ -29,7 +29,7 @@ const LanguageDropdown = ({ variant = 'navbar' }) => {
                 }`}
                 onClick={() => changeLanguage(code)}
               >
-                <span style={{ fontSize: '16px' }}>{lang.flag}</span>
+              
                 <span>{lang.name}</span>
               </button>
             </li>
@@ -51,7 +51,7 @@ const LanguageDropdown = ({ variant = 'navbar' }) => {
           style={{ minWidth: '75px' }}
         >
           <span style={{ fontSize: '14px' }}>{currentLang.flag}</span>
-          <span className="d-none d-lg-inline">{currentLang.code.toUpperCase()}</span>
+         
         </button>
         <ul className="dropdown-menu dropdown-menu-end">
           {Object.entries(languages).map(([code, lang]) => (
@@ -62,7 +62,7 @@ const LanguageDropdown = ({ variant = 'navbar' }) => {
                 }`}
                 onClick={() => changeLanguage(code)}
               >
-                <span style={{ fontSize: '14px' }}>{lang.flag}</span>
+                
                 <span>{lang.name}</span>
               </button>
             </li>

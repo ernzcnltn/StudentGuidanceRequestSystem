@@ -12,6 +12,7 @@ export const useToast = () => {
 
 export const ToastProvider = ({ children }) => {
   const [toasts, setToasts] = useState([]);
+  const [confirmation, setConfirmation] = useState(null);
 
   const showToast = useCallback((message, type = 'info', duration = 5000) => {
     const id = Date.now() + Math.random();
@@ -44,12 +45,30 @@ export const ToastProvider = ({ children }) => {
     showToast(message, 'info', duration);
   }, [showToast]);
 
+  // Confirmation Dialog
+  const showConfirmation = useCallback((options) => {
+    return new Promise((resolve) => {
+      setConfirmation({
+        ...options,
+        onConfirm: () => {
+          setConfirmation(null);
+          resolve(true);
+        },
+        onCancel: () => {
+          setConfirmation(null);
+          resolve(false);
+        }
+      });
+    });
+  }, []);
+
   const value = {
     showToast,
     showSuccess,
     showError,
     showWarning,
-    showInfo
+    showInfo,
+    showConfirmation
   };
 
   return (
@@ -74,6 +93,13 @@ export const ToastProvider = ({ children }) => {
           />
         ))}
       </div>
+
+      {/* Confirmation Modal */}
+      {confirmation && (
+        <ConfirmationModal
+          {...confirmation}
+        />
+      )}
     </ToastContext.Provider>
   );
 };
@@ -119,5 +145,88 @@ const ToastNotification = ({ toast, onClose }) => {
         ></button>
       </div>
     </div>
+  );
+};
+
+// Confirmation Modal Component
+const ConfirmationModal = ({ 
+  title = 'Confirm Action', 
+  message, 
+  confirmText = 'OK', 
+  cancelText = 'Cancel', 
+  type = 'warning',
+  onConfirm, 
+  onCancel 
+}) => {
+  const getModalIcon = () => {
+    const icons = {
+      danger: '🗑️',
+      warning: '⚠️',
+      info: 'ℹ️',
+      success: '✅'
+    };
+    return icons[type] || icons.warning;
+  };
+
+  const getButtonClass = () => {
+    const classes = {
+      danger: 'btn-danger',
+      warning: 'btn-warning',
+      info: 'btn-info',
+      success: 'btn-success'
+    };
+    return classes[type] || classes.warning;
+  };
+
+  return (
+    <>
+      {/* Backdrop */}
+      <div 
+        className="modal-backdrop fade show"
+        style={{ zIndex: 1055 }}
+        onClick={onCancel}
+      />
+      
+      {/* Modal */}
+      <div 
+        className="modal fade show d-block"
+        style={{ zIndex: 1056 }}
+        tabIndex="-1"
+      >
+        <div className="modal-dialog modal-dialog-centered">
+          <div className="modal-content">
+            <div className="modal-header border-0 pb-0">
+              <h5 className="modal-title d-flex align-items-center">
+                <span className="me-2" style={{ fontSize: '1.5rem' }}>
+                  {getModalIcon()}
+                </span>
+                {title}
+              </h5>
+            </div>
+            
+            <div className="modal-body">
+              <p className="mb-0">{message}</p>
+            </div>
+            
+            <div className="modal-footer border-0 pt-0">
+              <button 
+                type="button" 
+                className="btn btn-secondary" 
+                onClick={onCancel}
+              >
+                {cancelText}
+              </button>
+              <button 
+                type="button" 
+                className={`btn ${getButtonClass()}`}
+                onClick={onConfirm}
+              >
+                {confirmText}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </>
   );
 };
