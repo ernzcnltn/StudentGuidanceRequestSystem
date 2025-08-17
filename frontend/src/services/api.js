@@ -80,7 +80,7 @@ const academicCalendarMethods = {
   
   // Upload academic calendar document
   uploadAcademicCalendar: (formData) => {
-    console.log('📤 Uploading academic calendar document...');
+    console.log(' Uploading academic calendar document...');
     return adminApi.post('/academic-calendar/upload', formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
@@ -91,13 +91,13 @@ const academicCalendarMethods = {
 
   // Get academic calendar status
   getAcademicCalendarStatus: () => {
-    console.log('📊 Getting academic calendar status...');
+    console.log(' Getting academic calendar status...');
     return adminApi.get('/academic-calendar/status');
   },
 
   // Get calendar events with proper error handling
   getAcademicCalendarEvents: (params = {}) => {
-    console.log('📅 Getting academic calendar events:', params);
+    console.log(' Getting academic calendar events:', params);
     return adminApi.get('/academic-calendar/events', { params })
       .catch(error => {
         console.error('❌ Calendar events error:', error);
@@ -107,7 +107,7 @@ const academicCalendarMethods = {
 
   // ✅ FIXED: Check specific date availability
   checkDateAvailability: (date) => {
-    console.log('🗓️ Checking date availability:', date);
+    console.log(' Checking date availability:', date);
     
     // Validate date format
     const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
@@ -124,7 +124,7 @@ const academicCalendarMethods = {
 
   // Update calendar settings
   updateAcademicCalendarSettings: (settings) => {
-    console.log('⚙️ Updating academic calendar settings:', settings);
+    console.log(' Updating academic calendar settings:', settings);
     return adminApi.post('/academic-calendar/settings', settings);
   },
 
@@ -171,14 +171,14 @@ getAcademicCalendarUploads: (params = { limit: 20, offset: 0 }) => {
 
   // Get parsing logs for upload
   getCalendarParsingLogs: (uploadId) => {
-    console.log('📋 Getting parsing logs for upload:', uploadId);
+    console.log(' Getting parsing logs for upload:', uploadId);
     return adminApi.get(`/academic-calendar/parsing-logs/${uploadId}`);
   },
 
   // ✅ NEW: Enhanced working hours with calendar integration
  checkCurrentAvailability: async () => {
     try {
-      console.log('🕒 Checking current request availability...');
+      console.log(' Checking current request availability...');
       
       const today = new Date().toISOString().split('T')[0];
       
@@ -380,7 +380,7 @@ getAcademicCalendarUploads: (params = { limit: 20, offset: 0 }) => {
         const today = new Date().toISOString().split('T')[0];
         const dateResponse = await apiService.checkDateAvailability(today);
         tests.dateCheck = dateResponse.data.success;
-        console.log('📅 Date check:', tests.dateCheck ? '✅' : '❌');
+        console.log(' Date check:', tests.dateCheck ? '✅' : '❌');
       } catch (error) {
         console.error('Date check failed:', error);
       }
@@ -389,13 +389,13 @@ getAcademicCalendarUploads: (params = { limit: 20, offset: 0 }) => {
       try {
         const eventsResponse = await apiService.getAcademicCalendarEvents();
         tests.events = eventsResponse.data.success;
-        console.log('📋 Events check:', tests.events ? '✅' : '❌');
+        console.log(' Events check:', tests.events ? '✅' : '❌');
       } catch (error) {
         console.error('Events check failed:', error);
       }
       
       const allPassed = Object.values(tests).every(test => test);
-      console.log(`🧪 Calendar system test: ${allPassed ? '✅ PASSED' : '❌ FAILED'}`);
+      console.log(` Calendar system test: ${allPassed ? '✅ PASSED' : '❌ FAILED'}`);
       
       return { success: allPassed, tests };
     } catch (error) {
@@ -494,7 +494,7 @@ const rbacApiMethods = {
     });
   },
    rbacCreateRole: (roleData) => {
-    console.log('🎭 Creating role:', roleData);
+    console.log(' Creating role:', roleData);
     return adminApi.post('/admin-auth/rbac/create-role', roleData);
   },
 
@@ -503,7 +503,7 @@ const rbacApiMethods = {
   
   // ===== PERMISSIONS MANAGEMENT =====
   rbacGetAllPermissions: () => {
-    console.log('🔐 Fetching all permissions...');
+    console.log('Fetching all permissions...');
     return adminApi.get('/admin-auth/rbac/permissions');
   },
   rbacGetAllPermissionsCached: () => {
@@ -519,7 +519,7 @@ const rbacApiMethods = {
     });
   },
  rbacCreatePermission: (permissionData) => {
-    console.log('🔐 Creating permission:', permissionData);
+    console.log(' Creating permission:', permissionData);
     return adminApi.post('/admin-auth/rbac/create-permission', permissionData);
   },
   rbacDeletePermission: (permissionId) => adminApi.delete(`/admin-auth/rbac/permission/${permissionId}`),
@@ -532,18 +532,18 @@ const rbacApiMethods = {
   // ===== USER ROLES =====
   rbacGetUsersWithRoles: () => adminApi.get('/admin-auth/rbac/users'),
  rbacGetUserRoles: (userId) => {
-    console.log('🎭 Fetching user roles for:', userId);
+    console.log(' Fetching user roles for:', userId);
     return adminApi.get(`/admin-auth/rbac/user/${userId}/roles`);
   },
  rbacGetUserPermissions: (userId) => {
-    console.log('🔐 Fetching user permissions for:', userId);
+    console.log(' Fetching user permissions for:', userId);
     return adminApi.get(`/admin-auth/rbac/user/${userId}/permissions`);
   },
   rbacGetUserPermissionSummary: (userId) => adminApi.get(`/admin-auth/rbac/user/${userId}/permissions`),
   
   // ===== ROLE ASSIGNMENT =====
  rbacAssignRole: (userId, roleId, expiresAt = null) => {
-  console.log('🎭 Assigning role:', { userId, roleId, expiresAt });
+  console.log(' Assigning role:', { userId, roleId, expiresAt });
   return adminApi.post('/admin-auth/rbac/assign-role', { 
     user_id: userId, 
     role_id: roleId, 
@@ -566,7 +566,7 @@ const rbacApiMethods = {
   },
 
   rbacGetAllRoles: () => {
-    console.log('🎭 Fetching all roles...');
+    console.log(' Fetching all roles...');
     return adminApi.get('/admin-auth/rbac/roles');
   },
 
@@ -717,14 +717,14 @@ const rbacHelpers = {
   // Permission icons
   getPermissionIcon: (resource) => {
     const icons = {
-      'requests': '📋',
-      'responses': '💬',
-      'users': '👥',
-      'analytics': '📊',
-      'settings': '⚙️',
-      'notifications': '🔔',
-      'system': '🛠️',
-      'files': '📎'
+      'requests': '',
+      'responses': '',
+      'users': '',
+      'analytics': '',
+      'settings': '',
+      'notifications': '',
+      'system': '',
+      'files': ''
     };
     return icons[resource] || '🔹';
   },
@@ -1116,13 +1116,13 @@ const adminStatisticsMethods = {
 
   // Get admin workload analysis
   getAdminWorkloadAnalysis: (params = {}) => {
-    console.log('📈 Fetching admin workload analysis:', params);
+    console.log(' Fetching admin workload analysis:', params);
     return adminApi.get('/admin-auth/statistics/admins/workload', { params });
   },
 
   // Get admin activity timeline
   getAdminActivityTimeline: (adminId, params = {}) => {
-    console.log('📅 Fetching admin activity timeline:', { adminId, params });
+    console.log(' Fetching admin activity timeline:', { adminId, params });
     return adminApi.get(`/admin-auth/statistics/admins/${adminId}/timeline`, { params });
   },
 
@@ -1991,7 +1991,7 @@ export const apiService = {
   deleteAdminResponse: (requestId, responseId) => adminApi.delete(`/admin-auth/requests/${requestId}/responses/${responseId}`),
 getRequestResponses: (id) => studentApi.get(`/requests/${id}/responses`),
 getAdminRejectionDetails: (requestId) => {
-  console.log('📋 Getting rejection details for request (ADMIN):', requestId);
+  console.log(' Getting rejection details for request (ADMIN):', requestId);
   return adminApi.get(`/admin-auth/requests/${requestId}/rejection-details`);
 },
 
@@ -2000,7 +2000,7 @@ getAdminRejectionDetails: (requestId) => {
 
 
 rejectRequest: (requestId, rejectionData) => {
-  console.log('🚫 Rejecting request:', { requestId, hasReason: !!rejectionData.rejection_reason });
+  console.log(' Rejecting request:', { requestId, hasReason: !!rejectionData.rejection_reason });
   
   return adminApi.put(`/admin-auth/requests/${requestId}/reject`, rejectionData)
     .then(response => {
@@ -2030,27 +2030,27 @@ rejectRequest: (requestId, rejectionData) => {
 
 // Get rejection statistics (for admin analytics)
 getRejectionStatistics: () => {
-  console.log('📊 Getting rejection statistics...');
+  console.log(' Getting rejection statistics...');
   return adminApi.get('/admin-auth/statistics/rejections');
 },
 
 unrejectRequest: (requestId, reopenData) => {
-  console.log('♻️ Reopening request:', { requestId, hasReason: !!reopenData.reopen_reason });
+  console.log(' Reopening request:', { requestId, hasReason: !!reopenData.reopen_reason });
   return adminApi.post(`/admin-auth/requests/${requestId}/unreject`, reopenData);
 },
 
 getRejectionDetails: (requestId) => {
-  console.log('📋 Getting rejection details for request:', requestId);
+  console.log(' Getting rejection details for request:', requestId);
   
   // Admin token varsa admin API kullan, yoksa student API kullan
   const adminToken = localStorage.getItem('admin_token');
   const studentToken = localStorage.getItem('student_token');
   
   if (adminToken) {
-    console.log('🔑 Using admin API for rejection details');
+    console.log(' Using admin API for rejection details');
     return adminApi.get(`/admin-auth/requests/${requestId}/rejection-details`);
   } else if (studentToken) {
-    console.log('🔑 Using student API for rejection details');
+    console.log(' Using student API for rejection details');
     return studentApi.get(`/requests/${requestId}/rejection-details`);
   } else {
     return Promise.reject(new Error('No authentication token found'));
@@ -2059,24 +2059,24 @@ getRejectionDetails: (requestId) => {
 
 // Explicit methods for specific contexts
 getStudentRejectionDetails: (requestId) => {
-  console.log('📋 Getting rejection details for request (STUDENT):', requestId);
+  console.log(' Getting rejection details for request (STUDENT):', requestId);
   return studentApi.get(`/requests/${requestId}/rejection-details`);
 },
 
 getRejectionStatistics: () => {
-  console.log('📊 Getting rejection statistics...');
+  console.log(' Getting rejection statistics...');
   return adminApi.get('/admin-auth/statistics/rejections');
 },
 
 // Helper methods for frontend
 getRequestStatusIcon: (status) => {
   const icons = {
-    'Pending': '⏳',
-    'Informed': '💬',
-    'Completed': '✅',
-    'Rejected': '🚫'
+    'Pending': '',
+    'Informed': '',
+    'Completed': '',
+    'Rejected': ''
   };
-  return icons[status] || '📋';
+  return icons[status] || '';
 },
 
 getRequestStatusBadge: (status) => {
@@ -2099,7 +2099,7 @@ getRequestStatusBadge: (status) => {
     const isAdmin = !!localStorage.getItem('admin_token');
     const api = isAdmin ? adminApi : studentApi;
     
-    console.log('📖 Marking notification as read:', { id, isAdmin });
+    console.log(' Marking notification as read:', { id, isAdmin });
     return api.post(`/notifications/mark-read/${id}`);
   },
 
@@ -2452,17 +2452,17 @@ getRequestStatusBadge: (status) => {
 
    // YENİ: Unassigned requests methods (bunları ekle)
   getUnassignedRequests: (params = {}) => {
-    console.log('📋 Fetching unassigned requests...');
+    console.log(' Fetching unassigned requests...');
     return adminApi.get('/admin-auth/requests/unassigned', { params });
   },
   
   autoAssignAllRequests: (params = {}) => {
-    console.log('🤖 Auto-assigning all unassigned requests...');
+    console.log(' Auto-assigning all unassigned requests...');
     return adminApi.post('/admin-auth/requests/auto-assign-all', params);
   },
   
   autoAssignSingleRequest: (requestId) => {
-    console.log('🤖 Auto-assigning single request:', requestId);
+    console.log(' Auto-assigning single request:', requestId);
     return adminApi.post(`/admin-auth/requests/${requestId}/auto-assign`);
   }
 

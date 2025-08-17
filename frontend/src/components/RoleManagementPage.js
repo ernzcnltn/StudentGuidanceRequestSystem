@@ -216,7 +216,7 @@ const getSelectedPermissionsSummary = () => {
       <div className="d-flex justify-content-between align-items-center mb-4">
         <div>
           <h3 className={isDark ? 'text-light' : 'text-dark'}>
-            🎭 Role Management
+             Role Management
           </h3>
           <p className={isDark ? 'text-light' : 'text-muted'}>
             Create and manage system roles and their permissions
@@ -227,7 +227,7 @@ const getSelectedPermissionsSummary = () => {
           className="btn btn-primary"
           onClick={() => setShowCreateModal(true)}
         >
-          ➕ Create Role
+           Create Role
         </button>
       </div>
 
@@ -253,7 +253,7 @@ const getSelectedPermissionsSummary = () => {
               className="btn btn-outline-secondary"
               onClick={loadData}
             >
-              🔄 Refresh
+            Refresh
             </button>
            
           </div>
@@ -278,9 +278,7 @@ const getSelectedPermissionsSummary = () => {
                     <div>
                       <h6 className={`card-title ${isDark ? 'text-light' : 'text-dark'}`}>
                         {role.display_name}
-                        {role.is_system_role && (
-                          <span className="badge bg-warning text-dark ms-2">System</span>
-                        )}
+                        
                       </h6>
                       
                       <p className={`card-text ${isDark ? 'text-light' : 'text-muted'}`}>
@@ -288,23 +286,9 @@ const getSelectedPermissionsSummary = () => {
                         <strong>Description:</strong> {role.description || 'No description'}
                       </p>
                       
-                      <div className="d-flex gap-2 mb-2">
-                        <span className="badge bg-info">
-                          {role.permission_count} permissions
-                        </span>
-                        <span className="badge bg-success">
-                          {role.user_count} users
-                        </span>
-                        {role.is_system_role && (
-                          <span className="badge bg-warning text-dark">
-                            Protected
-                          </span>
-                        )}
-                      </div>
                       
-                      <small className={isDark ? 'text-light' : 'text-muted'}>
-                        Role ID: {role.role_id}
-                      </small>
+                      
+                      
                     </div>
                     
                     <div className="dropdown">
@@ -321,7 +305,7 @@ const getSelectedPermissionsSummary = () => {
                             className="dropdown-item"
                             onClick={() => handleViewPermissions(role)}
                           >
-                            🔍 View Permissions
+                             View Permissions
                           </button>
                         </li>
                         <li>
@@ -329,16 +313,11 @@ const getSelectedPermissionsSummary = () => {
                             className="dropdown-item"
                             onClick={() => handleViewPermissions(role)}
                           >
-                            ✏️ Edit Permissions
+                             Edit Permissions
                           </button>
                         </li>
                         <li>
-                          <button 
-                            className="dropdown-item"
-                            onClick={() => showInfo('View users with this role')}
-                          >
-                            👥 View Users
-                          </button>
+                         
                         </li>
                         {!role.is_system_role && (
                           <>
@@ -606,51 +585,7 @@ const getSelectedPermissionsSummary = () => {
         </div>
       )}
 
-      {/* Summary Stats */}
-      <div className="row mt-4">
-        <div className="col-12">
-          <div className="card" style={cardStyle}>
-            <div className="card-body">
-              <div className="row text-center">
-                <div className="col-md-2">
-                  <div className="h4 text-primary">{filteredRoles.length}</div>
-                  <div className={isDark ? 'text-light' : 'text-muted'}>Total Roles</div>
-                </div>
-                <div className="col-md-2">
-                  <div className="h4 text-warning">
-                    {filteredRoles.filter(r => r.is_system_role).length}
-                  </div>
-                  <div className={isDark ? 'text-light' : 'text-muted'}>System Roles</div>
-                </div>
-                <div className="col-md-2">
-                  <div className="h4 text-success">
-                    {filteredRoles.filter(r => !r.is_system_role).length}
-                  </div>
-                  <div className={isDark ? 'text-light' : 'text-muted'}>Custom Roles</div>
-                </div>
-                <div className="col-md-2">
-                  <div className="h4 text-info">
-                    {filteredRoles.reduce((sum, role) => sum + role.permission_count, 0)}
-                  </div>
-                  <div className={isDark ? 'text-light' : 'text-muted'}>Total Permissions</div>
-                </div>
-                <div className="col-md-2">
-                  <div className="h4 text-secondary">
-                    {filteredRoles.reduce((sum, role) => sum + role.user_count, 0)}
-                  </div>
-                  <div className={isDark ? 'text-light' : 'text-muted'}>Total Assignments</div>
-                </div>
-                <div className="col-md-2">
-                  <div className="h4 text-danger">
-                    {Math.round(filteredRoles.reduce((sum, role) => sum + role.permission_count, 0) / filteredRoles.length || 0)}
-                  </div>
-                  <div className={isDark ? 'text-light' : 'text-muted'}>Avg Permissions</div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
+     
 
      
     </div>

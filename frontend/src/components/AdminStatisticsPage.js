@@ -102,7 +102,7 @@ const loadUnassignedRequests = useCallback(async () => {
         !request.assigned_admin_id || request.assigned_admin_id === null
       );
       
-      console.log('📋 Unassigned requests loaded:', {
+      console.log(' Unassigned requests loaded:', {
         total_requests: response.data.data.length,
         unassigned_count: unassigned.length,
         unassigned_ids: unassigned.map(r => r.request_id)
@@ -279,19 +279,19 @@ const loadUnassignedRequests = useCallback(async () => {
 
   // Performance helpers
   const getPerformanceColor = useCallback((performance) => {
-    if (performance >= 90) return 'text-success';
-    if (performance >= 80) return 'text-primary';
-    if (performance >= 70) return 'text-warning';
+    if (performance >= 90) return 'text-info';
+    if (performance >= 80) return 'text-info';
+    if (performance >= 70) return 'text-info';
     if (performance >= 50) return 'text-info';
     return 'text-danger';
   }, []);
 
   const getPerformanceBadgeClass = useCallback((performance) => {
-    if (performance >= 90) return 'bg-success';
-    if (performance >= 80) return 'bg-primary';
-    if (performance >= 70) return 'bg-warning text-dark';
+    if (performance >= 90) return 'bg-info';
+    if (performance >= 80) return 'bg-info';
+    if (performance >= 70) return 'bg-info';
     if (performance >= 50) return 'bg-info';
-    return 'bg-danger';
+    return 'bg-info';
   }, []);
 
   // Render loading state
@@ -325,7 +325,7 @@ const loadUnassignedRequests = useCallback(async () => {
           <div className="row mb-4">
             <div className="col-12">
               <div className="card border-0 shadow-sm" style={cardStyle}>
-                <div className="card-header bg-gradient-primary text-white border-0">
+                <div className="card-header bg-gradient-primary text-secondary border-0">
                   <div className="d-flex justify-content-between align-items-center">
                     <div>
                       <h5 className="mb-0">
@@ -344,10 +344,7 @@ const loadUnassignedRequests = useCallback(async () => {
                           Last updated: {lastRefresh.toLocaleTimeString()}
                         </small>
                       )}
-                      <span className={`badge ${departmentSummary.avg_performance >= 80 ? 'bg-success' : 
-                        departmentSummary.avg_performance >= 60 ? 'bg-warning text-dark' : 'bg-danger'}`}>
-                        Overall: {departmentSummary.avg_performance}%
-                      </span>
+                      
                     </div>
                   </div>
                 </div>
@@ -362,45 +359,32 @@ const loadUnassignedRequests = useCallback(async () => {
                       </div>
                     </div>
                     <div className="col-md-2">
-                      <div className="h3 text-info mb-1">{departmentSummary.total_requests}</div>
+                      <div className="h3 text-primary mb-1">{departmentSummary.total_requests}</div>
                       <small className={isDark ? 'text-light' : 'text-muted'}>Total Requests</small>
                       <div className="mt-1">
                         
                       </div>
                     </div>
                     <div className="col-md-2">
-                      <div className="h3 text-success mb-1">{departmentSummary.total_completed}</div>
+                      <div className="h3 text-primary mb-1">{departmentSummary.total_completed}</div>
                       <small className={isDark ? 'text-light' : 'text-muted'}>Completed</small>
                       
                     </div>
                     <div className="col-md-2">
-                      <div className="h3 text-warning mb-1">{departmentSummary.total_pending}</div>
+                      <div className="h3 text-primary mb-1">{departmentSummary.total_pending}</div>
                       <small className={isDark ? 'text-light' : 'text-muted'}>Pending</small>
                       <div className="mt-1">
                         
                       </div>
                     </div>
                     <div className="col-md-2">
-                      <div className="h3 text-danger mb-1">{departmentSummary.unassigned_requests}</div>
+                      <div className="h3 text-primary mb-1">{departmentSummary.unassigned_requests}</div>
                       <small className={isDark ? 'text-light' : 'text-muted'}>Unassigned</small>
                       <div className="mt-1">
                        
                       </div>
                     </div>
-                    <div className="col-md-2">
-                      <div className={`h3 mb-1 ${getPerformanceColor(departmentSummary.avg_response_time <= 4 ? 90 : 
-                        departmentSummary.avg_response_time <= 24 ? 70 : 40)}`}>
-                        {formatDuration(departmentSummary.avg_response_time)}
-                      </div>
-                      <small className={isDark ? 'text-light' : 'text-muted'}>Avg Response</small>
-                      <div className="mt-1">
-                        <small className={departmentSummary.avg_response_time <= 4 ? 'text-success' : 
-                          departmentSummary.avg_response_time <= 24 ? 'text-warning' : 'text-danger'}>
-                          {departmentSummary.avg_response_time <= 4 ? 'Excellent' : 
-                           departmentSummary.avg_response_time <= 24 ? 'Good' : 'Slow'}
-                        </small>
-                      </div>
-                    </div>
+                    
                   </div>
                   
                   
@@ -411,10 +395,10 @@ const loadUnassignedRequests = useCallback(async () => {
                     <div className="col-md-3">
                       <div className="d-flex justify-content-between align-items-center mb-1">
                         <small className={isDark ? 'text-light' : 'text-muted'}>Completion Rate</small>
-                        <small className="text-success"><strong>{departmentSummary.completion_rate}%</strong></small>
+                        <small className="text-primary"><strong>{departmentSummary.completion_rate}%</strong></small>
                       </div>
                       <div className="progress" style={{ height: '8px' }}>
-                        <div className="progress-bar bg-success" style={{ width: `${departmentSummary.completion_rate}%` }}></div>
+                        <div className="progress-bar bg-primary" style={{ width: `${departmentSummary.completion_rate}%` }}></div>
                       </div>
                     </div>
                     <div className="col-md-3">
@@ -429,13 +413,12 @@ const loadUnassignedRequests = useCallback(async () => {
                     <div className="col-md-3">
                       <div className="d-flex justify-content-between align-items-center mb-1">
                         <small className={isDark ? 'text-light' : 'text-muted'}>Performance Score</small>
-                        <small className={getPerformanceColor(departmentSummary.avg_performance)}>
+                        <small className="text-primary">
                           <strong>{departmentSummary.avg_performance}%</strong>
                         </small>
                       </div>
                       <div className="progress" style={{ height: '8px' }}>
-                        <div className={`progress-bar ${getPerformanceBadgeClass(departmentSummary.avg_performance)}`} 
-                             style={{ width: `${departmentSummary.avg_performance}%` }}></div>
+                        <div className="progress-bar bg-primary"   style={{ width: `${departmentSummary.avg_performance}%` }}></div>
                       </div>
                     </div>
                   </div>
@@ -451,57 +434,7 @@ const loadUnassignedRequests = useCallback(async () => {
             <div className="col-md-8">
               <div className="card border-0 shadow-sm" style={cardStyle}>
                 <div className="card-header border-0">
-                  <h6 className="mb-0"> Workload Distribution</h6>
-                </div>
-                <div className="card-body">
-                  {(() => {
-                    const workload = statistics.workload_distribution;
-                    const high = workload.filter(w => w.workload_category === 'High').length;
-                    const medium = workload.filter(w => w.workload_category === 'Medium').length;
-                    const low = workload.filter(w => w.workload_category === 'Low').length;
-                    const inactive = workload.filter(w => w.workload_category === 'Inactive').length;
-                    const total = workload.length;
-                    
-                    return (
-                      <div>
-                        <div className="row text-center mb-3">
-                          <div className="col-3">
-                            <div className="h4 text-danger">{high}</div>
-                            <small className="text-danger">High Load (50+)</small>
-                          </div>
-                          <div className="col-3">
-                            <div className="h4 text-warning">{medium}</div>
-                            <small className="text-warning">Medium Load (20-49)</small>
-                          </div>
-                          <div className="col-3">
-                            <div className="h4 text-success">{low}</div>
-                            <small className="text-success">Low Load (1-19)</small>
-                          </div>
-                          <div className="col-3">
-                            <div className="h4 text-secondary">{inactive}</div>
-                            <small className="text-secondary">Inactive (0)</small>
-                          </div>
-                        </div>
-                        <div className="progress" style={{ height: '20px' }}>
-                          <div className="progress-bar bg-danger" style={{ width: `${(high/total)*100}%` }}></div>
-                          <div className="progress-bar bg-warning" style={{ width: `${(medium/total)*100}%` }}></div>
-                          <div className="progress-bar bg-success" style={{ width: `${(low/total)*100}%` }}></div>
-                          <div className="progress-bar bg-secondary" style={{ width: `${(inactive/total)*100}%` }}></div>
-                        </div>
-                        <div className="mt-3">
-                          <small className={isDark ? 'text-light' : 'text-muted'}>
-                            Balance Score: {high === 0 && medium > 0 ? 'Good' : high > medium ? 'Unbalanced' : 'Balanced'}
-                          </small>
-                        </div>
-                      </div>
-                    );
-                  })()}
-                </div>
-              </div>
-            </div>
-            <div className="col-md-4">
-              <div className="card border-0 shadow-sm" style={cardStyle}>
-                <div className="card-header border-0">
+                
                   <h6 className="mb-0"> Top Performers</h6>
                 </div>
                 <div className="card-body">
@@ -512,7 +445,7 @@ const loadUnassignedRequests = useCallback(async () => {
                     .map((admin, index) => (
                       <div key={admin.admin_id} className="d-flex justify-content-between align-items-center mb-2">
                         <div className="d-flex align-items-center">
-                          <span className={`badge me-2 ${index === 0 ? 'bg-warning text-dark' : 
+                          <span className={`badge me-2 ${index === 0 ? 'bg-secondary text-light' : 
                             index === 1 ? 'bg-secondary' : 'bg-light text-dark'}`}>
                             #{index + 1}
                           </span>
@@ -525,7 +458,7 @@ const loadUnassignedRequests = useCallback(async () => {
                           </div>
                         </div>
                         <div>
-                          <span className={`badge ${getPerformanceBadgeClass(admin.performance_score || 0)}`}>
+                          <span className={`badge  ${getPerformanceBadgeClass(admin.performance_score || 0)}`}>
                             {admin.performance_score || 0}%
                           </span>
                         </div>
@@ -579,7 +512,7 @@ const loadUnassignedRequests = useCallback(async () => {
                   className="btn btn-warning"
                   onClick={handleAutoAssignAll}
                 >
-                  🤖 Auto-Assign All
+                   Auto-Assign All
                 </button>
               </div>
             </div>
@@ -654,11 +587,11 @@ const loadUnassignedRequests = useCallback(async () => {
                   <small className={isDark ? 'text-light' : 'text-muted'}>Assigned</small>
                 </div>
                 <div className="col-4">
-                  <div className="h5 text-success mb-1">{admin.completed_requests || 0}</div>
+                  <div className="h5 text-primary mb-1">{admin.completed_requests || 0}</div>
                   <small className={isDark ? 'text-light' : 'text-muted'}>Completed</small>
                 </div>
                 <div className="col-4">
-                  <div className="h5 text-info mb-1">{admin.total_responses || 0}</div>
+                  <div className="h5 text-primary mb-1">{admin.total_responses || 0}</div>
                   <small className={isDark ? 'text-light' : 'text-muted'}>Responses</small>
                 </div>
               </div>
@@ -674,8 +607,9 @@ const loadUnassignedRequests = useCallback(async () => {
                   </div>
                   <div className="progress" style={{ height: '6px' }}>
                     <div 
-                      className={`progress-bar ${getPerformanceBadgeClass(admin.efficiency_score || 0)}`}
+                      className={`progress-bar  ${getPerformanceBadgeClass(admin.efficiency_score || 0)}`}
                       style={{ width: `${Math.min(admin.efficiency_score || 0, 100)}%` }}
+                      
                     ></div>
                   </div>
                 </div>
@@ -684,19 +618,19 @@ const loadUnassignedRequests = useCallback(async () => {
               {/* Status Breakdown */}
               <div className="row mb-3">
                 <div className="col-3 text-center">
-                  <div className="badge bg-warning text-dark mb-1 d-block">
+                  <div className="badge bg-secondary text-light mb-1 d-block">
                     {admin.pending_requests || 0}
                   </div>
                   <small className={isDark ? 'text-light' : 'text-muted'}>Pending</small>
                 </div>
                 <div className="col-3 text-center">
-                  <div className="badge bg-info mb-1 d-block">
+                  <div className="badge bg-secondary mb-1 d-block">
                     {admin.informed_requests || 0}
                   </div>
                   <small className={isDark ? 'text-light' : 'text-muted'}>Informed</small>
                 </div>
                 <div className="col-3 text-center">
-                  <div className="badge bg-danger mb-1 d-block">
+                  <div className="badge bg-secondary mb-1 d-block">
                     {admin.rejected_requests || 0}
                   </div>
                   <small className={isDark ? 'text-light' : 'text-muted'}>Rejected</small>
@@ -709,29 +643,7 @@ const loadUnassignedRequests = useCallback(async () => {
                 </div>
               </div>
 
-              {/* Assignment Status */}
-              <div className="border-top pt-2">
-                {admin.has_assignments ? (
-                  <div>
-                    <small className={isDark ? 'text-light' : 'text-muted'}>
-                      Workload: <span className={`badge badge-sm ${
-                        admin.workload_category === 'High' ? 'bg-danger' :
-                        admin.workload_category === 'Medium' ? 'bg-warning text-dark' :
-                        admin.workload_category === 'Low' ? 'bg-success' : 'bg-secondary'
-                      }`}>{admin.workload_category}</span>
-                    </small>
-                    {admin.last_assignment && (
-                      <small className="d-block text-muted">
-                        Last assignment: {new Date(admin.last_assignment).toLocaleDateString()}
-                      </small>
-                    )}
-                  </div>
-                ) : (
-                  <small className="text-warning">
-                    ⚠️ No assignments in selected period
-                  </small>
-                )}
-              </div>
+              
             </div>
           </div>
         </div>
@@ -745,7 +657,7 @@ const loadUnassignedRequests = useCallback(async () => {
       return (
         <div className="text-center py-5">
           <div className="text-muted">
-            <div style={{ fontSize: '4rem' }}>📊</div>
+            <div style={{ fontSize: '4rem' }}></div>
             <h5 className="mt-3">No Assignment Data Available</h5>
             <p>No admin assignments found for the selected period and department.</p>
             <button 
@@ -759,7 +671,7 @@ const loadUnassignedRequests = useCallback(async () => {
                   Refreshing...
                 </>
               ) : (
-                '🔄 Refresh Data'
+                ' Refresh Data'
               )}
             </button>
           </div>
@@ -808,8 +720,8 @@ const loadUnassignedRequests = useCallback(async () => {
           <h3 className={`${isDark ? 'text-light' : 'text-dark'} d-flex align-items-center`}>
              Admin Performance Analytics
             {refreshing && <span className="spinner-border spinner-border-sm ms-2"></span>}
-            {statistics?.meta?.data_version === '2.0_assignment_based' && (
-              <span className="badge bg-success ms-2">Assignment-Based ✓</span>
+            {statistics?.meta?.data_version === '' && (
+              <span className="badge bg-success ms-2"></span>
             )}
           </h3>
           <p className={isDark ? 'text-light' : 'text-muted'}>
@@ -834,7 +746,7 @@ const loadUnassignedRequests = useCallback(async () => {
             {refreshing ? (
               <>
                 <span className="spinner-border spinner-border-sm me-1"></span>
-                Refreshing...
+                
               </>
             ) : (
               '🔄'

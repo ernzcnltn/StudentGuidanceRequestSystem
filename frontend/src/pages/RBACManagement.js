@@ -346,7 +346,7 @@ const RBACManagement = () => {
   const renderRoleManagement = () => (
     <div className="tab-pane fade">
       <div className="d-flex justify-content-between align-items-center mb-4">
-        <h5>🎭 Role Management</h5>
+        <h5> Role Management</h5>
         <div className="d-flex gap-2">
           <button 
             className="btn btn-outline-primary btn-sm"
@@ -629,7 +629,7 @@ const RBACManagement = () => {
   return (
     <div className="container-fluid">
       <div className="d-flex justify-content-between align-items-center mb-4">
-        <h3>🔐 RBAC Management</h3>
+        <h3> RBAC Management</h3>
         <div className="badge bg-info">
           Department: {admin?.department} | Role: {admin?.is_super_admin ? 'Super Admin' : 'Admin'}
         </div>
@@ -654,7 +654,7 @@ const RBACManagement = () => {
                 className={`nav-link ${activeTab === 'roles' ? 'active' : ''}`}
                 onClick={() => setActiveTab('roles')}
               >
-                🎭 Roles
+                 Roles
               </button>
             </li>
             <li className="nav-item">
@@ -662,7 +662,7 @@ const RBACManagement = () => {
                 className={`nav-link ${activeTab === 'permissions' ? 'active' : ''}`}
                 onClick={() => setActiveTab('permissions')}
               >
-                🔑 Permissions
+                 Permissions
               </button>
             </li>
           </>
@@ -693,7 +693,7 @@ const RBACManagement = () => {
           <div className="modal-dialog">
             <div className="modal-content">
               <div className="modal-header">
-                <h5 className="modal-title">🎭 Create New Role</h5>
+                <h5 className="modal-title"> Create New Role</h5>
                 <button 
                   type="button" 
                   className="btn-close"

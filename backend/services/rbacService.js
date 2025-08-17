@@ -122,7 +122,7 @@ class RBACService {
   try {
     await connection.beginTransaction();
 
-    console.log('🎭 Starting role assignment transaction:', { userId, roleId, assignerId, expiresAt });
+    console.log(' Starting role assignment transaction:', { userId, roleId, assignerId, expiresAt });
 
     // Check if assigner has permission to assign roles
     const canAssign = await this.hasPermission(assignerId, 'users', 'manage_roles');

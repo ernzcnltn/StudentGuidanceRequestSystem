@@ -265,7 +265,7 @@ const AdvancedSearch = ({ onSearchResults, userType = 'student', department = nu
 
             {/* Date Range */}
             <div className="col-md-3 mb-3">
-              <label className="form-label">📅 From Date</label>
+              <label className="form-label"> From Date</label>
               <input
                 type="date"
                 className="form-control"
@@ -275,7 +275,7 @@ const AdvancedSearch = ({ onSearchResults, userType = 'student', department = nu
             </div>
 
             <div className="col-md-3 mb-3">
-              <label className="form-label">📅 To Date</label>
+              <label className="form-label"> To Date</label>
               <input
                 type="date"
                 className="form-control"
@@ -301,7 +301,7 @@ const AdvancedSearch = ({ onSearchResults, userType = 'student', department = nu
             </div>
 
             <div className="col-md-3 mb-3">
-              <label className="form-label">📈 Sort Order</label>
+              <label className="form-label"> Sort Order</label>
               <select
                 className="form-select"
                 value={filters.sort_order}

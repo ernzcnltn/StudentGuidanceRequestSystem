@@ -249,7 +249,7 @@ const MainApp = () => {
                 title={t('logout')}
               >
                 <span className="d-none d-md-inline">{t('logout')}</span>
-                <span className="d-md-none">🚪</span>
+                <span className="d-md-none"></span>
               </button>
             </div>
           </div>

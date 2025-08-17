@@ -60,7 +60,7 @@ const CreateRequestPage = () => {
   useEffect(() => {
   const checkAvailabilityWithRetry = async (retryCount = 0) => {
     try {
-      console.log('📅 Checking academic calendar availability...');
+      console.log(' Checking academic calendar availability...');
       
       const response = await apiService.checkCurrentAvailability();
       
@@ -68,7 +68,7 @@ const CreateRequestPage = () => {
         setAcademicCalendarStatus(response);
         
         if (!response.canCreateRequest) {
-          let message = `📅 ${response.message}`;
+          let message = ` ${response.message}`;
           if (response.reason === 'academic_holiday') {
             message += '\nAkademik tatil döneminde talep oluşturamazsınız.';
           } else if (response.reason === 'weekend') {
@@ -81,10 +81,10 @@ const CreateRequestPage = () => {
       } else {
         // Hata durumunda retry
         if (retryCount < 2) {
-          console.log(`⚠️ Availability check failed, retrying... (${retryCount + 1}/3)`);
+          console.log(` Availability check failed, retrying... (${retryCount + 1}/3)`);
           setTimeout(() => checkAvailabilityWithRetry(retryCount + 1), 2000);
         } else {
-          console.warn('⚠️ Availability check failed after retries, assuming available');
+          console.warn(' Availability check failed after retries, assuming available');
           setAcademicCalendarStatus({
             success: true,
             canCreateRequest: true,
@@ -117,16 +117,16 @@ const CreateRequestPage = () => {
   useEffect(() => {
     const checkAcademicCalendarStatus = async () => {
       try {
-        console.log('📅 Checking academic calendar status...');
+        console.log(' Checking academic calendar status...');
         
         const response = await apiService.checkCurrentAvailability();
         
         if (response.success) {
           setAcademicCalendarStatus(response);
-          console.log('📅 Academic calendar status:', response);
+          console.log(' Academic calendar status:', response);
           
           if (!response.canCreateRequest) {
-            showWarning(`📅 ${response.message}`);
+            showWarning(` ${response.message}`);
           }
         }
       } catch (error) {
@@ -218,7 +218,7 @@ const CreateRequestPage = () => {
     const calendar24HourOk = canSubmitRequestNow;
     const academicCalendarOk = academicCalendarStatus?.canCreateRequest !== false;
     
-    console.log('🔍 Combined availability check:', {
+    console.log(' Combined availability check:', {
       workingHoursOk,
       calendar24HourOk,
       academicCalendarOk,
@@ -234,7 +234,7 @@ const CreateRequestPage = () => {
       return {
         type: 'working_hours',
         message: 'Outside working hours (Monday-Friday 08:30-17:30)',
-        icon: '🕒'
+        icon: ''
       };
     }
     
@@ -242,7 +242,7 @@ const CreateRequestPage = () => {
       return {
         type: '24_hour_limit',
         message: `Wait ${lastRequestInfo?.hoursRemaining || 0} more hours (24-hour limit)`,
-        icon: '⏰'
+        icon: ''
       };
     }
     
@@ -250,7 +250,7 @@ const CreateRequestPage = () => {
       return {
         type: 'academic_calendar',
         message: academicCalendarStatus.message || 'Academic calendar restriction',
-        icon: '📅'
+        icon: ''
       };
     }
     
@@ -475,14 +475,14 @@ const CreateRequestPage = () => {
         const errorData = error.response.data;
         
         if (errorData.errorCode === 'ACADEMIC_HOLIDAY') {
-          showError(`📅 Academic Holiday: ${errorData.error}`);
+          showError(` Academic Holiday: ${errorData.error}`);
           if (errorData.guidance?.next_available_date) {
-            showInfo(`📅 Next available: ${errorData.guidance.next_available_date}`);
+            showInfo(` Next available: ${errorData.guidance.next_available_date}`);
           }
         } else if (errorData.errorCode === 'OUTSIDE_WORKING_HOURS') {
           showError('❌ Outside working hours: Requests can only be created Monday-Friday 08:30-17:30 (TRNC Time)');
           if (errorData.guidance?.nextOpening) {
-            showInfo(`📅 ${errorData.guidance.nextOpening}`);
+            showInfo(` ${errorData.guidance.nextOpening}`);
           }
           setShowWorkingHoursModal(true);
         } else {
@@ -647,10 +647,10 @@ const CreateRequestPage = () => {
                   required
                   disabled={!canActuallyCreateRequest()}
                 >
-                  <option value="Low">🔵 {t('low')} - {t('nonUrgentRequest')}</option>
-                  <option value="Medium">🟡 {t('medium')} - {t('standardRequest')}</option>
-                  <option value="High">🟠 {t('high')} - {t('importantRequest')}</option>
-                  <option value="Urgent">🔴 {t('urgent')} - {t('requiresImmediateAttention')}</option>
+                  <option value="Low"> {t('low')} - {t('nonUrgentRequest')}</option>
+                  <option value="Medium"> {t('medium')} - {t('standardRequest')}</option>
+                  <option value="High"> {t('high')} - {t('importantRequest')}</option>
+                  <option value="Urgent"> {t('urgent')} - {t('requiresImmediateAttention')}</option>
                 </select>
                 <div className="form-text">
                   {t('selectPriorityLevel')}
@@ -773,7 +773,7 @@ const CreateRequestPage = () => {
                      <div className="mt-4">
                        <div className="d-flex justify-content-between align-items-center mb-3">
                          <h6 className="mb-0">
-                           📋 Selected Files ({files.length})
+                           Selected Files ({files.length})
                          </h6>
                          <button
                            type="button"
@@ -893,18 +893,18 @@ const CreateRequestPage = () => {
                    (() => {
                      const restriction = getRestrictionReason();
                      if (restriction?.type === '24_hour_limit') {
-                       return <>⏰ Wait {lastRequestInfo?.hoursRemaining || 0} hours</>;
+                       return <> Wait {lastRequestInfo?.hoursRemaining || 0} hours</>;
                      } else if (restriction?.type === 'working_hours') {
-                       return <>🕒 Outside Working Hours</>;
+                       return <> Outside Working Hours</>;
                      } else if (restriction?.type === 'academic_calendar') {
-                       return <>📅 Academic Holiday</>;
+                       return <> Academic Holiday</>;
                      } else {
-                       return <>🚫 Request Restricted</>;
+                       return <> Request Restricted</>;
                      }
                    })()
                  ) : (
                    <>
-                     ✉️ {t('submitRequest')}
+                      {t('submitRequest')}
                      {files.length > 0 && ` (${files.length} ${files.length > 1 ? t('files') : t('file')})`}
                    </>
                  )}
@@ -937,7 +937,7 @@ const CreateRequestPage = () => {
        {academicCalendarStatus && !academicCalendarStatus.canCreateRequest && (
          <div className="card mt-4">
            <div className="card-header bg-warning text-dark">
-             <h6 className="mb-0">📅 Academic Calendar Notice</h6>
+             <h6 className="mb-0"> Academic Calendar Notice</h6>
            </div>
            <div className="card-body">
              <div className="alert alert-info mb-0">

@@ -130,10 +130,10 @@ const WorkingHoursNotice = ({ showAlways = false, className = '' }) => {
   const getIcon = () => {
     if (workingHoursStatus.isAllowed) return '✅';
     switch (workingHoursStatus.reason) {
-      case 'weekend': return '📅';
-      case 'too_early': return '🌅';
-      case 'too_late': return '🌙';
-      default: return '🕒';
+      case 'weekend': return '';
+      case 'too_early': return '';
+      case 'too_late': return '';
+      default: return '';
     }
   };
 
@@ -217,7 +217,7 @@ const WorkingHoursNotice = ({ showAlways = false, className = '' }) => {
           
           <div className="row">
             <div className="col-md-6">
-              <h6 className="mb-2">📋 Mesai Saatleri</h6>
+              <h6 className="mb-2"> Mesai Saatleri</h6>
               <ul className="mb-0 small">
                 <li><strong>Pazartesi - Cuma:</strong> 08:30 - 17:30</li>
                 <li><strong>Cumartesi - Pazar:</strong> Kapalı</li>
@@ -225,7 +225,7 @@ const WorkingHoursNotice = ({ showAlways = false, className = '' }) => {
               </ul>
             </div>
             <div className="col-md-6">
-              <h6 className="mb-2">ℹ️ Önemli Bilgiler</h6>
+              <h6 className="mb-2">ℹ Önemli Bilgiler</h6>
               <ul className="mb-0 small">
                 <li>Request'ler sadece mesai saatlerinde oluşturulabilir</li>
                 <li>Acil durumlar için öğrenci işleri ile iletişime geçin</li>
@@ -247,7 +247,7 @@ const WorkingHoursNotice = ({ showAlways = false, className = '' }) => {
                   href="/requests" 
                   className="btn btn-sm btn-outline-secondary"
                 >
-                  📋 Mevcut Request'lerim
+                  Mevcut Request'lerim
                 </a>
               </div>
             </div>
@@ -317,7 +317,7 @@ export const WorkingHoursModal = ({ show, onClose, allowProceed = false }) => {
           <div className="modal-content">
             <div className="modal-header">
               <h5 className="modal-title">
-                🕒 Mesai Saatleri Bildirimi
+                 Mesai Saatleri Bildirimi
               </h5>
               <button type="button" className="btn-close" onClick={onClose}></button>
             </div>
@@ -333,7 +333,7 @@ export const WorkingHoursModal = ({ show, onClose, allowProceed = false }) => {
               </div>
               
               <div className="alert alert-info">
-                <h6>📋 Mesai Saatleri</h6>
+                <h6>Mesai Saatleri</h6>
                 <ul className="mb-0">
                   <li><strong>Çalışma Günleri:</strong> Pazartesi - Cuma</li>
                   <li><strong>Çalışma Saatleri:</strong> 08:30 - 17:30</li>

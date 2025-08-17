@@ -344,7 +344,7 @@ const validateCreateRequest = async (req, res, next) => {
 // ⭐ NEW: Academic calendar specific validation middleware
 const validateAcademicCalendarOnly = async (req, res, next) => {
   try {
-    console.log('📅 Validating academic calendar restrictions...');
+    console.log(' Validating academic calendar restrictions...');
     
     const currentDate = new Date().toISOString().split('T')[0];
     
@@ -367,7 +367,7 @@ const validateAcademicCalendarOnly = async (req, res, next) => {
     }
     
     if (calendarSettings.length === 0 || calendarSettings[0].setting_value !== 'true') {
-      console.log('📅 Academic calendar is disabled, skipping validation');
+      console.log(' Academic calendar is disabled, skipping validation');
       req.academicCalendarInfo = {
         enabled: false,
         reason: 'disabled',
@@ -762,11 +762,11 @@ const validateCreateRequestWithCalendar = async (req, res, next) => {
 // ⭐ ENHANCED: Debugging helper for request limits with calendar info
 const debugStudentLimitsWithCalendar = async (studentId) => {
   try {
-    console.group(`🔍 Debug Limits with Calendar for Student ${studentId}`);
+    console.group(` Debug Limits with Calendar for Student ${studentId}`);
     
     // Check current calendar status
     const calendarCheck = await enhancedWorkingHoursUtils.isWithinWorkingHoursAndCalendar();
-    console.log('📅 Current Calendar Status:', calendarCheck);
+    console.log(' Current Calendar Status:', calendarCheck);
     
     // Check 24-hour requests
     const [day24Requests] = await pool.execute(`
@@ -780,11 +780,11 @@ const debugStudentLimitsWithCalendar = async (studentId) => {
       ORDER BY submitted_at DESC
     `, [studentId]);
     
-    console.log('📅 Last 24 hours:', day24Requests);
+    console.log(' Last 24 hours:', day24Requests);
     
     // Check next available time with calendar
     const nextAvailable = await enhancedWorkingHoursUtils.getNextWorkingTime();
-    console.log('⏰ Next available time:', nextAvailable);
+    console.log(' Next available time:', nextAvailable);
     
     // Check academic calendar status
     const currentDate = new Date().toISOString().split('T')[0];
@@ -794,7 +794,7 @@ const debugStudentLimitsWithCalendar = async (studentId) => {
     
     if (holidayCheck[0]?.holiday_info) {
       const holidayInfo = JSON.parse(holidayCheck[0].holiday_info);
-      console.log('🎉 Holiday Status:', holidayInfo);
+      console.log(' Holiday Status:', holidayInfo);
     }
     
     console.groupEnd();

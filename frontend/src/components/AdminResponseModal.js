@@ -210,7 +210,7 @@ const AdminResponseModal = ({ requestId, requestTitle, onClose, onResponseAdded 
             <div className="modal-body">
               {/* Previous Responses */}
               <div className="mb-4">
-                <h6>📋 {t('previousResponses')} ({responses.length})</h6>
+                <h6> {t('previousResponses')} ({responses.length})</h6>
                 {loading ? (
                   <div className="text-center py-3">
                     <div className="spinner-border spinner-border-sm" role="status"></div>
@@ -227,10 +227,10 @@ const AdminResponseModal = ({ requestId, requestTitle, onClose, onResponseAdded 
                         <div className="card-body p-3">
                           <div className="d-flex justify-content-between align-items-start mb-2">
                             <strong className="text-primary">
-                              👨‍💼 {response.created_by_admin}
+                               {response.created_by_admin}
                             </strong>
                             <small className="text-muted">
-                              📅 {new Date(response.created_at).toLocaleString()}
+                               {new Date(response.created_at).toLocaleString()}
                             </small>
                           </div>
                           <p className="mb-2">{response.response_content}</p>
@@ -259,7 +259,7 @@ const AdminResponseModal = ({ requestId, requestTitle, onClose, onResponseAdded 
 
               {/* New Response Form */}
               <div>
-                <h6>✏️ {t('addNewResponse')}</h6>
+                <h6> {t('addNewResponse')}</h6>
                 <form onSubmit={handleSubmitResponse}>
                   <div className="mb-3">
                     <textarea
@@ -272,7 +272,7 @@ const AdminResponseModal = ({ requestId, requestTitle, onClose, onResponseAdded 
                       required
                     />
                     <div className="form-text">
-                      ℹ️ {t('responseVisibilityNote', 'This response will be visible to the student and will mark the request as "Informed".')}
+                       {t('responseVisibilityNote', 'This response will be visible to the student and will mark the request as "Informed".')}
                     </div>
                   </div>
                   
@@ -393,7 +393,7 @@ const AdminResponseModal = ({ requestId, requestTitle, onClose, onResponseAdded 
                         <div className="mt-4">
                           <div className="d-flex justify-content-between align-items-center mb-3">
                             <h6 className="mb-0">
-                              📋{t('SelectedFiles')} ({files.length})
+                              {t('SelectedFiles')} ({files.length})
                             </h6>
                             <button
                               type="button"

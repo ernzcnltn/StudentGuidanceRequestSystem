@@ -57,7 +57,7 @@ const RequestsPage = () => {
 
     try {
       setLoadingRejectionDetails(true);
-      console.log('📋 Fetching rejection details for request:', requestId);
+      console.log(' Fetching rejection details for request:', requestId);
       
       // Use the student API endpoint for rejection details
       const response = await apiService.getStudentRejectionDetails(requestId);
@@ -114,7 +114,7 @@ const RequestsPage = () => {
       'Completed': '✅',
       'Rejected': '🚫'
     };
-    return statusIcons[status] || '📋';
+    return statusIcons[status] || '';
   };
 
   const getPriorityBadge = (priority) => {
@@ -129,12 +129,12 @@ const RequestsPage = () => {
 
   const getPriorityIcon = (priority) => {
     const icons = {
-      'Urgent': '🔴',
-      'High': '🟠',
-      'Medium': '🟡',
-      'Low': '🔵'
+      'Urgent': '',
+      'High': '',
+      'Medium': '',
+      'Low': ''
     };
-    return icons[priority] || '🟡';
+    return icons[priority] || '';
   };
 
   const filteredRequests = requests
@@ -180,16 +180,16 @@ const RequestsPage = () => {
         setLoading(true);
         setError(null);
         
-        console.log('📋 Fetching student responses for request:', requestId);
+        console.log(' Fetching student responses for request:', requestId);
         
         // Use the correct student API endpoint
         const response = await apiService.getRequestResponses(requestId);
         
-        console.log('📋 Student responses response:', response.data);
+        console.log(' Student responses response:', response.data);
         
         if (response.data.success) {
           setResponses(response.data.data || []);
-          console.log(`✅ Loaded ${response.data.data.length} responses`);
+          console.log(` Loaded ${response.data.data.length} responses`);
         } else {
           setError('Failed to load responses');
           console.error('❌ Failed to load responses:', response.data);
@@ -262,7 +262,7 @@ const RequestsPage = () => {
                   <div>
                     <div className="d-flex justify-content-between align-items-center mb-3">
                       <h6 className="mb-0">
-                        📋 {t('adminResponses', 'Admin Responses')} ({responses.length})
+                         {t('adminResponses', 'Admin Responses')} ({responses.length})
                       </h6>
                       <button className="btn btn-outline-primary btn-sm" onClick={fetchResponses}>
                         🔄 Refresh
@@ -277,10 +277,10 @@ const RequestsPage = () => {
                               <span className="badge bg-primary me-2">#{index + 1}</span>
                               <div>
                                 <strong className="text-primary d-block">
-                                  👨‍💼 {response.created_by_admin || 'Admin'}
+                                   {response.created_by_admin || 'Admin'}
                                 </strong>
                                 <small className="text-muted">
-                                  📅 {new Date(response.created_at).toLocaleDateString()}
+                                   {new Date(response.created_at).toLocaleDateString()}
                                   {' '}🕐 {new Date(response.created_at).toLocaleTimeString()}
                                 </small>
                               </div>
@@ -569,7 +569,7 @@ const RequestsPage = () => {
                                   <button
                                     className="btn btn-sm btn-outline-danger"
                                     onClick={async () => {
-                                      console.log('📋 Loading rejection details for request:', request.request_id);
+                                      console.log(' Loading rejection details for request:', request.request_id);
                                       const details = await fetchRejectionDetails(request.request_id);
                                       if (details) {
                                         console.log('✅ Rejection details loaded:', details);

@@ -359,7 +359,7 @@ const StudentProfilePage = () => {
                 <p className="text-muted mb-0">This will log you out from all devices and invalidate all active sessions.</p>
               </div>
               <button className="btn btn-outline-warning" onClick={logout}>
-                🚪 Logout All
+                 Logout All
               </button>
             </div>
             

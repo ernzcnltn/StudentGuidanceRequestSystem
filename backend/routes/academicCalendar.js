@@ -93,8 +93,8 @@ class CalendarDocumentParser {
   
   // ✅ ENHANCED: Extract events with multi-event support
   static extractEventsFromText(text, academicYear) {
-    console.log('📅 Multi-event table-aware extraction for academic year:', academicYear);
-    console.log('📄 Processing text sample:', text.substring(0, 500));
+    console.log(' Multi-event table-aware extraction for academic year:', academicYear);
+    console.log(' Processing text sample:', text.substring(0, 500));
     
     const events = [];
     
@@ -123,7 +123,7 @@ class CalendarDocumentParser {
     // Academic year parsing
     const [startYear, endYear] = academicYear.split('-').map(y => parseInt(y));
     
-    console.log(`📋 Processing ${lines.length} lines for multi-event extraction...`);
+    console.log(` Processing ${lines.length} lines for multi-event extraction...`);
 
     // ✅ NEW: Group lines by date patterns
     const dateGroups = this.groupLinesByDates(lines, turkishMonths, startYear, endYear);
@@ -134,7 +134,7 @@ class CalendarDocumentParser {
       
       if (!startDate || !endDate) continue;
       
-      console.log(`📅 Processing date group: ${startDate} to ${endDate}`);
+      console.log(` Processing date group: ${startDate} to ${endDate}`);
       console.log(`   Found ${eventLines.length} events for this date`);
       
       // ✅ NEW: Create separate events for each line in the date group
@@ -167,7 +167,7 @@ class CalendarDocumentParser {
       }
     }
 
-    console.log(`📅 Total events extracted: ${events.length}`);
+    console.log(` Total events extracted: ${events.length}`);
     this.logExtractionSummary(events);
     
     return events;
@@ -483,7 +483,7 @@ class CalendarDocumentParser {
   }
 
   static logExtractionSummary(events) {
-    console.log('\n📊 MULTI-EVENT EXTRACTION SUMMARY:');
+    console.log('\n MULTI-EVENT EXTRACTION SUMMARY:');
     console.log('===================================');
     
     const typeCount = {};
@@ -494,16 +494,16 @@ class CalendarDocumentParser {
       affectsCount[event.affects_request_creation]++;
     });
     
-    console.log('📈 Events by type:');
+    console.log(' Events by type:');
     Object.entries(typeCount).forEach(([type, count]) => {
       console.log(`   ${type}: ${count}`);
     });
     
-    console.log('\n🎯 Request blocking:');
+    console.log('\n Request blocking:');
     console.log(`   Will block requests: ${affectsCount.true}`);
     console.log(`   Won't block requests: ${affectsCount.false}`);
     
-    console.log('\n📅 Sample events by date:');
+    console.log('\n Sample events by date:');
     const eventsByDate = events.reduce((acc, event) => {
       const dateKey = `${event.start_date}${event.end_date !== event.start_date ? ' to ' + event.end_date : ''}`;
       if (!acc[dateKey]) acc[dateKey] = [];
@@ -512,7 +512,7 @@ class CalendarDocumentParser {
     }, {});
     
     Object.entries(eventsByDate).slice(0, 5).forEach(([date, eventNames]) => {
-      console.log(`   📅 ${date}:`);
+      console.log(`    ${date}:`);
       eventNames.forEach(name => console.log(`      - ${name}`));
     });
     
@@ -662,7 +662,7 @@ router.post('/upload', authenticateAdmin, requireSuperAdmin, calendarUpload.sing
     `, [uploadId, parseResult.text.length]);
 
     // Extract events from text
-    console.log('📅 Extracting events from text...');
+    console.log(' Extracting events from text...');
     
     await pool.execute(`
       INSERT INTO document_parsing_logs (upload_id, parsing_stage, status, message)
@@ -797,7 +797,7 @@ router.post('/upload', authenticateAdmin, requireSuperAdmin, calendarUpload.sing
 // GET /api/academic-calendar/status - Get current academic calendar status
 router.get('/status', authenticateAdmin, async (req, res) => {
   try {
-    console.log('📊 Getting academic calendar status...');
+    console.log(' Getting academic calendar status...');
 
     // Get settings with error handling
     let settings = [];
@@ -1048,7 +1048,7 @@ router.get('/events', authenticateAdmin, async (req, res) => {
       affects_requests_only 
     } = req.query;
 
-    console.log('📅 Getting calendar events:', { academic_year, start_date, end_date, event_type });
+    console.log(' Getting calendar events:', { academic_year, start_date, end_date, event_type });
 
     let query = `
       SELECT 
@@ -1487,7 +1487,7 @@ router.get('/uploads', authenticateAdmin, requireSuperAdmin, async (req, res) =>
     // ✅ STEP 1: Parameter validation
     let { limit = '20', offset = '0' } = req.query;
     
-    console.log('📋 Raw query params:', {
+    console.log(' Raw query params:', {
       limit: limit,
       offset: offset,
       types: { limit: typeof limit, offset: typeof offset }
@@ -1501,7 +1501,7 @@ router.get('/uploads', authenticateAdmin, requireSuperAdmin, async (req, res) =>
     const finalLimit = (isNaN(parsedLimit) || parsedLimit < 1) ? 20 : Math.min(parsedLimit, 100);
     const finalOffset = (isNaN(parsedOffset) || parsedOffset < 0) ? 0 : parsedOffset;
     
-    console.log('📋 Validated params:', { 
+    console.log(' Validated params:', { 
       limit: finalLimit, 
       offset: finalOffset,
       types: { limit: typeof finalLimit, offset: typeof finalOffset }
@@ -1529,7 +1529,7 @@ router.get('/uploads', authenticateAdmin, requireSuperAdmin, async (req, res) =>
       LIMIT ${finalLimit} OFFSET ${finalOffset}
     `;
 
-    console.log('📋 Executing query:', query);
+    console.log(' Executing query:', query);
 
     // ✅ STEP 5: Execute query WITHOUT parameters
     const [uploads] = await pool.execute(query);
@@ -1556,7 +1556,7 @@ router.get('/uploads', authenticateAdmin, requireSuperAdmin, async (req, res) =>
           log_entries: logCount[0]?.log_entries || 0
         });
       } catch (countError) {
-        console.warn('⚠️ Count query failed for upload:', upload.upload_id, countError.message);
+        console.warn(' Count query failed for upload:', upload.upload_id, countError.message);
         uploadsWithCounts.push({
           ...upload,
           events_count: 0,
@@ -1679,7 +1679,7 @@ router.get('/parsing-logs/:uploadId', authenticateAdmin, requireSuperAdmin, asyn
   try {
     const { uploadId } = req.params;
     
-    console.log('📋 Getting parsing logs for upload:', uploadId);
+    console.log(' Getting parsing logs for upload:', uploadId);
 
     const [logs] = await pool.execute(`
       SELECT * FROM document_parsing_logs 

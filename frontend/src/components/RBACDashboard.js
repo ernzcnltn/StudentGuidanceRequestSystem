@@ -145,7 +145,7 @@ const RBACDashboard = () => {
             className={`nav-link ${activeSection === 'roles' ? 'active' : ''}`}
             onClick={() => setActiveSection('roles')}
           >
-            🎭 Roles
+             Roles
           </button>
         </li>
         <li className="nav-item">
@@ -153,7 +153,7 @@ const RBACDashboard = () => {
             className={`nav-link ${activeSection === 'permissions' ? 'active' : ''}`}
             onClick={() => setActiveSection('permissions')}
           >
-            🔐 Permissions
+             Permissions
           </button>
         </li>
         <li className="nav-item">
@@ -161,7 +161,7 @@ const RBACDashboard = () => {
             className={`nav-link ${activeSection === 'audit' ? 'active' : ''}`}
             onClick={() => setActiveSection('audit')}
           >
-            📋 Audit Log
+             Audit Log
           </button>
         </li>
       </ul>
@@ -212,7 +212,7 @@ const RBACDashboard = () => {
             <div className="col-md-6 mb-4">
               <div className="card" style={cardStyle}>
                 <div className="card-header">
-                  <h5 className="mb-0">🎭 Role Distribution</h5>
+                  <h5 className="mb-0"> Role Distribution</h5>
                 </div>
                 <div className="card-body">
                   {statistics?.role_statistics?.map((role) => (
@@ -267,7 +267,7 @@ const RBACDashboard = () => {
             <div className="col-12">
               <div className="card" style={cardStyle}>
                 <div className="card-header">
-                  <h5 className="mb-0">🔐 Permission Resources</h5>
+                  <h5 className="mb-0"> Permission Resources</h5>
                 </div>
                 <div className="card-body">
                   <div className="row">
@@ -503,52 +503,7 @@ const RBACDashboard = () => {
         </div>
       )}
 
-      {/* Quick Actions Section */}
-      <div className="row mt-4">
-        <div className="col-12">
-          <div className="card" style={cardStyle}>
-            <div className="card-header">
-              <h5 className="mb-0">⚡ Quick Actions</h5>
-            </div>
-            <div className="card-body">
-              <div className="row">
-                <div className="col-md-3 mb-2">
-                  <button 
-                    className="btn btn-outline-primary w-100"
-                    onClick={() => handleQuickAction('bulk_assign_roles')}
-                  >
-                    👥 Bulk Assign Roles
-                  </button>
-                </div>
-                <div className="col-md-3 mb-2">
-                  <button 
-                    className="btn btn-outline-info w-100"
-                    onClick={() => handleQuickAction('export_rbac_data')}
-                  >
-                    📊 Export RBAC Data
-                  </button>
-                </div>
-                <div className="col-md-3 mb-2">
-                  <button 
-                    className="btn btn-outline-warning w-100"
-                    onClick={() => handleQuickAction('validate_permissions')}
-                  >
-                    🔍 Validate Permissions
-                  </button>
-                </div>
-                <div className="col-md-3 mb-2">
-                  <button 
-                    className="btn btn-outline-success w-100"
-                    onClick={() => handleQuickAction('create_test_notification')}
-                  >
-                    🧪 Test Notification
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
+     
     </div>
   );
 };

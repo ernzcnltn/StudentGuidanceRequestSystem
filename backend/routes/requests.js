@@ -465,7 +465,7 @@ router.get('/student/me', authenticateStudent, async (req, res) => {
     const studentId = req.student.student_id;
     const { status, limit = 50 } = req.query;
 
-    console.log('📋 Fetching student requests with calendar info:', { studentId, status, limit });
+    console.log(' Fetching student requests with calendar info:', { studentId, status, limit });
 
     let statusCondition = '';
     const params = [studentId];
@@ -787,7 +787,7 @@ router.get('/requests/student/me', authenticateStudent, async (req, res) => {
     const studentId = req.student.student_id;
     const { status, limit = 50 } = req.query;
 
-    console.log('📋 Fetching student requests with assignment info:', { studentId, status, limit });
+    console.log(' Fetching student requests with assignment info:', { studentId, status, limit });
 
     let statusCondition = '';
     const params = [studentId];
@@ -1120,7 +1120,7 @@ router.get('/:id/responses', async (req, res) => {
   try {
     const requestId = req.params.id;
     
-    console.log('📋 Getting responses for request:', requestId);
+    console.log(' Getting responses for request:', requestId);
     
     // Check if request exists
     const [requestCheck] = await pool.execute(
@@ -1150,7 +1150,7 @@ router.get('/:id/responses', async (req, res) => {
       [requestId]
     );
     
-    console.log(`📋 Found ${responses.length} responses for request ${requestId}`);
+    console.log(` Found ${responses.length} responses for request ${requestId}`);
     
     res.json({
       success: true,
@@ -1172,8 +1172,8 @@ router.get('/:requestId/rejection-details', authenticateStudent, async (req, res
     const { requestId } = req.params;
     const studentId = req.student.student_id; // JWT'den gelen student ID
     
-    console.log('📋 Getting rejection details for request (STUDENT):', { requestId, studentId });
-    
+    console.log(' Getting rejection details for request (STUDENT):', { requestId, studentId });
+  
     // Student sadece kendi request'inin detaylarını görebilir
     const [rejectionDetails] = await pool.execute(`
       SELECT 
@@ -1218,7 +1218,7 @@ router.get('/:requestId/rejection-details', authenticateStudent, async (req, res
     const { requestId } = req.params;
     const studentId = req.student.student_id; // JWT'den gelen student ID
     
-    console.log('📋 Getting rejection details for request (STUDENT):', { requestId, studentId });
+    console.log(' Getting rejection details for request (STUDENT):', { requestId, studentId });
     
     // Student can only see their own request details
     const [rejectionDetails] = await pool.execute(`

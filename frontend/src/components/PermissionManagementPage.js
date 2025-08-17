@@ -205,7 +205,7 @@ const PermissionManagementPage = () => {
       <div className="d-flex justify-content-between align-items-center mb-4">
         <div>
           <h3 className={isDark ? 'text-light' : 'text-dark'}>
-            🔐 Permission Management
+             Permission Management
           </h3>
           <p className={isDark ? 'text-light' : 'text-muted'}>
             Create and manage system permissions for role-based access control
@@ -216,7 +216,7 @@ const PermissionManagementPage = () => {
           className="btn btn-primary"
           onClick={() => setShowCreateModal(true)}
         >
-          ➕ Create Permission
+           Create Permission
         </button>
       </div>
 
@@ -274,7 +274,7 @@ const PermissionManagementPage = () => {
             className="btn btn-outline-secondary w-100"
             onClick={loadData}
           >
-            🔄 Refresh
+            Refresh
           </button>
         </div>
       </div>
@@ -293,7 +293,7 @@ const PermissionManagementPage = () => {
                 <h5 className="mb-0">
                   {apiService.rbacHelpers.getPermissionIcon(resource)} {resource.toUpperCase()}
                   <span className="badge bg-secondary ms-2">
-                    {groupedPermissions[resource].length} permissions
+                    
                   </span>
                 </h5>
               </div>
@@ -312,9 +312,7 @@ const PermissionManagementPage = () => {
                           <div>
                             <h6 className={`mb-1 ${isDark ? 'text-light' : 'text-dark'}`}>
                               {permission.display_name}
-                              {permission.is_system_permission && (
-                                <span className="badge bg-warning text-dark ms-2">System</span>
-                              )}
+                              
                             </h6>
                             <p className={`mb-1 ${isDark ? 'text-light' : 'text-muted'}`}>
                               <code>{permission.resource}:{permission.action}</code>
@@ -325,7 +323,7 @@ const PermissionManagementPage = () => {
                               </p>
                             )}
                             <small className={isDark ? 'text-light' : 'text-muted'}>
-                              ID: {permission.permission_id}
+                         
                             </small>
                           </div>
                           
@@ -343,16 +341,11 @@ const PermissionManagementPage = () => {
                                   className="dropdown-item"
                                   onClick={() => handleViewDetails(permission)}
                                 >
-                                  🔍 View Details
+                                   View Details
                                 </button>
                               </li>
                               <li>
-                                <button 
-                                  className="dropdown-item"
-                                  onClick={() => showInfo('View roles with this permission')}
-                                >
-                                  🎭 View Roles
-                                </button>
+                                
                               </li>
                               {!permission.is_system_permission && (
                                 <>
@@ -362,7 +355,7 @@ const PermissionManagementPage = () => {
                                       className="dropdown-item text-danger"
                                       onClick={() => handleDeletePermission(permission.permission_id, permission.display_name)}
                                     >
-                                      🗑️ Delete Permission
+                                       Delete Permission
                                     </button>
                                   </li>
                                 </>
@@ -599,11 +592,11 @@ const PermissionManagementPage = () => {
                 {/* Roles using this permission */}
                 <div className="mt-4">
                   <h6 className={isDark ? 'text-light' : 'text-dark'}>
-                    Roles with this permission:
+                    
                   </h6>
                   <div className="d-flex flex-wrap gap-2">
                     {/* This would need to be fetched from API */}
-                    <span className="badge bg-info">Loading...</span>
+                    <span className="badge bg-info"></span>
                   </div>
                 </div>
               </div>

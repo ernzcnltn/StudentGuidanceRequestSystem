@@ -75,14 +75,14 @@ const handleLogoutClick = async () => {
   // Kategori ikonları
   const getCategoryIcon = (category) => {
     const icons = {
-      'Accounting': ' 💼',
-      'Academic': '🔬',
-      'Student Affairs': '👥',
-      'Dormitory': '🛏️',
-      'Campus Services': '⚙️',
-     'Sport Affairs': '🥇',
+      'Accounting': ' ',
+      'Academic': '',
+      'Student Affairs': '',
+      'Dormitory': '',
+      'Campus Services': '',
+     'Sport Affairs': '',
     };
-    return icons[category] || '📋';
+    return icons[category] || '';
   };
 
   if (loading) {
@@ -196,7 +196,7 @@ const handleLogoutClick = async () => {
             </Link>
             <Link to="/requests" className="list-group-item list-group-item-action">
               <div className="d-flex align-items-center">
-                <span className="me-3" style={{ fontSize: '1.5rem' }}>📋</span>
+                <span className="me-3" style={{ fontSize: '1.5rem' }}></span>
                 <div>
                   <h6 className="mb-1">{t('myRequests')}</h6>
                   <p className="mb-1 small text-muted">{t('checkStatus')}</p>

@@ -465,23 +465,23 @@ const handleRejectRequest = async (rejectionReason) => {
 
   const getPriorityIcon = (priority) => {
     const icons = {
-      'Urgent': '🔴',
-      'High': '🟠',
-      'Medium': '🟡', 
-      'Low': '🔵'
+      'Urgent': '',
+      'High': '',
+      'Medium': '', 
+      'Low': ''
     };
-    return icons[priority] || '🟡';
+    return icons[priority] || '';
   };
 
   const getDepartmentIcon = (dept) => {
     const icons = {
-      'Accounting': '💰',
-      'Academic': '📚',
-      'Dormitory': '🏠',
-      'Student Affairs': '👥',
-      'Campus Services': '🏢'
+      'Accounting': '',
+      'Academic': '',
+      'Dormitory': '',
+      'Student Affairs': '',
+      'Campus Services': ''
     };
-    return icons[dept] || '🏢';
+    return icons[dept] || '';
   };
 
   // Tab visibility control based on permissions
@@ -489,17 +489,17 @@ const handleRejectRequest = async (rejectionReason) => {
     const tabs = [];
     
     if (canViewAnalytics()) {
-      tabs.push({ key: 'dashboard', label: '📊 Dashboard', icon: '' });
+      tabs.push({ key: 'dashboard', label: ' Dashboard', icon: '' });
     }
     
     if (canViewRequests()) {
-      tabs.push({ key: 'requests', label: '📋 Manage Requests', icon: '' });
+      tabs.push({ key: 'requests', label: ' Manage Requests', icon: '' });
     }
     
 
 
     if (canManageSettings()) {
-      tabs.push({ key: 'settings', label: '⚙️ Settings', icon: '' });
+      tabs.push({ key: 'settings', label: ' Settings', icon: '' });
     }
 
 
@@ -510,7 +510,7 @@ const handleRejectRequest = async (rejectionReason) => {
   if ((isDepartmentAdmin() || isSuperAdmin()) && canViewAnalytics()) {
     tabs.push({ 
       key: 'statistics', 
-      label: '📈 Performance Stats', 
+      label: ' Performance Stats', 
       icon: '',
      
     });
@@ -519,14 +519,14 @@ const handleRejectRequest = async (rejectionReason) => {
     // RBAC Management Tabs (Super Admin only)
     if (isSuperAdmin()) {
      
-      tabs.push({ key: 'users', label: '👥 Users', icon: '' });
-      tabs.push({ key: 'roles', label: '🎭 Roles', icon: '' });
-      tabs.push({ key: 'permissions', label: '🔐 Permissions', icon: '' });
+      tabs.push({ key: 'users', label: ' Users', icon: '' });
+      tabs.push({ key: 'roles', label: ' Roles', icon: '' });
+      tabs.push({ key: 'permissions', label: ' Permissions', icon: '' });
     }
     
     // Department Admin can see user management for their department
     if (isDepartmentAdmin() && !isSuperAdmin()) {
-      tabs.push({ key: 'dept-users', label: '👥 Dept Users', icon: '' });
+      tabs.push({ key: 'dept-users', label: ' Dept Users', icon: '' });
     }
     
    
@@ -535,7 +535,7 @@ const handleRejectRequest = async (rejectionReason) => {
   if (isSuperAdmin()) {
     tabs.push({ 
       key: 'calendar', 
-      label: '📅 Academic Calendar', 
+      label: ' Academic Calendar', 
       icon: '' 
     });
   }
@@ -630,16 +630,7 @@ const handleRejectRequest = async (rejectionReason) => {
                   )}
                 </div>
                 <div className="text-end">
-                  {/* ADD THIS: Statistics preview for admins */}
-                {(isDepartmentAdmin() || isSuperAdmin()) && (
-                  <button 
-                    className="btn btn-outline-primary btn-sm"
-                    onClick={() => setActiveTab('statistics')}
-                    title="View detailed admin statistics"
-                  >
-                    📈 View Statistics
-                  </button>
-                )}
+                 
                 </div>
               </div>
             </div>
@@ -658,173 +649,8 @@ const handleRejectRequest = async (rejectionReason) => {
       </div>
     ) : dashboardData && dashboardData.totals ? (
       <div className="row">
-        {/* Existing dashboard cards */}
-        <div className="col-lg-8">
-          <div className="row mb-4">
-            <div className="col-md-4 mb-3">
-              <div 
-                className="card border-0 shadow-sm h-100" 
-                style={{ 
-                  borderRadius: '12px',
-                  backgroundColor: isDark ? '#000000' : '#ffffff',
-                  border: isDark ? '1px solid #333333' : '1px solid #e5e7eb'
-                }}
-              >
-                <div className="card-body text-center p-4">
-                  <div className="text-warning mb-3" style={{ fontSize: '2.5rem' }}>⏳</div>
-                  <h3 className="text-warning mb-1">{dashboardData.totals.pending || 0}</h3>
-                  <p className={`mb-0 ${isDark ? 'text-light' : 'text-muted'}`}>
-                    {t('pending')}
-                  </p>
-                </div>
-              </div>
-            </div>
-            <div className="col-md-4 mb-3">
-              <div 
-                className="card border-0 shadow-sm h-100" 
-                style={{ 
-                  borderRadius: '12px',
-                  backgroundColor: isDark ? '#000000' : '#ffffff',
-                  border: isDark ? '1px solid #333333' : '1px solid #e5e7eb'
-                }}
-              >
-                <div className="card-body text-center p-4">
-                  <div className="text-info mb-3" style={{ fontSize: '2.5rem' }}>💬</div>
-                  <h3 className="text-info mb-1">{dashboardData.totals.informed || 0}</h3>
-                  <p className={`mb-0 ${isDark ? 'text-light' : 'text-muted'}`}>
-                    {t('informed')}
-                  </p>
-                </div>
-              </div>
-            </div>
-            <div className="col-md-4 mb-3">
-              <div 
-                className="card border-0 shadow-sm h-100" 
-                style={{ 
-                  borderRadius: '12px',
-                  backgroundColor: isDark ? '#000000' : '#ffffff',
-                  border: isDark ? '1px solid #333333' : '1px solid #e5e7eb'
-                }}
-              >
-                <div className="card-body text-center p-4">
-                  <div className="text-success mb-3" style={{ fontSize: '2.5rem' }}>✅</div>
-                  <h3 className="text-success mb-1">{dashboardData.totals.completed || 0}</h3>
-                  <p className={`mb-0 ${isDark ? 'text-light' : 'text-muted'}`}>
-                    {t('completed')}
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* ADD THIS: Rejected requests card */}
-          <div className="col-md-3 mb-3">
-            <div 
-              className="card border-0 shadow-sm h-100" 
-              style={{ 
-                borderRadius: '12px',
-                backgroundColor: isDark ? '#000000' : '#ffffff',
-                border: isDark ? '1px solid #333333' : '1px solid #e5e7eb'
-              }}
-            >
-              <div className="card-body text-center p-4">
-                <div className="text-danger mb-3" style={{ fontSize: '2.5rem' }}>🚫</div>
-                <h3 className="text-danger mb-1">{dashboardData.totals.rejected || 0}</h3>
-                <p className={`mb-0 ${isDark ? 'text-light' : 'text-muted'}`}>
-                  {t('rejected', 'Rejected')}
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
+       
         
-        {/* Quick Actions - Updated */}
-        <div className="col-lg-4">
-          <div 
-            className="card border-0 shadow-sm" 
-            style={{ 
-              borderRadius: '12px',
-              backgroundColor: isDark ? '#000000' : '#ffffff',
-              border: isDark ? '1px solid #333333' : '1px solid #e5e7eb'
-            }}
-          >
-            <div className="card-header bg-transparent border-0 p-4">
-              <h5 className="text-danger mb-0">⚡ {t('quickActions')}</h5>
-            </div>
-            <div className="card-body p-4">
-              <div className="d-grid gap-2">
-                {canViewRequests() && (
-                  <button 
-                    className="btn btn-outline-danger"
-                    onClick={() => setActiveTab('requests')}
-                    style={{ borderRadius: '8px' }}
-                  >
-                    📋 {t('viewAll')} {t('requests')}
-                  </button>
-                )}
-                
-                {canViewRequests() && (
-                  <button 
-                    className="btn btn-outline-danger"
-                    onClick={() => {
-                      setFilters({...filters, status: 'Rejected'});
-                      setActiveTab('requests');
-                    }}
-                    style={{ borderRadius: '8px' }}
-                  >
-                    🚫 {t('rejected', 'Rejected')} ({dashboardData.totals.rejected || 0})
-                  </button>
-                )}
-
-                {canViewRequests() && (
-                  <>
-                    <button 
-                      className="btn btn-outline-warning"
-                      onClick={() => {
-                        setFilters({...filters, status: 'Pending'});
-                        setActiveTab('requests');
-                      }}
-                      style={{ borderRadius: '8px' }}
-                    >
-                      ⏳ {t('pending')} ({dashboardData.totals.pending || 0})
-                    </button>
-                    <button 
-                      className="btn btn-outline-info"
-                      onClick={() => {
-                        setFilters({...filters, status: 'Informed'});
-                        setActiveTab('requests');
-                      }}
-                      style={{ borderRadius: '8px' }}
-                    >
-                      💬 {t('informed')} ({dashboardData.totals.informed || 0})
-                    </button>
-                  </>
-                )}
-                
-                {/* ADD THIS: Statistics quick action */}
-                {(isDepartmentAdmin() || isSuperAdmin()) && (
-                  <button 
-                    className="btn btn-outline-success"
-                    onClick={() => setActiveTab('statistics')}
-                    style={{ borderRadius: '8px' }}
-                  >
-                    📈 {t('viewStatistics', 'View Statistics')}
-                  </button>
-                )}
-                
-                {canManageSettings() && (
-                  <button 
-                    className="btn btn-outline-secondary"
-                    onClick={() => setActiveTab('settings')}
-                    style={{ borderRadius: '8px' }}
-                  >
-                    ⚙️ {t('settings')}
-                  </button>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
       </div>
     ) : (
       <div 
@@ -856,7 +682,7 @@ const handleRejectRequest = async (rejectionReason) => {
     <div>
       <div className="d-flex justify-content-between align-items-center mb-4">
         <h3 className={isDark ? 'text-light' : 'text-dark'}>
-          📋 {t('manageRequests')} - {department}
+           {t('manageRequests')} - {department}
           {!canManageRequests() && (
             <small className="badge bg-warning ms-2">Read Only</small>
           )}

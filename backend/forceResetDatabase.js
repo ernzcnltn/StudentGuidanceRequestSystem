@@ -59,7 +59,7 @@ async function forceResetDatabase() {
     });
 
     // 4. Create all tables from scratch
-    console.log('📋 Creating fresh tables...');
+    console.log(' Creating fresh tables...');
     
     // Create request_types table
     await freshPool.execute(`
@@ -278,36 +278,36 @@ async function forceResetDatabase() {
 
     // Show all tables
     const [tables] = await freshPool.execute('SHOW TABLES');
-    console.log('\n📋 Created Tables:');
+    console.log('\n Created Tables:');
     tables.forEach(table => {
       const tableName = Object.values(table)[0];
       console.log(`   ✅ ${tableName}`);
     });
 
-    console.log('\n📊 Database FORCE Reset Complete!');
+    console.log('\n Database FORCE Reset Complete!');
     console.log('=================================');
     console.log('Table Counts:');
-    console.log(`   👨‍💼 Admin Users: ${verification[0].admin_count}`);
-    console.log(`   👨‍🎓 Students: ${verification[0].student_count}`);
-    console.log(`   📋 Request Types: ${verification[0].type_count}`);
-    console.log(`   📝 Requests: ${verification[0].request_count}`);
-    console.log(`   📎 Attachments: ${verification[0].attachment_count}`);
-    console.log(`   💬 Responses: ${verification[0].response_count}`);
+    console.log(`    Admin Users: ${verification[0].admin_count}`);
+    console.log(`    Students: ${verification[0].student_count}`);
+    console.log(`   Request Types: ${verification[0].type_count}`);
+    console.log(`   Requests: ${verification[0].request_count}`);
+    console.log(`    Attachments: ${verification[0].attachment_count}`);
+    console.log(`    Responses: ${verification[0].response_count}`);
 
-    console.log('\n🎯 Test Accounts:');
-    console.log('📚 Student Account:');
+    console.log('\n Test Accounts:');
+    console.log(' Student Account:');
     console.log('   Student Number: 20210001');
     console.log('   Password: 123456');
     
-    console.log('\n👨‍💼 Admin Accounts (password: admin123):');
+    console.log('\n Admin Accounts (password: admin123):');
     console.log('   - accounting_admin (Accounting Department)');
     console.log('   - academic_admin (Academic Department)');
     console.log('   - dormitory_admin (Dormitory Department)');
     console.log('   - student_affairs_admin (Student Affairs Department)');
     console.log('   - campus_services_admin (Campus Services Department)');
 
-    console.log('\n✅ Database is completely fresh and ready!');
-    console.log('🚀 Run: npm run dev');
+    console.log('\n Database is completely fresh and ready!');
+    console.log(' Run: npm run dev');
 
     await freshPool.end();
 

@@ -253,7 +253,7 @@ router.get('/dashboard',
       }
       
       const [performanceStats] = await pool.execute(performanceQuery, performanceParams);
-      console.log('📊 Performance stats result:', performanceStats);
+      console.log(' Performance stats result:', performanceStats);
       
       // Format response with CORRECT data
       const totals = {
@@ -346,7 +346,7 @@ router.get('/rbac/roles',
   requirePermission('users', 'view'),
   async (req, res) => {
     try {
-      console.log('🎭 Fetching all roles...');
+      console.log(' Fetching all roles...');
       
       const [roles] = await pool.execute(`
         SELECT 
@@ -683,7 +683,7 @@ router.post('/rbac/create-permission',
       } = req.body;
       const creatorId = req.admin.admin_id;
 
-      console.log('🔐 Permission creation request:', {
+      console.log(' Permission creation request:', {
         permission_name, display_name, resource, action, creatorId
       });
 
@@ -1150,7 +1150,7 @@ router.get('/requests',
       const isPureSuperAdmin = req.admin.is_super_admin && !req.admin.department;
       const { status, include_unassigned } = req.query;
       
-      console.log('📋 FIXED: Fetching admin requests:', {
+      console.log(' FIXED: Fetching admin requests:', {
         adminId: req.admin.admin_id,
         username: req.admin.username,
         department: isPureSuperAdmin ? 'ALL' : department,
@@ -1228,12 +1228,12 @@ router.get('/requests',
           gr.submitted_at DESC
       `;
 
-      console.log('📋 FIXED: Executing query:', query.substring(0, 200) + '...');
-      console.log('📋 FIXED: Query params:', params);
+      console.log(' FIXED: Executing query:', query.substring(0, 200) + '...');
+      console.log(' FIXED: Query params:', params);
 
       const [requests] = await pool.execute(query, params);
       
-      console.log('📋 FIXED: Query results:', {
+      console.log(' FIXED: Query results:', {
         totalFound: requests.length,
         sampleRequest: requests[0] ? {
           id: requests[0].request_id,
@@ -3914,7 +3914,7 @@ router.post('/admin-auth/requests/auto-assign',
       
       const [unassignedRequests] = await pool.execute(unassignedQuery, params);
       
-      console.log(`📋 Found ${unassignedRequests.length} unassigned requests`);
+      console.log(` Found ${unassignedRequests.length} unassigned requests`);
       
       const results = [];
       let successCount = 0;
@@ -4715,7 +4715,7 @@ router.post('/rbac/assign-role',
       const { user_id, role_id, expires_at } = req.body;
       const assignerId = req.admin.admin_id;
 
-      console.log('🎭 Role assignment request:', { user_id, role_id, assignerId, expires_at });
+      console.log(' Role assignment request:', { user_id, role_id, assignerId, expires_at });
 
       if (!user_id || !role_id) {
         return res.status(400).json({
@@ -5547,7 +5547,7 @@ router.put('/requests/:requestId/reject',
 router.get('/requests/:requestId/rejection-details', authenticateAdmin, async (req, res) => {
   try {
     const { requestId } = req.params;
-    console.log('📋 Admin getting rejection details for request:', requestId);
+    console.log(' Admin getting rejection details for request:', requestId);
     
     // Departman erişim kontrolü
     let query = `
@@ -6084,7 +6084,7 @@ router.get('/rbac/permissions',
   requirePermission('users', 'view'),
   async (req, res) => {
     try {
-      console.log('🔐 Fetching all permissions...');
+      console.log(' Fetching all permissions...');
       
       const [permissions] = await pool.execute(`
         SELECT 

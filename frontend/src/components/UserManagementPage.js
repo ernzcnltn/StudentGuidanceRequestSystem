@@ -139,7 +139,7 @@ const handleDeleteUser = async (userId, username, fullName) => {
   }
 
   try {
-    console.log('🎭 Starting role assignment:', {
+    console.log(' Starting role assignment:', {
       user: selectedUser.admin_id,
       roles: selectedRoles,
       expiryDate: roleExpiryDate
@@ -149,7 +149,7 @@ const handleDeleteUser = async (userId, username, fullName) => {
     const results = [];
     for (const roleId of selectedRoles) {
       try {
-        console.log(`🎭 Assigning role ${roleId} to user ${selectedUser.admin_id}`);
+        console.log(` Assigning role ${roleId} to user ${selectedUser.admin_id}`);
         
         const result = await apiService.rbacAssignRole(
           selectedUser.admin_id, 
@@ -303,7 +303,7 @@ const handleDeleteUser = async (userId, username, fullName) => {
       <div className="d-flex justify-content-between align-items-center mb-4">
         <div>
           <h3 className={isDark ? 'text-light' : 'text-dark'}>
-            👥 User Management
+            User Management
             {departmentFilter && (
               <span className="badge bg-info ms-2">{departmentFilter}</span>
             )}
@@ -318,7 +318,7 @@ const handleDeleteUser = async (userId, username, fullName) => {
             className="btn btn-primary"
             onClick={() => setShowCreateModal(true)}
           >
-            ➕ Create User
+             Create User
           </button>
         )}
       </div>
@@ -454,7 +454,7 @@ const handleDeleteUser = async (userId, username, fullName) => {
                                 setShowRoleModal(true);
                               }}
                             >
-                              🎭 Manage Roles
+                              Manage Roles
                             </button>
                           </li>
                         )}
@@ -465,30 +465,13 @@ const handleDeleteUser = async (userId, username, fullName) => {
                               className="dropdown-item"
                               onClick={() => handleToggleSuperAdmin(user.admin_id, user.is_super_admin)}
                             >
-                              {user.is_super_admin ? '⬇️ Revoke Super Admin' : '⬆️ Make Super Admin'}
+                              {user.is_super_admin ? ' Revoke Super Admin' : ' Make Super Admin'}
                             </button>
                           </li>
                         )}
                         
-                        <li>
-                          <button 
-                            className="dropdown-item"
-                            onClick={() => showInfo('View user permissions')}
-                          >
-                            🔍 View Permissions
-                          </button>
-                        </li>
-                        
-                        {hasPermission('users', 'reset_password') && (
-                          <li>
-                            <button 
-                              className="dropdown-item"
-                              onClick={() => showInfo('Reset password feature')}
-                            >
-                              🔑 Reset Password
-                            </button>
-                          </li>
-                        )}
+                       
+                       
 
                             {hasPermission('users', 'delete') && (
   <>
@@ -503,7 +486,7 @@ const handleDeleteUser = async (userId, username, fullName) => {
         )}
         disabled={user.admin_id === admin.admin_id}
       >
-        🗑️ Delete User
+         Delete User
       </button>
     </li>
   </>
@@ -785,39 +768,7 @@ const handleDeleteUser = async (userId, username, fullName) => {
         </div>
       )}
 
-      {/* Summary Stats */}
-      <div className="row mt-4">
-        <div className="col-12">
-          <div className="card" style={cardStyle}>
-            <div className="card-body">
-              <div className="row text-center">
-                <div className="col-md-3">
-                  <div className="h4 text-primary">{filteredUsers.length}</div>
-                  <div className={isDark ? 'text-light' : 'text-muted'}>Total Users</div>
-                </div>
-                <div className="col-md-3">
-                  <div className="h4 text-success">
-                    {filteredUsers.filter(u => u.is_active).length}
-                  </div>
-                  <div className={isDark ? 'text-light' : 'text-muted'}>Active Users</div>
-                </div>
-                <div className="col-md-3">
-                  <div className="h4 text-warning">
-                    {filteredUsers.filter(u => u.is_super_admin).length}
-                  </div>
-                  <div className={isDark ? 'text-light' : 'text-muted'}>Super Admins</div>
-                </div>
-                <div className="col-md-3">
-                  <div className="h4 text-info">
-                    {filteredUsers.filter(u => u.roles && u.roles.length > 0).length}
-                  </div>
-                  <div className={isDark ? 'text-light' : 'text-muted'}>Users with Roles</div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
+      
     </div>
   );
 };

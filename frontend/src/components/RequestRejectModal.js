@@ -102,7 +102,7 @@ const RequestRejectModal = ({ show, onHide, request, onRejectConfirm, loading })
               <div className="card border-danger mb-4">
                 <div className="card-header bg-danger text-dark">
                   <h6 className="mb-0">
-                    <span className="me-2">📋</span>
+                    <span className="me-2"></span>
                     Request Information
                   </h6>
                 </div>

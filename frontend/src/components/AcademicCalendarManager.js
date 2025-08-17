@@ -337,23 +337,23 @@ const AcademicCalendarManager = () => {
   // Get event type icon
   const getEventTypeIcon = (eventType) => {
     const icons = {
-      'holiday': '🎉',
-      'break': '📚',
-      'exam_period': '📝',
-      'registration': '📋',
-      'semester_start': '🏫',
-      'semester_end': '🎓',
-      'orientation': '👋',
-      'no_classes': '🚫'
+      'holiday': '',
+      'break': '',
+      'exam_period': '',
+      'registration': '',
+      'semester_start': '',
+      'semester_end': '',
+      'orientation': '',
+      'no_classes': ''
     };
-    return icons[eventType] || '📅';
+    return icons[eventType] || '';
   };
 
   // Check if user is super admin
   if (!isSuperAdmin()) {
     return (
       <div className="alert alert-warning">
-        <h5>🔒 Access Denied</h5>
+        <h5> Access Denied</h5>
         <p>Academic Calendar Management is only available for Super Administrators.</p>
       </div>
     );
@@ -373,7 +373,7 @@ const AcademicCalendarManager = () => {
       <div className="academic-calendar-manager">
         <div className="d-flex justify-content-between align-items-center mb-4">
           <div>
-            <h3>📅 Academic Calendar Management</h3>
+            <h3> Academic Calendar Management</h3>
             <p className="text-muted">Upload and manage academic calendar documents to control student request availability</p>
           </div>
           <button 
@@ -381,7 +381,7 @@ const AcademicCalendarManager = () => {
             onClick={() => setShowUploadModal(true)}
             disabled={uploadInProgress}
           >
-            📤 Upload New Calendar
+             Upload New Calendar
           </button>
         </div>
 
@@ -390,17 +390,17 @@ const AcademicCalendarManager = () => {
           <div className="col-12">
             <div className="card">
               <div className="card-header">
-                <h5 className="mb-0">📊 Current Calendar Status</h5>
+                <h5 className="mb-0"> Current Calendar Status</h5>
               </div>
               <div className="card-body">
                 {calendarStatus ? (
                   <div className="row">
                     <div className="col-md-6">
-                      <h6>Settings</h6>
+                      <h6></h6>
                       <ul className="list-unstyled">
                         <li>
                           <strong>Calendar Enabled:</strong> 
-                          <span className={`badge ms-2 ${calendarStatus.system_info.calendar_enabled ? 'bg-success' : 'bg-danger'}`}>
+                          <span className={` ms-2 ${calendarStatus.system_info.calendar_enabled ? 'text-muted' : 'bg-danger'}`}>
                             {calendarStatus.system_info.calendar_enabled ? 'Yes' : 'No'}
                           </span>
                         </li>
@@ -410,12 +410,12 @@ const AcademicCalendarManager = () => {
                       </ul>
                     </div>
                     <div className="col-md-6">
-                      <h6>Today's Status</h6>
+                      <h6>Today's Status: </h6>
                       {calendarStatus.today_status ? (
                         <div>
-                          <p className={`mb-2 ${calendarStatus.today_status.is_holiday ? 'text-danger' : 'text-success'}`}>
+                          <p className={`mb-2 ${calendarStatus.today_status.is_holiday ? 'text-danger' : 'text-muted'}`}>
                             <strong>
-                              {calendarStatus.today_status.is_holiday ? '🚫 Holiday Period' : '✅ Regular Working Day'}
+                              {calendarStatus.today_status.is_holiday ? ' Holiday Period' : ' Regular Working Day'}
                             </strong>
                           </p>
                           {calendarStatus.today_status.is_holiday && (
@@ -447,7 +447,7 @@ const AcademicCalendarManager = () => {
           <div className="col-12">
             <div className="card">
               <div className="card-header">
-                <h5 className="mb-0">⚙️ Calendar Settings</h5>
+                <h5 className="mb-0"> Calendar Settings</h5>
               </div>
               <div className="card-body">
                 <div className="row">
@@ -504,10 +504,10 @@ const AcademicCalendarManager = () => {
                 </div>
                 <div className="mt-3">
                   <button 
-                    className="btn btn-success"
+                    className="btn btn-danger"
                     onClick={updateSettings}
                   >
-                    💾 Save Settings
+                    Save Settings
                   </button>
                 </div>
               </div>
@@ -515,66 +515,26 @@ const AcademicCalendarManager = () => {
           </div>
         </div>
 
-        {/* Active Calendar Info */}
-        {calendarStatus?.active_calendar && (
-          <div className="row mb-4">
-            <div className="col-12">
-              <div className="card">
-                <div className="card-header">
-                  <h5 className="mb-0">📋 Active Calendar</h5>
-                </div>
-                <div className="card-body">
-                  <div className="row">
-                    <div className="col-md-8">
-                      <h6>{calendarStatus.active_calendar.file_name}</h6>
-                      <p className="text-muted mb-2">
-                        Academic Year: {calendarStatus.active_calendar.academic_year} | 
-                        Total Events: {calendarStatus.active_calendar.total_events} |
-                        Uploaded: {new Date(calendarStatus.active_calendar.uploaded_at).toLocaleDateString()}
-                      </p>
-                      {calendarStatus.active_calendar.processing_notes && (
-                        <p className="text-info">{calendarStatus.active_calendar.processing_notes}</p>
-                      )}
-                    </div>
-                    <div className="col-md-4 text-end">
-                      <button 
-                        className="btn btn-outline-primary me-2"
-                        onClick={() => viewCalendarEvents(calendarStatus.active_calendar.academic_year)}
-                      >
-                        👁️ View Events
-                      </button>
-                      <span className={`badge ${getStatusBadge(calendarStatus.active_calendar.processing_status)}`}>
-                        {calendarStatus.active_calendar.processing_status}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
+       
         {/* Upcoming Events */}
         {calendarStatus?.upcoming_events && calendarStatus.upcoming_events.length > 0 && (
-          <div className="row mb-4">
+          <div className="row mb-2">
             <div className="col-12">
               <div className="card">
                 <div className="card-header">
-                  <h5 className="mb-0">📅 Upcoming Events (Next 30 Days)</h5>
+                  <h5 className="mb-0"> Upcoming Events (Next 7 Days)</h5>
                 </div>
                 <div className="card-body">
                   <div className="row">
                     {calendarStatus.upcoming_events.map((event, index) => (
-                      <div key={index} className="col-md-6 mb-2">
+                      <div key={index} className="col-md-12 mb-1">
                         <div className="d-flex align-items-center">
                           <span className="me-2">{getEventTypeIcon(event.event_type)}</span>
                           <div>
                             <strong>{event.event_name}</strong>
                             <br />
                             <small className="text-muted">
-                              {event.start_date} to {event.end_date} 
-                              ({event.days_until} days)
-                              {!event.affects_request_creation && ' - No restriction'}
+                              
                             </small>
                           </div>
                         </div>
@@ -592,12 +552,12 @@ const AcademicCalendarManager = () => {
           <div className="col-12">
             <div className="card">
               <div className="card-header d-flex justify-content-between align-items-center">
-                <h5 className="mb-0">📂 Upload History</h5>
+                <h5 className="mb-0">Upload History</h5>
                 <button 
                   className="btn btn-outline-secondary btn-sm"
                   onClick={fetchUploadHistory}
                 >
-                  🔄 Refresh
+                  Refresh
                 </button>
               </div>
               <div className="card-body">
@@ -631,9 +591,7 @@ const AcademicCalendarManager = () => {
                             </td>
                             <td>{upload.academic_year}</td>
                             <td>
-                              <span className={`badge ${getStatusBadge(upload.processing_status)}`}>
-                                {upload.processing_status}
-                              </span>
+                              
                               {upload.is_active && (
                                 <span className="badge bg-primary ms-1">Active</span>
                               )}
@@ -652,13 +610,13 @@ const AcademicCalendarManager = () => {
                                   onClick={() => viewCalendarEvents(upload.academic_year)}
                                   disabled={upload.processing_status !== 'completed'}
                                 >
-                                  👁️
+                                  View Events
                                 </button>
                                 <button 
                                   className="btn btn-outline-danger"
                                   onClick={() => deleteUpload(upload.upload_id, upload.file_name)}
                                 >
-                                  🗑️
+                                   Delete
                                 </button>
                               </div>
                             </td>
@@ -681,7 +639,7 @@ const AcademicCalendarManager = () => {
             <div className="modal-dialog modal-lg">
               <div className="modal-content">
                 <div className="modal-header">
-                  <h5 className="modal-title">📤 Upload Academic Calendar</h5>
+                  <h5 className="modal-title"> Upload Academic Calendar</h5>
                   <button 
                     type="button" 
                     className="btn-close"
@@ -691,11 +649,11 @@ const AcademicCalendarManager = () => {
                 </div>
                 <div className="modal-body">
                   <div className="alert alert-info">
-                    <h6>📋 Upload Instructions</h6>
+                    <h6> Upload Instructions</h6>
                     <ul className="mb-0">
                       <li>Upload a Word document (.doc, .docx) or text file (.txt) containing the academic calendar</li>
                       <li>The document should include dates and event names in Turkish or English</li>
-                      <li>Supported date formats: "15-19 Eylül 2025", "29 Ekim 2025", "19 Aralık 2025 - 3 Ocak 2026"</li>
+            
                       <li>Holiday events will automatically restrict student requests</li>
                       <li>Maximum file size: 10MB</li>
                     </ul>
@@ -730,7 +688,7 @@ const AcademicCalendarManager = () => {
 
                   {selectedFile && (
                     <div className="alert alert-success">
-                      <h6>📄 Selected File</h6>
+                      <h6> Selected File</h6>
                       <p className="mb-0">
                         <strong>{selectedFile.name}</strong><br />
                         Size: {formatFileSize(selectedFile.size)}<br />
@@ -778,7 +736,7 @@ const AcademicCalendarManager = () => {
         Processing...
       </>
     ) : (
-      '📤 Upload & Process'
+      ' Upload & Process'
     )}
   </button>
 </div>
@@ -795,7 +753,7 @@ const AcademicCalendarManager = () => {
             <div className="modal-dialog modal-xl">
               <div className="modal-content">
                 <div className="modal-header">
-                  <h5 className="modal-title">📅 Calendar Events</h5>
+                  <h5 className="modal-title"> Calendar Events</h5>
                   <button 
                     type="button" 
                     className="btn-close"
@@ -842,9 +800,8 @@ const AcademicCalendarManager = () => {
                                 <span className="badge bg-secondary">
                                   {event.event_type.replace('_', ' ')}
                                 </span>
-                                {event.is_recurring && (
-                                  <span className="badge bg-info ms-1">Recurring</span>
-                                )}
+                                
+                                
                               </td>
                               <td>{event.start_date}</td>
                               <td>{event.end_date}</td>
@@ -852,7 +809,7 @@ const AcademicCalendarManager = () => {
                                 {Math.ceil((new Date(event.end_date) - new Date(event.start_date)) / (1000 * 60 * 60 * 24)) + 1} days
                               </td>
                               <td>
-                                <span className={`badge ${event.affects_request_creation ? 'bg-warning' : 'bg-success'}`}>
+                                <span className={`badge ${event.affects_request_creation ? 'bg-danger' : 'bg-success'}`}>
                                   {event.affects_request_creation ? 'Yes' : 'No'}
                                 </span>
                               </td>

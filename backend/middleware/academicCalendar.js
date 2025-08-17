@@ -154,7 +154,7 @@ const enhancedWorkingHoursUtils = {
   // Check academic calendar for holidays
   async checkAcademicCalendar(dateString) {
     try {
-      console.log('🗓️ Checking academic calendar for date:', dateString);
+      console.log(' Checking academic calendar for date:', dateString);
       
       // Önce academic calendar'ın aktif olup olmadığını kontrol et
       const [calendarSettings] = await pool.execute(`
@@ -163,7 +163,7 @@ const enhancedWorkingHoursUtils = {
       `);
       
       if (calendarSettings.length === 0 || calendarSettings[0].setting_value !== 'true') {
-        console.log('📅 Academic calendar is disabled');
+        console.log(' Academic calendar is disabled');
         return {
           isAllowed: true,
           reason: 'calendar_disabled',
@@ -249,7 +249,7 @@ const enhancedWorkingHoursUtils = {
   // Get next available working day considering calendar
   async getNextWorkingTime(currentDate = new Date()) {
     try {
-      console.log('⏰ Getting next working time from date:', currentDate);
+      console.log(' Getting next working time from date:', currentDate);
       
       // ✅ FIX: Check if SQL function exists first
       const [functionExists] = await pool.execute(`
@@ -260,7 +260,7 @@ const enhancedWorkingHoursUtils = {
       `);
 
       if (functionExists[0].count === 0) {
-        console.warn('⚠️ get_next_request_creation_date function not found, using fallback');
+        console.warn(' get_next_request_creation_date function not found, using fallback');
         return await this.fallbackNextWorkingTime(currentDate);
       }
 
@@ -269,16 +269,16 @@ const enhancedWorkingHoursUtils = {
         currentDate.toISOString().split('T')[0] : 
         currentDate;
 
-      console.log('📅 Calling SQL function with date:', inputDate);
+      console.log(' Calling SQL function with date:', inputDate);
 
       const [nextResult] = await pool.execute(`
         SELECT get_next_request_creation_date(?) as next_info
       `, [inputDate]);
 
-      console.log('📋 Raw SQL function result:', nextResult[0]);
+      console.log(' Raw SQL function result:', nextResult[0]);
 
       if (!nextResult[0] || !nextResult[0].next_info) {
-        console.warn('⚠️ SQL function returned null, using fallback');
+        console.warn(' SQL function returned null, using fallback');
         return await this.fallbackNextWorkingTime(currentDate);
       }
 
@@ -286,8 +286,8 @@ const enhancedWorkingHoursUtils = {
       let nextInfo;
       const rawNextInfo = nextResult[0].next_info;
       
-      console.log('🔍 Raw next_info type:', typeof rawNextInfo);
-      console.log('🔍 Raw next_info value:', rawNextInfo);
+      console.log(' Raw next_info type:', typeof rawNextInfo);
+      console.log(' Raw next_info value:', rawNextInfo);
 
       try {
         if (typeof rawNextInfo === 'string') {
@@ -369,7 +369,7 @@ const enhancedWorkingHoursUtils = {
               };
             }
           } catch (holidayError) {
-            console.warn('⚠️ Holiday check failed, assuming working day:', holidayError);
+            console.warn(' Holiday check failed, assuming working day:', holidayError);
             // If holiday check fails, assume it's a working day
             return {
               date: checkDate.toLocaleDateString('tr-TR'),
@@ -402,7 +402,7 @@ const enhancedWorkingHoursUtils = {
       };
       
     } catch (error) {
-      console.error('❌ Fallback calculation failed:', error);
+      console.error(' Fallback calculation failed:', error);
       
       // Ultimate fallback - just return next Monday
       const today = new Date();
@@ -439,7 +439,7 @@ const enhancedWorkingHoursUtils = {
       try {
         check = await this.isWithinWorkingHoursAndCalendar();
       } catch (checkError) {
-        console.error('❌ Working hours check failed:', checkError);
+        console.error(' Working hours check failed:', checkError);
         check = {
           isAllowed: false,
           reason: 'check_error',
@@ -453,7 +453,7 @@ const enhancedWorkingHoursUtils = {
         try {
           nextWorkingTime = await this.getNextWorkingTime();
         } catch (nextTimeError) {
-          console.error('❌ Next working time failed:', nextTimeError);
+          console.error(' Next working time failed:', nextTimeError);
           nextWorkingTime = {
             error: 'Unable to calculate next working time',
             source: 'error'
@@ -472,7 +472,7 @@ const enhancedWorkingHoursUtils = {
         nextWorkingTime: nextWorkingTime
       };
     } catch (error) {
-      console.error('❌ getCurrentTimeInfo failed:', error);
+      console.error(' getCurrentTimeInfo failed:', error);
       return {
         error: 'Unable to get current time info',
         message: error.message
@@ -484,7 +484,7 @@ const enhancedWorkingHoursUtils = {
 // Enhanced middleware that includes academic calendar validation
 const validateWorkingHoursAndCalendar = async (req, res, next) => {
   try {
-    console.log('🕒📅 Checking working hours and academic calendar...');
+    console.log(' Checking working hours and academic calendar...');
     
     const check = await enhancedWorkingHoursUtils.isWithinWorkingHoursAndCalendar();
     const kktcTime = new Date().toLocaleString("en-US", {timeZone: "Europe/Istanbul"});
@@ -561,7 +561,7 @@ const validateWorkingHoursAndCalendar = async (req, res, next) => {
     next();
     
   } catch (error) {
-    console.error('❌ Working hours and calendar middleware error:', error);
+    console.error(' Working hours and calendar middleware error:', error);
     
     return res.status(500).json({
       success: false,
@@ -579,7 +579,7 @@ const validateWorkingHoursAndCalendar = async (req, res, next) => {
 const validateWorkingHoursAndCalendarWithAdminBypass = async (req, res, next) => {
   // Admin bypass
   if (req.admin) {
-    console.log('🔑 Admin bypass for working hours and calendar check');
+    console.log(' Admin bypass for working hours and calendar check');
     req.workingHoursInfo = {
       checkedAt: new Date().toISOString(),
       bypassReason: 'admin_access',
