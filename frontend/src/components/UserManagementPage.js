@@ -464,7 +464,7 @@ const UserManagementPage = ({ departmentFilter = null }) => {
                   <th>Email</th>
                   <th>Department</th>
                   <th>Roles</th>
-                  <th>Status</th>
+                  
                   <th>Actions</th>
                 </tr>
               </thead>
@@ -515,21 +515,12 @@ const UserManagementPage = ({ departmentFilter = null }) => {
                           )}
                         </div>
                       </td>
-                      <td>
-                        <div className="d-flex flex-column gap-1">
-                          {user.is_super_admin && (
-                            <span className="badge bg-danger">Super Admin</span>
-                          )}
-                          <span className={`badge ${user.is_active ? 'bg-success' : 'bg-secondary'}`}>
-                            {user.is_active ? 'Active' : 'Inactive'}
-                          </span>
-                        </div>
-                      </td>
+                      
                       <td>
                         <div className="btn-group" role="group">
                           {hasPermission('users', 'manage_roles') && (
                             <button 
-                              className="btn btn-outline-info btn-sm"
+                              className="btn btn-outline-danger btn-sm"
                               onClick={() => {
                                 setSelectedUser(user);
                                 setShowRoleModal(true);
@@ -541,7 +532,7 @@ const UserManagementPage = ({ departmentFilter = null }) => {
                           
                           {isSuperAdmin() && user.admin_id !== admin.admin_id && (
                             <button 
-                              className="btn btn-outline-warning btn-sm"
+                              className="btn btn-outline-danger btn-sm"
                               onClick={() => handleToggleSuperAdmin(user.admin_id, user.is_super_admin)}
                             >
                               {user.is_super_admin ? 'Revoke Super' : 'Make Super'}

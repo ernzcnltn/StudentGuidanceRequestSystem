@@ -103,9 +103,9 @@ const RequestsPage = () => {
 
   const getStatusBadge = (status) => {
     const statusStyles = {
-      'Pending': 'bg-warning text-dark',
-      'Informed': 'bg-info text-white',
-      'Completed': 'bg-success text-white',
+      'Pending': 'bg-danger text-white',
+      'Informed': 'bg-danger text-white',
+      'Completed': 'bg-danger text-white',
       'Rejected': 'bg-danger text-white'
     };
     return statusStyles[status] || 'bg-secondary text-white';
@@ -115,8 +115,8 @@ const RequestsPage = () => {
     const priorityStyles = {
       'Urgent': 'bg-danger text-white',
       'High': 'bg-danger text-white',
-      'Medium': 'bg-info text-white',
-      'Low': 'bg-secondary text-white'
+      'Medium': 'bg-danger text-white',
+      'Low': 'bg-danger text-white'
     };
     return priorityStyles[priority] || 'bg-secondary text-white';
   };

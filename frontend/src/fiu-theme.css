@@ -343,15 +343,15 @@ footer {
 }
 
 .notification-priority-high {
-  border-left: 4px solid #fd7e14 !important;
+  border-left: 4px solid #dc3545 !important;
 }
 
 .notification-priority-medium {
-  border-left: 4px solid #ffc107 !important;
+  border-left: 4px solid #dc3545 !important;
 }
 
 .notification-priority-low {
-  border-left: 4px solid #6c757d !important;
+  border-left: 4px solid #dc3545 !important;
 }
 
 /* Responsive notification styles */

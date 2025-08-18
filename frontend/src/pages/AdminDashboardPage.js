@@ -21,6 +21,310 @@ import { useToast } from '../contexts/ToastContext';
 import { useConfirmation } from '../hooks/useConfirmation';
 import ConfirmationModal from '../components/ConfirmationModal';
 
+// Request Detail Modal Component
+const RequestDetailModal = ({ 
+  show, 
+  onHide, 
+  request, 
+  onUpdateStatus, 
+  onRejectRequest, 
+  onSendResponse,
+  onViewAttachments,
+  canManageRequests,
+  canCreateResponses 
+}) => {
+  const { isDark } = useTheme();
+  const { t, translateRequestType } = useTranslation();
+
+  if (!show || !request) return null;
+
+  const getStatusBadge = (status) => {
+    const statusStyles = {
+      'Pending': 'bg-danger text-white',
+      'Informed': 'bg-danger text-white',
+      'Completed': 'bg-danger text-white',
+      'Rejected': 'bg-danger text-white'
+    };
+    return statusStyles[status] || 'bg-secondary text-white';
+  };
+
+  const getPriorityBadge = (priority) => {
+    const priorityStyles = {
+      'Urgent': 'bg-danger text-white',
+      'High': 'bg-danger text-white', 
+      'Medium': 'bg-danger text-white',
+      'Low': 'bg-danger text-white'
+    };
+    return priorityStyles[priority] || 'bg-info text-white';
+  };
+
+  return (
+    <>
+      {/* Modal Backdrop */}
+      <div
+        className="modal-backdrop fade show"
+        style={{ zIndex: 1040 }}
+        onClick={onHide}
+      ></div>
+
+      {/* Modal */}
+      <div
+        className="modal fade show d-block"
+        tabIndex="-1"
+        style={{ zIndex: 1050 }}
+      >
+        <div className="modal-dialog modal-xl modal-dialog-scrollable">
+          <div className="modal-content" style={{
+            backgroundColor: isDark ? '#000000' : '#ffffff',
+            borderColor: isDark ? '#4a5568' : '#e2e8f0',
+            color: isDark ? '#ffffff' : '#000000'
+          }}>
+            {/* Modal Header */}
+            <div className="modal-header" style={{
+              backgroundColor: isDark ? '#1a202c' : '#f7fafc',
+              borderColor: isDark ? '#4a5568' : '#e2e8f0'
+            }}>
+              <h5 className="modal-title">
+                <i className="fas fa-file-alt me-2 text-danger"></i>
+                Request Details  
+              </h5>
+              <button
+                type="button"
+                className="btn-close"
+                onClick={onHide}
+                style={{
+                  filter: isDark ? 'invert(1)' : 'none'
+                }}
+              ></button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="modal-body">
+              <div className="row">
+                {/* Left Column - Basic Info */}
+                <div className="col-lg-4">
+                  <div className="card mb-3" style={{
+                    backgroundColor: isDark ? '#1a202c' : '#f8f9fa',
+                    borderColor: isDark ? '#4a5568' : '#e2e8f0'
+                  }}>
+                    <div className="card-header" style={{
+                      backgroundColor: isDark ? '#2d3748' : '#e9ecef',
+                      borderColor: isDark ? '#4a5568' : '#e2e8f0'
+                    }}>
+                      <h6 className="mb-0">
+                        <i className="fas fa-info-circle me-2"></i>
+                        Basic Information
+                      </h6>
+                    </div>
+                    <div className="card-body">
+                      <div className="mb-3">
+                        <label className="form-label fw-bold">Request Type:</label>
+                        <div className="p-2 rounded" style={{
+                          backgroundColor: isDark ? '#000000' : '#ffffff',
+                          border: `1px solid ${isDark ? '#4a5568' : '#e2e8f0'}`
+                        }}>
+                          {translateRequestType(request.type_name)}
+                        </div>
+                      </div>
+
+                      <div className="mb-3">
+                        <label className="form-label fw-bold">Student:</label>
+                        <div className="p-2 rounded" style={{
+                          backgroundColor: isDark ? '#000000' : '#ffffff',
+                          border: `1px solid ${isDark ? '#4a5568' : '#e2e8f0'}`
+                        }}>
+                          <div className="fw-semibold">{request.student_name}</div>
+                          <small className={isDark ? 'text-light' : 'text-muted'}>
+                            {request.student_number}
+                          </small>
+                        </div>
+                      </div>
+
+                      <div className="mb-3">
+                        <label className="form-label fw-bold">Status:</label>
+                        <div>
+                          <span className={`badge ${getStatusBadge(request.status)}`}>
+                            {t(request.status.toLowerCase())}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="mb-3">
+                        <label className="form-label fw-bold">Priority:</label>
+                        <div>
+                          <span className={`badge ${getPriorityBadge(request.priority)}`}>
+                            {request.priority || 'Medium'}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="mb-3">
+                        <label className="form-label fw-bold">Submitted:</label>
+                        <div className={isDark ? 'text-light' : 'text-muted'}>
+                          <div>{new Date(request.submitted_at).toLocaleDateString()}</div>
+                          <small>{new Date(request.submitted_at).toLocaleTimeString()}</small>
+                        </div>
+                      </div>
+
+                      {request.attachment_count > 0 && (
+                        <div className="mb-3">
+                          <label className="form-label fw-bold">Attachments:</label>
+                          <div>
+                            <button 
+                              className="btn btn-outline-secondary btn-sm w-100"
+                              onClick={() => onViewAttachments(request.request_id)}
+                            >
+                              <i className="fas fa-paperclip me-2"></i>
+                              View Files ({request.attachment_count})
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Right Column - Content */}
+                <div className="col-lg-8">
+                  <div className="card mb-3" style={{
+                    backgroundColor: isDark ? '#1a202c' : '#f8f9fa',
+                    borderColor: isDark ? '#4a5568' : '#e2e8f0'
+                  }}>
+                    <div className="card-header" style={{
+                      backgroundColor: isDark ? '#2d3748' : '#e9ecef',
+                      borderColor: isDark ? '#4a5568' : '#e2e8f0'
+                    }}>
+                      <h6 className="mb-0">
+                        <i className="fas fa-file-text me-2"></i>
+                        Request Content
+                      </h6>
+                    </div>
+                    <div className="card-body">
+                      <div className="p-3 rounded" style={{
+                        backgroundColor: isDark ? '#000000' : '#ffffff',
+                        border: `1px solid ${isDark ? '#4a5568' : '#e2e8f0'}`,
+                        minHeight: '200px',
+                        maxHeight: '400px',
+                        overflowY: 'auto',
+                        whiteSpace: 'pre-wrap',
+                        fontFamily: 'system-ui, -apple-system, sans-serif',
+                        lineHeight: '1.6'
+                      }}>
+                        {request.content || 'No content provided'}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Additional Information */}
+                  {(request.student_email || request.student_phone) && (
+                    <div className="card" style={{
+                      backgroundColor: isDark ? '#1a202c' : '#f8f9fa',
+                      borderColor: isDark ? '#4a5568' : '#e2e8f0'
+                    }}>
+                      <div className="card-header" style={{
+                        backgroundColor: isDark ? '#2d3748' : '#e9ecef',
+                        borderColor: isDark ? '#4a5568' : '#e2e8f0'
+                      }}>
+                        <h6 className="mb-0">
+                          <i className="fas fa-address-card me-2"></i>
+                          Contact Information
+                        </h6>
+                      </div>
+                      <div className="card-body">
+                        <div className="row">
+                          {request.student_email && (
+                            <div className="col-md-6">
+                              <label className="form-label fw-bold">Email:</label>
+                              <div className="p-2 rounded" style={{
+                                backgroundColor: isDark ? '#000000' : '#ffffff',
+                                border: `1px solid ${isDark ? '#4a5568' : '#e2e8f0'}`
+                              }}>
+                                <a 
+                                  href={`mailto:${request.student_email}`}
+                                  className="text-decoration-none"
+                                  style={{ color: '#dc2626' }}
+                                >
+                                  {request.student_email}
+                                </a>
+                              </div>
+                            </div>
+                          )}
+                          {request.student_phone && (
+                            <div className="col-md-6">
+                              <label className="form-label fw-bold">Phone:</label>
+                              <div className="p-2 rounded" style={{
+                                backgroundColor: isDark ? '#000000' : '#ffffff',
+                                border: `1px solid ${isDark ? '#4a5568' : '#e2e8f0'}`
+                              }}>
+                                <a 
+                                  href={`tel:${request.student_phone}`}
+                                  className="text-decoration-none"
+                                  style={{ color: '#dc2626' }}
+                                >
+                                  {request.student_phone}
+                                </a>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Footer - Actions */}
+            <div className="modal-footer" style={{
+              backgroundColor: isDark ? '#1a202c' : '#f7fafc',
+              borderColor: isDark ? '#4a5568' : '#e2e8f0'
+            }}>
+              <div className="d-flex gap-2 w-100">
+                {canCreateResponses && (
+                  <button
+                    className="btn btn-outline-danger"
+                    onClick={() => onSendResponse(request)}
+                  >
+                    <i className="fas fa-reply me-2"></i>
+                    Send Response
+                  </button>
+                )}
+
+                {canManageRequests && request.status !== 'Completed' && (
+                  <button
+                    className="btn btn-outline-danger"
+                    onClick={() => onUpdateStatus(request.request_id, 'Completed')}
+                  >
+                    <i className="fas fa-check me-2"></i>
+                    Mark Complete
+                  </button>
+                )}
+
+                {canManageRequests && request.status === 'Pending' && (
+                  <button
+                    className="btn btn-outline-danger"
+                    onClick={() => onRejectRequest(request)}
+                  >
+                    <i className="fas fa-times me-2"></i>
+                    Reject
+                  </button>
+                )}
+
+                <button
+                  className="btn btn-secondary ms-auto"
+                  onClick={onHide}
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </>
+  );
+};
+
 const AdminDashboardPage = () => {
   const [selectedRequestForResponse, setSelectedRequestForResponse] = useState(null);
   const [showResponseModal, setShowResponseModal] = useState(false);
@@ -50,6 +354,10 @@ const AdminDashboardPage = () => {
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [selectedRequestForReject, setSelectedRequestForReject] = useState(null);
   const [rejectLoading, setRejectLoading] = useState(false);
+
+  // Request Detail Modal States
+  const [showRequestDetailModal, setShowRequestDetailModal] = useState(false);
+  const [selectedRequestForDetail, setSelectedRequestForDetail] = useState(null);
 
   const { confirmationState, showConfirmation } = useConfirmation();
   const { isDark, toggleTheme } = useTheme();
@@ -95,6 +403,39 @@ const AdminDashboardPage = () => {
       console.log('Logout confirmed');
       logout();
     }
+  };
+
+  // Request Detail Modal Handlers
+  const handleViewRequestDetail = (request) => {
+    setSelectedRequestForDetail(request);
+    setShowRequestDetailModal(true);
+  };
+
+  const handleCloseRequestDetail = () => {
+    setShowRequestDetailModal(false);
+    setSelectedRequestForDetail(null);
+  };
+
+  const handleSendResponseFromDetail = (request) => {
+    setSelectedRequestForResponse({
+      id: request.request_id,
+      title: `#${request.request_id} - ${request.type_name}`,
+      student: request.student_name
+    });
+    setShowResponseModal(true);
+    setShowRequestDetailModal(false);
+  };
+
+  const handleRejectFromDetail = (request) => {
+    setSelectedRequestForReject(request);
+    setShowRejectModal(true);
+    setShowRequestDetailModal(false);
+  };
+
+  const handleViewAttachmentsFromDetail = (requestId) => {
+    setSelectedRequestId(requestId);
+    setShowAttachments(true);
+    setShowRequestDetailModal(false);
   };
 
   // Rejection details fetch fonksiyonu
@@ -426,9 +767,9 @@ const AdminDashboardPage = () => {
 
   const getStatusBadge = (status) => {
     const statusStyles = {
-      'Pending': 'bg-warning text-dark',
-      'Informed': 'bg-info text-white',
-      'Completed': 'bg-success text-white',
+      'Pending': 'bg-danger text-white',
+      'Informed': 'bg-danger text-white',
+      'Completed': 'bg-danger text-white',
       'Rejected': 'bg-danger text-white'
     };
     return statusStyles[status] || 'bg-secondary text-white';
@@ -437,9 +778,9 @@ const AdminDashboardPage = () => {
   const getPriorityBadge = (priority) => {
     const priorityStyles = {
       'Urgent': 'bg-danger text-white',
-      'High': 'bg-warning text-dark', 
-      'Medium': 'bg-info text-white',
-      'Low': 'bg-secondary text-white'
+      'High': 'bg-danger text-white', 
+      'Medium': 'bg-danger text-white',
+      'Low': 'bg-danger text-white'
     };
     return priorityStyles[priority] || 'bg-info text-white';
   };
@@ -660,7 +1001,7 @@ const AdminDashboardPage = () => {
                   <table className="table table-hover">
                     <thead className={isDark ? 'table-dark' : 'table-light'}>
                       <tr>
-                        <th>ID</th>
+                        
                         <th>Type</th>
                         <th>Student</th>
                         <th>Priority</th>
@@ -685,8 +1026,10 @@ const AdminDashboardPage = () => {
                             key={request.request_id} 
                             id={`request-${request.request_id}`}
                             className={isDark ? 'text-light' : ''}
+                            style={{ cursor: 'pointer' }}
+                            onClick={() => handleViewRequestDetail(request)}
                           >
-                            <td>{request.request_id}</td>
+                            
                             <td>
                               <div className="fw-semibold">
                                 {translateRequestType(request.type_name)}
@@ -719,35 +1062,12 @@ const AdminDashboardPage = () => {
                               </small>
                             </td>
                             <td>
-                              <div className="btn-group" role="group">
-                                {canCreateResponses() && (
-                                  <button
-                                    className="btn btn-outline-info btn-sm"
-                                    onClick={() => {
-                                      setSelectedRequestForResponse({
-                                        id: request.request_id,
-                                        title: `#${request.request_id} - ${request.type_name}`,
-                                        student: request.student_name
-                                      });
-                                      setShowResponseModal(true);
-                                    }}
-                                  >
-                                    Response
-                                  </button>
-                                )}
-
-                                {canManageRequests() && request.status !== 'Completed' && (
-                                  <button
-                                    className="btn btn-outline-success btn-sm"
-                                    onClick={() => updateRequestStatus(request.request_id, 'Completed')}
-                                  >
-                                    Complete
-                                  </button>
-                                )}
+                              <div className="btn-group" role="group" onClick={(e) => e.stopPropagation()}>
+                               
 
                                 {request.attachment_count > 0 && (
                                   <button 
-                                    className="btn btn-outline-secondary btn-sm"
+                                    className="btn btn-outline-danger btn-sm"
                                     onClick={() => {
                                       setSelectedRequestId(request.request_id);
                                       setShowAttachments(true);
@@ -896,7 +1216,7 @@ const AdminDashboardPage = () => {
                   </div>
                 </div>
                 <div className="d-flex gap-2">
-                  <button type="submit" className="btn btn-success">
+                  <button type="submit" className="btn btn-danger">
                     {t('addRequestType')}
                   </button>
                   <button 
@@ -961,13 +1281,13 @@ const AdminDashboardPage = () => {
                             </td>
                             <td>
                               {type.is_document_required ? (
-                                <span className="badge bg-warning text-dark">Required</span>
+                                <span className="badge bg-danger text-dark">Required</span>
                               ) : (
-                                <span className="badge bg-secondary">Optional</span>
+                                <span className="badge bg-danger">Optional</span>
                               )}
                             </td>
                             <td>
-                              <span className={`badge ${type.is_disabled ? 'bg-danger' : 'bg-success'}`}>
+                              <span className={`badge ${type.is_disabled ? 'bg-danger' : 'bg-info'}`}>
                                 {type.is_disabled ? t('disabled') : t('active')}
                               </span>
                             </td>
@@ -1270,6 +1590,19 @@ const AdminDashboardPage = () => {
         {/* Tab Content */}
         {renderTabContent()}
       </div>
+
+      {/* Request Detail Modal */}
+      <RequestDetailModal
+        show={showRequestDetailModal}
+        onHide={handleCloseRequestDetail}
+        request={selectedRequestForDetail}
+        onUpdateStatus={updateRequestStatus}
+        onRejectRequest={handleRejectFromDetail}
+        onSendResponse={handleSendResponseFromDetail}
+        onViewAttachments={handleViewAttachmentsFromDetail}
+        canManageRequests={canManageRequests()}
+        canCreateResponses={canCreateResponses()}
+      />
 
       {/* Attachment Viewer Modal */}
       {showAttachments && selectedRequestId && (

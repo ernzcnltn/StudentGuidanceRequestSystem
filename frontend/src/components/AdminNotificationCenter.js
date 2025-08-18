@@ -157,22 +157,22 @@ const AdminNotificationCenter = ({ onNotificationClick }) => {
 
   const getNotificationIcon = (type) => {
     const icons = {
-      'new_request': '📝',
-      'status_update': '📊',
-      'urgent_request': '🚨',
-      'system': '⚙️',
-      'department': '🏢',
-      'student_message': '💬',
-      'priority_change': '⚡'
+      'new_request': '',
+      'status_update': '',
+      'urgent_request': '',
+      'system': '',
+      'department': '',
+      'student_message': '',
+      'priority_change': ''
     };
     return icons[type] || '🔔';
   };
 
   const getNotificationColor = (type, priority) => {
     if (priority === 'urgent' || type === 'urgent_request') return 'text-danger';
-    if (type === 'new_request') return 'text-primary';
-    if (type === 'status_update') return 'text-success';
-    if (type === 'system') return 'text-warning';
+    if (type === 'new_request') return 'text-danger';
+    if (type === 'status_update') return 'text-danger';
+    if (type === 'system') return 'text-danger';
     return 'text-info';
   };
 

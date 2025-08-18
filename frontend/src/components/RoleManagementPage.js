@@ -380,21 +380,21 @@ const RoleManagementPage = () => {
                       </td>
                       <td>
                         {role.is_system_role ? (
-                          <span className="badge bg-warning text-dark">System Role</span>
+                          <span className="badge bg-danger text-dark">System Role</span>
                         ) : (
-                          <span className="badge bg-success">Custom Role</span>
+                          <span className="badge bg-danger">Custom Role</span>
                         )}
                       </td>
                       <td>
                         <div className="btn-group" role="group">
                           <button 
-                            className="btn btn-outline-info btn-sm"
+                            className="btn btn-outline-danger btn-sm"
                             onClick={() => handleViewPermissions(role)}
                           >
                             View Permissions
                           </button>
                           <button 
-                            className="btn btn-outline-primary btn-sm"
+                            className="btn btn-outline-danger btn-sm"
                             onClick={() => handleViewPermissions(role)}
                           >
                             Edit Permissions
@@ -516,7 +516,7 @@ const RoleManagementPage = () => {
                 <div className="modal-footer">
                   <button 
                     type="button" 
-                    className="btn btn-secondary"
+                    className="btn btn-danger"
                     onClick={() => setShowCreateModal(false)}
                   >
                     Cancel
@@ -627,7 +627,7 @@ const RoleManagementPage = () => {
               <div className="modal-footer">
                 <button 
                   type="button" 
-                  className="btn btn-secondary"
+                  className="btn btn-danger"
                   onClick={() => {
                     setShowPermissionModal(false);
                     setSelectedRole(null);
@@ -638,14 +638,14 @@ const RoleManagementPage = () => {
                 </button>
                 <button 
                   type="button" 
-                  className="btn btn-warning me-2"
+                  className="btn btn-danger me-2"
                   onClick={() => setSelectedPermissions([])}
                 >
                   Clear All
                 </button>
                 <button 
                   type="button" 
-                  className="btn btn-info me-2"
+                  className="btn btn-danger me-2"
                   onClick={() => setSelectedPermissions(allPermissions.map(p => p.permission_id))}
                 >
                   Select All

@@ -316,7 +316,7 @@ router.post('/',
       const { type_id, content, priority = 'Medium' } = req.body;
       const studentId = req.student.student_id;
 
-      console.log('📝 Creating new request with calendar validation:', {
+      console.log(' Creating new request with calendar validation:', {
         studentId,
         type_id,
         priority,
@@ -640,7 +640,7 @@ router.post('/requests', authenticateStudent, async (req, res) => {
     const { type_id, content, priority = 'Medium' } = req.body;
     const studentId = req.student.student_id;
 
-    console.log('📝 Creating new request with auto-assignment:', {
+    console.log(' Creating new request with auto-assignment:', {
       studentId,
       type_id,
       priority,
