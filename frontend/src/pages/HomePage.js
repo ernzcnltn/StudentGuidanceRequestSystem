@@ -107,7 +107,7 @@ const HomePage = () => {
           Submit and track your requests efficiently
         </p>
         <Link className="btn btn-light btn-lg" to="/create-request">
-          <i className="bi bi-plus-circle me-2"></i>
+        
           Create Request
         </Link>
       </div>
@@ -155,7 +155,7 @@ const HomePage = () => {
                   >
                     <div className="d-flex align-items-center">
                       <i 
-                        className={`${getCategoryIcon(category)} me-2`} 
+                        
                         style={{ fontSize: '1.5rem', color: '#dc2626' }}
                       ></i>
                       <h5 className="mb-0">

@@ -321,7 +321,7 @@ const RBACManagement = () => {
                             setShowUserModal(true);
                           }}
                         >
-                          ✏️
+                          
                         </button>
                         <button
                           className="btn btn-outline-info"
@@ -329,7 +329,7 @@ const RBACManagement = () => {
                             // Show user details modal
                           }}
                         >
-                          👁️
+                          
                         </button>
                       </div>
                     </td>

@@ -24,10 +24,10 @@ const Toast = ({ message, type = 'info', duration = 5000, onClose }) => {
 
   const getIcon = () => {
     const icons = {
-      info: 'ℹ️',
-      success: '✅',
-      warning: '⚠️',
-      error: '❌'
+      info: '',
+      success: '',
+      warning: '',
+      error: ''
     };
     return icons[type] || icons.info;
   };

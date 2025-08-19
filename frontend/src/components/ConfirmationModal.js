@@ -36,22 +36,22 @@ const ConfirmationModal = ({
       danger: {
         headerBg: 'bg-danger',
         confirmBtn: 'btn-danger',
-        icon: '⚠️'
+        icon: ''
       },
       warning: {
         headerBg: 'bg-warning',
         confirmBtn: 'btn-warning',
-        icon: '⚠️'
+        icon: ''
       },
       info: {
         headerBg: 'bg-info',
         confirmBtn: 'btn-info',
-        icon: 'ℹ️'
+        icon: ''
       },
       success: {
         headerBg: 'bg-success',
         confirmBtn: 'btn-success',
-        icon: '✅'
+        icon: ''
       }
     };
     return styles[type] || styles.danger;

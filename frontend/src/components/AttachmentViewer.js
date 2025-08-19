@@ -396,7 +396,7 @@ const AttachmentViewer = ({ requestId, onClose }) => {
                                       </>
                                     ) : (
                                       <>
-                                        👁️ {t('preview')}
+                                         {t('preview')}
                                       </>
                                     )}
                                   </button>
@@ -414,7 +414,7 @@ const AttachmentViewer = ({ requestId, onClose }) => {
                                     </>
                                   ) : (
                                     <>
-                                      📥 {t('download')}
+                                       {t('download')}
                                     </>
                                   )}
                                 </button>

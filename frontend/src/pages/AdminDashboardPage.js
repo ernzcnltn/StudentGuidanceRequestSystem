@@ -1527,8 +1527,7 @@ const AdminDashboardPage = () => {
                   <div className="text-white">
                     <h4 className="mb-0 fw-bold">
                       {department} {t('adminPanel')}
-                      {isSuperAdmin() && <small className="badge bg-warning text-dark ms-2">Super Admin</small>}
-                      {isDepartmentAdmin() && !isSuperAdmin() && <small className="badge bg-info ms-2">Dept Admin</small>}
+                     
                     </h4>
                     <small className="opacity-90">
                       {isSuperAdmin() ? 'System Administrator' : t('manageDepartment')}

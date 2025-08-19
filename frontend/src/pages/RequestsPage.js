@@ -369,7 +369,7 @@ const RequestsPage = () => {
                 
                 {(request.status === 'Informed' || request.status === 'Completed') && (
                   <button
-                    className="btn btn-info"
+                    className="btn btn-danger"
                     onClick={() => {
                       setSelectedRequestForResponses({
                         id: request.request_id,
@@ -655,105 +655,7 @@ const RequestsPage = () => {
         </Link>
       </div>
 
-      {/* Stats */}
-      <div className="row mb-4">
-        <div className="col-md-2">
-          <div 
-            className="card text-center"
-            style={{
-              backgroundColor: isDark ? '#2d3748' : '#ffffff',
-              borderColor: isDark ? '#718096' : '#e2e8f0'
-            }}
-          >
-            <div className="card-body">
-              <h3 className="text-danger mb-1">{requests.length}</h3>
-              <small className={isDark ? 'text-light' : 'text-muted'}>Total Requests</small>
-            </div>
-          </div>
-        </div>
-        <div className="col-md-2">
-          <div 
-            className="card text-center"
-            style={{
-              backgroundColor: isDark ? '#2d3748' : '#ffffff',
-              borderColor: isDark ? '#718096' : '#e2e8f0'
-            }}
-          >
-            <div className="card-body">
-              <h3 className="text-warning mb-1">{requests.filter(r => r.status === 'Pending').length}</h3>
-              <small className={isDark ? 'text-light' : 'text-muted'}>Pending</small>
-            </div>
-          </div>
-        </div>
-        <div className="col-md-2">
-          <div 
-            className="card text-center"
-            style={{
-              backgroundColor: isDark ? '#2d3748' : '#ffffff',
-              borderColor: isDark ? '#718096' : '#e2e8f0'
-            }}
-          >
-            <div className="card-body">
-              <h3 className="text-info mb-1">{requests.filter(r => r.status === 'Informed').length}</h3>
-              <small className={isDark ? 'text-light' : 'text-muted'}>Informed</small>
-            </div>
-          </div>
-        </div>
-        <div className="col-md-2">
-          <div 
-            className="card text-center"
-            style={{
-              backgroundColor: isDark ? '#2d3748' : '#ffffff',
-              borderColor: isDark ? '#718096' : '#e2e8f0'
-            }}
-          >
-            <div className="card-body">
-              <h3 className="text-success mb-1">{requests.filter(r => r.status === 'Completed').length}</h3>
-              <small className={isDark ? 'text-light' : 'text-muted'}>Completed</small>
-            </div>
-          </div>
-        </div>
-        <div className="col-md-2">
-          <div 
-            className="card text-center"
-            style={{
-              backgroundColor: isDark ? '#2d3748' : '#ffffff',
-              borderColor: isDark ? '#718096' : '#e2e8f0'
-            }}
-          >
-            <div className="card-body">
-              <h3 className="text-danger mb-1">{requests.filter(r => r.status === 'Rejected').length}</h3>
-              <small className={isDark ? 'text-light' : 'text-muted'}>Rejected</small>
-            </div>
-          </div>
-        </div>
-        <div className="col-md-2">
-          <div 
-            className="card text-center"
-            style={{
-              backgroundColor: isDark ? '#2d3748' : '#ffffff',
-              borderColor: isDark ? '#718096' : '#e2e8f0'
-            }}
-          >
-            <div className="card-body">
-              <button 
-                className="btn btn-outline-danger btn-sm w-100"
-                onClick={fetchRequests}
-                disabled={loading}
-              >
-                {loading ? (
-                  <>
-                    <span className="spinner-border spinner-border-sm me-1" role="status"></span>
-                    Loading...
-                  </>
-                ) : (
-                  'Refresh'
-                )}
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
+     
 
       {/* Filters */}
       <div className="d-flex justify-content-between align-items-center mb-4">
@@ -770,7 +672,7 @@ const RequestsPage = () => {
           </button>
           <button
             type="button"
-            className={`btn ${filter === 'Pending' ? 'btn-warning' : 'btn-outline-warning'}`}
+            className={`btn ${filter === 'Pending' ? 'btn-danger' : 'btn-outline-danger'}`}
             onClick={() => {
               setFilter('Pending');
               setCurrentPage(1);
@@ -780,7 +682,7 @@ const RequestsPage = () => {
           </button>
           <button
             type="button"
-            className={`btn ${filter === 'Informed' ? 'btn-info' : 'btn-outline-info'}`}
+            className={`btn ${filter === 'Informed' ? 'btn-danger' : 'btn-outline-danger'}`}
             onClick={() => {
               setFilter('Informed');
               setCurrentPage(1);
@@ -790,7 +692,7 @@ const RequestsPage = () => {
           </button>
           <button
             type="button"
-            className={`btn ${filter === 'Completed' ? 'btn-success' : 'btn-outline-success'}`}
+            className={`btn ${filter === 'Completed' ? 'btn-danger' : 'btn-outline-danger'}`}
             onClick={() => {
               setFilter('Completed');
               setCurrentPage(1);
@@ -847,13 +749,13 @@ const RequestsPage = () => {
                 <table className="table table-hover">
                   <thead className={isDark ? 'table-dark' : 'table-light'}>
                     <tr>
-                      <th>ID</th>
+                      
                       <th>Type</th>
                       <th>Content</th>
                       <th>Priority</th>
                       <th>Status</th>
                       <th>Submitted</th>
-                      <th>Actions</th>
+                      
                     </tr>
                   </thead>
                   <tbody>
@@ -873,11 +775,7 @@ const RequestsPage = () => {
                             setShowDetailsModal(true);
                           }}
                         >
-                          <td>
-                            <span className="fw-bold text-danger">
-                              #{request.request_id}
-                            </span>
-                          </td>
+                         
                           <td>
                             <div className="fw-semibold">
                               {translateRequestType(request.type_name)}
@@ -912,46 +810,11 @@ const RequestsPage = () => {
                           </td>
                           <td>
                             <div className="btn-group btn-group-sm" role="group">
-                              <button
-                                className="btn btn-outline-primary btn-sm"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setSelectedRequestDetails(request);
-                                  setShowDetailsModal(true);
-                                }}
-                              >
-                                View
-                              </button>
+                             
 
-                              {request.attachment_count > 0 && (
-                                <button
-                                  className="btn btn-outline-secondary btn-sm"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setSelectedRequestId(request.request_id);
-                                    setShowAttachments(true);
-                                  }}
-                                >
-                                  Files ({request.attachment_count})
-                                </button>
-                              )}
+                              
 
-                              {(request.status === 'Informed' || request.status === 'Completed') && (
-                                <button
-                                  className="btn btn-outline-info btn-sm"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    console.log('Opening responses modal for request:', request.request_id);
-                                    setSelectedRequestForResponses({
-                                      id: request.request_id,
-                                      title: `#${request.request_id} - ${request.type_name}`
-                                    });
-                                    setShowResponsesModal(true);
-                                  }}
-                                >
-                                  Responses
-                                </button>
-                              )}
+                              
                             </div>
                           </td>
                         </tr>
@@ -972,27 +835,7 @@ const RequestsPage = () => {
         </div>
       </div>
 
-      {/* Help Section */}
-      <div className="mt-5 pt-4 border-top" style={{
-        borderColor: isDark ? '#718096' : '#e2e8f0'
-      }}>
-        <div className="row">
-          <div className="col-md-6">
-            <h5 className={isDark ? 'text-light' : 'text-dark'}>Need Help?</h5>
-            <p className={isDark ? 'text-light' : 'text-muted'}>If you need assistance, please feel free to contact us</p>
-          </div>
-          <div className="col-md-6">
-            <div className="d-flex gap-2">
-              <Link to="/create-request" className="btn btn-danger">
-                Create New Request
-              </Link>
-              <button className="btn btn-outline-danger" onClick={fetchRequests}>
-                Refresh All
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
+     
 
       {/* Request Details Modal */}
       {showDetailsModal && selectedRequestDetails && (
