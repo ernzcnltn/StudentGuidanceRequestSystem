@@ -50,9 +50,10 @@ export const AuthProvider = ({ children }) => {
     }
   }, [checkAuthStatus]);
 
-  const login = async (student_number, password) => {
+  // Email ile giriş - güncellenmiş fonksiyon
+  const login = async (email, password) => {
     try {
-      const response = await apiService.login(student_number, password);
+      const response = await apiService.loginWithEmail(email, password);
       
       if (response.data.success) {
         const { token, user: userData } = response.data.data;
@@ -64,6 +65,7 @@ export const AuthProvider = ({ children }) => {
         return { success: true };
       }
     } catch (error) {
+      console.error('Student login error:', error);
       const message = error.response?.data?.error || 'Student login failed';
       return { success: false, error: message };
     }
@@ -75,8 +77,8 @@ export const AuthProvider = ({ children }) => {
       
       if (response.data.success) {
         return { 
-          success: true, 
-          message: 'Registration successful! Please login with your credentials.' 
+          success: true,
+          message: 'Registration successful! Please login with your credentials.'
         };
       }
     } catch (error) {

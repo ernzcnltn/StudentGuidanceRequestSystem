@@ -4,6 +4,9 @@ export const translations = {
 
 
 
+    'guidanceSystem':'Rehberlik Sistemi',
+'loginDescription':'Sisteme erişmek için email ve şifrenizi girin',
+    'enterYourEmail':'E-posta adresnizi girin',
    "failed_to_load_admin_statistics": "Yönetici istatistikleri yüklenemedi",
     "access_denied_insufficient_permissions": "Erişim reddedildi: İstatistikleri görüntülemek için yetersiz yetki",
     "failed_to_load_unassigned_requests": "Atanmamış talepler yüklenemedi",
@@ -1063,6 +1066,11 @@ adminLogin: 'Akademik Personel Girişi',
 
 
 
+    'guidanceSystem':'Guidance System',
+
+'loginDescription':'Enter your email and password to access the system',
+
+'enterYourEmail':'Enter your email address',
      "failed_to_load_admin_statistics": "Failed to load admin statistics",
   "access_denied_insufficient_permissions": "Access denied: Insufficient permissions to view statistics",
   "failed_to_load_unassigned_requests": "Failed to load unassigned requests",
@@ -2120,6 +2128,11 @@ sendResponse: 'Send Response',
 ar: {
 
 
+  'guidanceSystem':'نظام الإرشاد',
+
+'loginDescription':'أدخل بريدك الإلكتروني وكلمة المرور للوصول إلى النظام',
+
+'enterYourEmail':'أدخل عنوان بريدك الإلكتروني',
 
  "failed_to_load_admin_statistics": "فشل في تحميل إحصائيات المدير",
     "access_denied_insufficient_permissions": "تم رفض الوصول: صلاحيات غير كافية لعرض الإحصائيات",
@@ -3145,9 +3158,12 @@ ru: {
 
 
 
+'guidanceSystem':'Система консультирования',
+
+'loginDescription':'Введите свою электронную почту и пароль, чтобы получить доступ к системе',
 
 
-
+'enterYourEmail':'Введите свой адрес электронной почты',
 
 
    "failed_to_load_admin_statistics": "Не удалось загрузить статистику администратора",
@@ -4163,6 +4179,11 @@ requestTypes: {
 fr: {
 
 
+  'guidanceSystem':'Système de guidance',
+
+'loginDescription':'Entrez votre adresse e-mail et votre mot de passe pour accéder au système',
+
+'enterYourEmail':'Entrez votre adresse e-mail',
 
  "failed_to_load_admin_statistics": "Échec du chargement des statistiques administrateur",
     "access_denied_insufficient_permissions": "Accès refusé : Permissions insuffisantes pour voir les statistiques",

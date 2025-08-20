@@ -79,6 +79,9 @@ initializeTokens();
 
 // UNIFIED LOGIN METHODS
 const unifiedAuthMethods = {
+
+
+
   // UNIFIED LOGIN - Works for both students and admins
   unifiedLogin: (email, password) => {
     console.log('🔐 Unified login API call:', { email: email?.substring(0, 10) + '...' });
@@ -115,7 +118,63 @@ const unifiedAuthMethods = {
       current_password: currentPassword,
       new_password: newPassword
     });
+  },
+
+   // Email ile öğrenci girişi
+  studentLoginWithEmail: (email, password) => {
+    console.log('🎓 Student email login API call:', { email: email?.substring(0, 10) + '...' });
+    return studentApi.post('/auth/login-email', { email, password });
+  },
+
+  // Email ile admin girişi  
+  adminLoginWithEmail: (email, password) => {
+    console.log('👨‍💼 Admin email login API call:', { email: email?.substring(0, 10) + '...' });
+    return adminApi.post('/admin-auth/login-email', { email, password });
+  },
+
+  // Unified email login - hem admin hem student dener
+  unifiedEmailLogin: async (email, password) => {
+    console.log('🔐 Unified email login attempt:', { email: email?.substring(0, 10) + '...' });
+    
+    try {
+      // Önce admin girişi dene
+      console.log('👨‍💼 Trying admin login first...');
+      const adminResponse = await unifiedAuthMethods.adminLoginWithEmail(email, password);
+      
+      if (adminResponse.data.success) {
+        console.log('✅ Admin login successful');
+        return {
+          success: true,
+          userType: 'admin',
+          data: adminResponse.data
+        };
+      }
+    } catch (adminError) {
+      console.log('❌ Admin login failed, trying student login...');
+      
+      try {
+        // Admin başarısızsa student dene
+        console.log('🎓 Trying student login...');
+        const studentResponse = await unifiedAuthMethods.studentLoginWithEmail(email, password);
+        
+        if (studentResponse.data.success) {
+          console.log('✅ Student login successful');
+          return {
+            success: true,
+            userType: 'student', 
+            data: studentResponse.data
+          };
+        }
+      } catch (studentError) {
+        console.log('❌ Both login attempts failed');
+        throw studentError;
+      }
+    }
+    
+    throw new Error('Login failed for both admin and student');
   }
+
+
 };
 
 
@@ -1682,6 +1741,86 @@ export const apiService = {
 
 
 ...adminStatisticsMethods,
+
+ // YENİ email metodları - EKLEYİN
+  loginWithEmail: (email, password) => {
+    console.log('🎓 Student email login:', { email: email?.substring(0, 10) + '...' });
+    return studentApi.post('/auth/login-email', { email, password });
+  },
+  
+  adminLoginWithEmail: (email, password) => {
+    console.log('👨‍💼 Admin email login:', { email: email?.substring(0, 10) + '...' });
+    return adminApi.post('/admin-auth/login-email', { email, password });
+  },
+
+  // Email ile birleşik giriş
+  attemptEmailLogin: async (email, password) => {
+    return await unifiedAuthMethods.unifiedEmailLogin(email, password);
+  },
+
+  // Legacy support - eski metodları korur
+  studentLogin: (student_number, password) => {
+    return apiService.login(student_number, password);
+  },
+  
+  adminLoginLegacy: (username, password) => {
+    return apiService.adminLogin(username, password);
+  },
+  
+  // Validation helper
+  validateEmailLogin: (email, password) => {
+    const errors = [];
+    
+    if (!email || !email.includes('@')) {
+      errors.push('Valid email address is required');
+    }
+    
+    if (!password || password.length < 6) {
+      errors.push('Password must be at least 6 characters');
+    }
+    
+    return {
+      isValid: errors.length === 0,
+      errors
+    };
+  },
+
+  // Get current user type helper
+  getCurrentUserType: () => {
+    const adminToken = localStorage.getItem('admin_token');
+    const studentToken = localStorage.getItem('student_token');
+    
+    if (adminToken) return 'admin';
+    if (studentToken) return 'student';
+    return null;
+  },
+
+  // Check if user is logged in
+  isLoggedIn: () => {
+    return !!apiService.getCurrentUserType();
+  },
+
+  // Enhanced logout for email login system
+  logoutAll: () => {
+    const userType = apiService.getCurrentUserType();
+    
+    if (userType === 'admin') {
+      removeAdminAuthToken();
+    } else if (userType === 'student') {
+      removeAuthToken();
+    }
+    
+    // Clear all caches
+    sessionStorage.clear();
+    
+    console.log(`🚪 Logged out ${userType || 'unknown'} user`);
+    
+    return {
+      success: true,
+      userType,
+      message: 'Logged out successfully'
+    };
+  },
 
  // Wrapper method with caching
   getAdminStatisticsWithCache: async (params = {}, useCache = true) => {

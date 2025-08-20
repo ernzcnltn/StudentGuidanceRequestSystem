@@ -15,72 +15,61 @@ const {
 const rbacService = require('../services/rbacService');
 
 // POST /api/admin-auth/login - Admin giriş (DEBUG VERSION)
-router.post('/login', async (req, res) => {
+router.post('/login-email', async (req, res) => {
   try {
-    const { username, password } = req.body;
+    const { email, password } = req.body;
 
-    console.log('=== LOGIN DEBUG START ===');
+    console.log('=== ADMIN LOGIN (EMAIL) ===');
     console.log('🔍 Received data:', { 
-      username, 
-      password: password?.substring(0, 10) + '...', 
-      passwordLength: password?.length,
-      fullPassword: password // GEÇİCİ - güvenlik için sonra kaldır
+      email, 
+      password: password?.substring(0, 10) + '...',
+      passwordLength: password?.length
     });
 
-    if (!username || !password) {
-      console.log('❌ Missing username or password');
+    if (!email || !password) {
+      console.log('❌ Missing email or password');
       return res.status(400).json({
         success: false,
-        error: 'Username and password are required'
+        error: 'Email and password are required'
       });
     }
 
-    // Admin'i bul
+    // Admin'i email ile bul
     const [admins] = await pool.execute(
-      'SELECT admin_id, username, password_hash, full_name, email, department, role, is_super_admin FROM admin_users WHERE username = ? AND is_active = TRUE',
-      [username]
+      'SELECT admin_id, username, password_hash, full_name, email, department, role, is_super_admin FROM admin_users WHERE email = ? AND is_active = TRUE',
+      [email]
     );
 
     console.log('🔍 Database query result:', {
       foundUsers: admins.length,
       userData: admins.length > 0 ? {
         username: admins[0].username,
+        email: admins[0].email,
         department: admins[0].department,
         is_super_admin: admins[0].is_super_admin,
-        hasPasswordHash: !!admins[0].password_hash,
-        passwordHashStart: admins[0].password_hash?.substring(0, 15),
-        passwordHashLength: admins[0].password_hash?.length
+        hasPasswordHash: !!admins[0].password_hash
       } : 'No user found'
     });
 
     if (admins.length === 0) {
-      console.log('❌ User not found in database');
+      console.log('❌ Admin not found with email:', email);
       return res.status(401).json({
         success: false,
-        error: 'Invalid username or password'
+        error: 'Invalid email or password'
       });
     }
 
     const admin = admins[0];
 
-    // Manuel bcrypt test
-    console.log('🔍 Manual bcrypt test:');
-    console.log('Input password:', password);
-    console.log('Stored hash:', admin.password_hash);
-    
+    // Şifre kontrolü
     const isValidPassword = await bcrypt.compare(password, admin.password_hash);
-    console.log('🔍 bcrypt.compare result:', isValidPassword);
-    
-    // Manuel hash test
-    const testHash = await bcrypt.hash(password, 10);
-    console.log('🔍 Fresh hash of input password:', testHash);
-    
-    console.log('=== LOGIN DEBUG END ===');
+    console.log('🔍 Password validation result:', isValidPassword);
     
     if (!isValidPassword) {
+      console.log('❌ Invalid password for admin:', email);
       return res.status(401).json({
         success: false,
-        error: 'Invalid username or password'
+        error: 'Invalid email or password'
       });
     }
 
@@ -89,7 +78,9 @@ router.post('/login', async (req, res) => {
       { 
         admin_id: admin.admin_id,
         username: admin.username,
-        department: admin.department
+        email: admin.email,
+        department: admin.department,
+        type: 'admin'
       },
       process.env.JWT_SECRET || 'your-secret-key',
       { expiresIn: '24h' }
@@ -104,9 +95,15 @@ router.post('/login', async (req, res) => {
 
       const { password_hash: _, ...adminData } = admin;
 
+      console.log('✅ Admin email login successful:', {
+        username: adminData.username,
+        email: adminData.email,
+        department: adminData.department
+      });
+
       res.json({
         success: true,
-        message: 'Admin login successful',
+        message: 'Admin email login successful',
         data: {
           token,
           admin: {
@@ -122,11 +119,11 @@ router.post('/login', async (req, res) => {
         }
       });
     } catch (rbacError) {
-      console.error('RBAC fetch error during login:', rbacError);
+      console.error('RBAC fetch error during email login:', rbacError);
       const { password_hash: _, ...adminData } = admin;
       res.json({
         success: true,
-        message: 'Admin login successful (limited RBAC data)',
+        message: 'Admin email login successful (limited RBAC data)',
         data: {
           token,
           admin: adminData
@@ -135,10 +132,10 @@ router.post('/login', async (req, res) => {
     }
 
   } catch (error) {
-    console.error('❌ Login error:', error);
+    console.error('❌ Admin email login error:', error);
     res.status(500).json({
       success: false,
-      error: 'Admin login failed'
+      error: 'Admin email login failed'
     });
   }
 });

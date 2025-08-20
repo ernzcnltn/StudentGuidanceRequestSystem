@@ -5,8 +5,7 @@ const jwt = require('jsonwebtoken');
 const { pool } = require('../config/database');
 const { authenticateToken } = require('../middleware/auth');
 
-
-// POST /api/auth/login - Öğrenci giriş
+// POST /api/auth/login - Email ile öğrenci giriş (ESKİ VERSİYON)
 router.post('/login', async (req, res) => {
   try {
     const { student_number, password } = req.body;
@@ -75,6 +74,82 @@ router.post('/login', async (req, res) => {
   }
 });
 
+// POST /api/auth/login-email - YENİ: Email ile öğrenci giriş
+router.post('/login-email', async (req, res) => {
+  try {
+    const { email, password } = req.body;
+
+    console.log('Student login attempt with email:', { email });
+
+    if (!email || !password) {
+      return res.status(400).json({
+        success: false,
+        error: 'Email and password are required'
+      });
+    }
+
+    // Öğrenciyi email ile bul
+    const [students] = await pool.execute(
+      'SELECT * FROM students WHERE email = ?',
+      [email]
+    );
+
+    if (students.length === 0) {
+      console.log('Student not found with email:', email);
+      return res.status(401).json({
+        success: false,
+        error: 'Invalid email or password'
+      });
+    }
+
+    const student = students[0];
+
+    // Şifre kontrolü
+    const isValidPassword = await bcrypt.compare(password, student.password);
+    
+    if (!isValidPassword) {
+      console.log('Invalid password for student:', email);
+      return res.status(401).json({
+        success: false,
+        error: 'Invalid email or password'
+      });
+    }
+
+    // JWT token oluştur
+    const token = jwt.sign(
+      { 
+        student_id: student.student_id,
+        student_number: student.student_number,
+        email: student.email,
+        type: 'student'
+      },
+      process.env.JWT_SECRET,
+      { expiresIn: '24h' }
+    );
+
+    // Şifreyi response'dan çıkar
+    const { password: _, ...studentData } = student;
+
+    console.log('Student login successful:', studentData.student_number);
+
+    res.json({
+      success: true,
+      message: 'Student login successful',
+      data: {
+        token,
+        user: studentData
+      }
+    });
+
+  } catch (error) {
+    console.error('Student email login error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Student login failed'
+    });
+  }
+});
+
 // POST /api/auth/register - Registration with welcome email
 router.post('/register', async (req, res) => {
   try {
@@ -108,8 +183,6 @@ router.post('/register', async (req, res) => {
       'INSERT INTO students (student_number, name, email, password, program) VALUES (?, ?, ?, ?, ?)',
       [student_number, name, email, hashedPassword, program]
     );
-
-    
 
     res.status(201).json({
       success: true,
@@ -155,6 +228,5 @@ router.post('/logout', (req, res) => {
     message: 'Logout successful'
   });
 });
-
 
 module.exports = router;
