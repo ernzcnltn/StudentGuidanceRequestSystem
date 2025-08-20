@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { useAdminAuth } from '../contexts/AdminAuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { useToast } from '../contexts/ToastContext';
+import { useTranslation } from '../hooks/useTranslation';
 import { apiService } from '../services/api';
 import { useConfirmation } from '../hooks/useConfirmation';
 import ConfirmationModal from './ConfirmationModal';
@@ -11,6 +12,7 @@ const RoleManagementPage = () => {
   const { admin, isSuperAdmin } = useAdminAuth();
   const { isDark } = useTheme();
   const { showSuccess, showError, showInfo } = useToast();
+const { t, translateDbText } = useTranslation();
   const { confirmationState, showConfirmation } = useConfirmation();
   const [loading, setLoading] = useState(true);
   const [roles, setRoles] = useState([]);
@@ -67,7 +69,7 @@ const RoleManagementPage = () => {
 
     } catch (error) {
       console.error('Error loading role data:', error);
-      showError('Failed to load role data');
+      showError(t('failedToLoadRoleData', 'Failed to load role data'));
     } finally {
       setLoading(false);
     }
@@ -77,7 +79,7 @@ const RoleManagementPage = () => {
     e.preventDefault();
     
     if (!apiService.rbacHelpers.validateRoleData(newRole)) {
-      showError('Please fill in all required fields');
+      showError(t('pleaseSelectUserAndRoles', 'Please fill in all required fields'));
       return;
     }
 
@@ -85,7 +87,7 @@ const RoleManagementPage = () => {
       const result = await apiService.rbacCreateRole(newRole);
       
       if (result.data.success) {
-        showSuccess('Role created successfully');
+        showSuccess(t('roleCreatedSuccessfully', 'Role created successfully'));
         setShowCreateModal(false);
         setNewRole({
           role_name: '',
@@ -98,16 +100,16 @@ const RoleManagementPage = () => {
     } catch (error) {
       console.error('Error creating role:', error);
       if (error.response?.status === 409) {
-        showError('Role with this name already exists');
+        showError(t('roleNameAlreadyExists', 'Role with this name already exists'));
       } else {
-        showError('Failed to create role');
+        showError(t('failedToCreateRole', 'Failed to create role'));
       }
     }
   };
 
   const handlePermissionUpdate = async () => {
     if (!selectedRole) {
-      showError('No role selected');
+      showError(t('noRoleSelected', 'No role selected'));
       return;
     }
 
@@ -118,7 +120,7 @@ const RoleManagementPage = () => {
       );
       
       if (result.data.success) {
-        showSuccess('Role permissions updated successfully');
+        showSuccess(t('rolePermissionsUpdatedSuccessfully', 'Role permissions updated successfully'));
         setShowPermissionModal(false);
         setSelectedRole(null);
         setSelectedPermissions([]);
@@ -126,7 +128,7 @@ const RoleManagementPage = () => {
       }
     } catch (error) {
       console.error('Error updating permissions:', error);
-      showError('Failed to update role permissions');
+      showError(t('failedToUpdateRolePermissions', 'Failed to update role permissions'));
     }
   };
 
@@ -142,17 +144,17 @@ const RoleManagementPage = () => {
       }
     } catch (error) {
       console.error('Error loading role permissions:', error);
-      showError('Failed to load role permissions');
+      showError(t('failedToLoadRolePermissions', 'Failed to load role permissions'));
     }
   };
 
   const handleDeleteRole = async (roleId, roleName) => {
     const confirmed = await showConfirmation({
-      title: 'Delete Role',
-      message: `Are you sure you want to delete the role "${roleName}"?\n\nThis action cannot be undone.`,
+      title: t('deleteRole', 'Delete Role'),
+      message: t('deleteRoleConfirmation', `Are you sure you want to delete the role "${roleName}"?\n\nThis action cannot be undone.`, { roleName }),
       type: 'danger',
-      confirmText: 'Delete Role',
-      cancelText: 'Cancel',
+      confirmText: t('deleteRole', 'Delete Role'),
+      cancelText: t('cancel', 'Cancel'),
       requireTextConfirmation: true,
       confirmationText: 'DELETE'
     });
@@ -161,11 +163,11 @@ const RoleManagementPage = () => {
 
     try {
       await apiService.deleteRole(roleId);
-      showSuccess('Role deleted successfully');
+      showSuccess(t('roleDeletedSuccessfully', 'Role deleted successfully'));
       loadData();
     } catch (error) {
       console.error('Error deleting role:', error);
-      showError('Failed to delete role');
+      showError(t('failedToDeleteRole', 'Failed to delete role'));
     }
   };
 
@@ -213,7 +215,7 @@ const RoleManagementPage = () => {
                 color: isDark ? '#ffffff' : '#000000'
               }}
             >
-              Previous
+              {t('previous', 'Previous')}
             </button>
           </li>
           
@@ -250,7 +252,7 @@ const RoleManagementPage = () => {
                 color: isDark ? '#ffffff' : '#000000'
               }}
             >
-              Next
+              {t('next', 'Next')}
             </button>
           </li>
         </ul>
@@ -267,8 +269,8 @@ const RoleManagementPage = () => {
   if (!isSuperAdmin()) {
     return (
       <div className="alert alert-warning">
-        <h5>Access Denied</h5>
-        <p>Role Management is only available for Super Administrators.</p>
+        <h5>{t('accessDenied', 'Access Denied')}</h5>
+        <p>{t('onlySuperAdminsCanModify', 'Role Management is only available for Super Administrators.')}</p>
       </div>
     );
   }
@@ -278,7 +280,7 @@ const RoleManagementPage = () => {
       <div className="text-center py-5">
         <div className="spinner-border text-danger" role="status"></div>
         <p className={`mt-3 ${isDark ? 'text-light' : 'text-dark'}`}>
-          Loading roles...
+          {t('loadingRoles', 'Loading roles...')}
         </p>
       </div>
     );
@@ -293,10 +295,10 @@ const RoleManagementPage = () => {
       <div className="d-flex justify-content-between align-items-center mb-4">
         <div>
           <h3 className={isDark ? 'text-light' : 'text-dark'}>
-            Role Management
+            {t('roleManagement', 'Role Management')}
           </h3>
           <p className={isDark ? 'text-light' : 'text-muted'}>
-            Create and manage system roles and their permissions
+            {t('createAndManageSystemRoles', 'Create and manage system roles and their permissions')}
           </p>
         </div>
         
@@ -304,7 +306,7 @@ const RoleManagementPage = () => {
           className="btn btn-danger"
           onClick={() => setShowCreateModal(true)}
         >
-          Create Role
+          {t('createRole', 'Create Role')}
         </button>
       </div>
 
@@ -314,7 +316,7 @@ const RoleManagementPage = () => {
           <input
             type="text"
             className="form-control"
-            placeholder="Search roles..."
+            placeholder={t('searchRoles', 'Search roles...')}
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             style={{
@@ -330,7 +332,7 @@ const RoleManagementPage = () => {
               className="btn btn-outline-secondary"
               onClick={loadData}
             >
-              Refresh
+              {t('refresh', 'Refresh')}
             </button>
           </div>
         </div>
@@ -343,11 +345,11 @@ const RoleManagementPage = () => {
             <table className="table table-hover">
               <thead className={isDark ? 'table-dark' : 'table-light'}>
                 <tr>
-                  <th>Role Name</th>
-                  <th>Display Name</th>
-                  <th>Description</th>
-                  <th>Type</th>
-                  <th>Actions</th>
+                  <th>{t('roleName', 'Role Name')}</th>
+                  <th>{t('displayName', 'Display Name')}</th>
+                  <th>{t('description', 'Description')}</th>
+                  <th>{t('type', 'Type')}</th>
+                  <th>{t('actions', 'Actions')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -355,8 +357,8 @@ const RoleManagementPage = () => {
                   <tr>
                     <td colSpan="5" className="text-center py-4">
                       <div className={`text-muted ${isDark ? 'text-light' : ''}`}>
-                        <h5>No roles found</h5>
-                        <p>No roles match your search criteria.</p>
+                        <h5>{t('noRolesFound', 'No roles found')}</h5>
+                        <p>{t('noRolesMatchSearch', 'No roles match your search criteria.')}</p>
                       </div>
                     </td>
                   </tr>
@@ -375,14 +377,14 @@ const RoleManagementPage = () => {
                       </td>
                       <td>
                         <span className={isDark ? 'text-light' : 'text-muted'}>
-                          {role.description || 'No description'}
+    {translateDbText(role.description, 'roleDescriptions') || t('noDescription', 'No description')}
                         </span>
                       </td>
                       <td>
                         {role.is_system_role ? (
-                          <span className="badge bg-danger text-dark">System Role</span>
+                          <span className="badge bg-danger text-dark">{t('systemRole', 'System Role')}</span>
                         ) : (
-                          <span className="badge bg-danger">Custom Role</span>
+                          <span className="badge bg-danger">{t('customRole', 'Custom Role')}</span>
                         )}
                       </td>
                       <td>
@@ -391,20 +393,20 @@ const RoleManagementPage = () => {
                             className="btn btn-outline-danger btn-sm"
                             onClick={() => handleViewPermissions(role)}
                           >
-                            View Permissions
+                            {t('viewPermissions', 'View Permissions')}
                           </button>
                           <button 
                             className="btn btn-outline-danger btn-sm"
                             onClick={() => handleViewPermissions(role)}
                           >
-                            Edit Permissions
+                            {t('editPermissions', 'Edit Permissions')}
                           </button>
                           {!role.is_system_role && (
                             <button 
                               className="btn btn-outline-danger btn-sm"
                               onClick={() => handleDeleteRole(role.role_id, role.display_name)}
                             >
-                              Delete Role
+                              {t('deleteRole', 'Delete Role')}
                             </button>
                           )}
                         </div>
@@ -430,7 +432,7 @@ const RoleManagementPage = () => {
           <div className="modal-dialog">
             <div className="modal-content" style={cardStyle}>
               <div className="modal-header">
-                <h5 className="modal-title">Create New Role</h5>
+                <h5 className="modal-title">{t('createNewRole', 'Create New Role')}</h5>
                 <button 
                   type="button" 
                   className="btn-close"
@@ -441,14 +443,14 @@ const RoleManagementPage = () => {
                 <div className="modal-body">
                   <div className="mb-3">
                     <label className={`form-label ${isDark ? 'text-light' : 'text-dark'}`}>
-                      Role Name * (Technical name)
+                      {t('roleNameTechnical', 'Role Name * (Technical name)')}
                     </label>
                     <input
                       type="text"
                       className="form-control"
                       value={newRole.role_name}
                       onChange={(e) => setNewRole({...newRole, role_name: e.target.value})}
-                      placeholder="e.g., department_manager"
+                      placeholder={t('roleNamePlaceholder', 'e.g., department_manager')}
                       pattern="[a-z_]+"
                       required
                       style={{
@@ -458,20 +460,20 @@ const RoleManagementPage = () => {
                       }}
                     />
                     <small className={isDark ? 'text-light' : 'text-muted'}>
-                      Only lowercase letters and underscores
+                      {t('onlyLowercaseAndUnderscores', 'Only lowercase letters and underscores')}
                     </small>
                   </div>
 
                   <div className="mb-3">
                     <label className={`form-label ${isDark ? 'text-light' : 'text-dark'}`}>
-                      Display Name * (Human-readable)
+                      {t('displayNameHuman', 'Display Name * (Human-readable)')}
                     </label>
                     <input
                       type="text"
                       className="form-control"
                       value={newRole.display_name}
                       onChange={(e) => setNewRole({...newRole, display_name: e.target.value})}
-                      placeholder="e.g., Department Manager"
+                      placeholder={t('displayNamePlaceholder', 'e.g., Department Manager')}
                       required
                       style={{
                         backgroundColor: isDark ? '#000000' : '#ffffff',
@@ -483,13 +485,13 @@ const RoleManagementPage = () => {
 
                   <div className="mb-3">
                     <label className={`form-label ${isDark ? 'text-light' : 'text-dark'}`}>
-                      Description
+                      {t('description', 'Description')}
                     </label>
                     <textarea
                       className="form-control"
                       value={newRole.description}
                       onChange={(e) => setNewRole({...newRole, description: e.target.value})}
-                      placeholder="Describe the role's purpose and responsibilities"
+                      placeholder={t('describeRolePurpose', "Describe the role's purpose and responsibilities")}
                       rows="3"
                       style={{
                         backgroundColor: isDark ? '#000000' : '#ffffff',
@@ -508,7 +510,7 @@ const RoleManagementPage = () => {
                         onChange={(e) => setNewRole({...newRole, is_system_role: e.target.checked})}
                       />
                       <label className={`form-check-label ${isDark ? 'text-light' : 'text-dark'}`}>
-                        System Role (Protected from deletion)
+                        {t('systemRoleProtected', 'System Role (Protected from deletion)')}
                       </label>
                     </div>
                   </div>
@@ -519,10 +521,10 @@ const RoleManagementPage = () => {
                     className="btn btn-danger"
                     onClick={() => setShowCreateModal(false)}
                   >
-                    Cancel
+                    {t('cancel', 'Cancel')}
                   </button>
                   <button type="submit" className="btn btn-danger">
-                    Create Role
+                    {t('createRole', 'Create Role')}
                   </button>
                 </div>
               </form>
@@ -538,7 +540,7 @@ const RoleManagementPage = () => {
             <div className="modal-content" style={cardStyle}>
               <div className="modal-header">
                 <h5 className="modal-title">
-                  Manage Permissions - {selectedRole.display_name}
+                  {t('managePermissions', 'Manage Permissions')} - {selectedRole.display_name}
                 </h5>
                 <button 
                   type="button" 
@@ -556,7 +558,7 @@ const RoleManagementPage = () => {
                   <input
                     type="text"
                     className="form-control"
-                    placeholder="Filter permissions..."
+                    placeholder={t('filterPermissions', 'Filter permissions...')}
                     value={permissionFilter}
                     onChange={(e) => setPermissionFilter(e.target.value)}
                     style={{
@@ -600,7 +602,7 @@ const RoleManagementPage = () => {
                                 <br />
                                 <small className={isDark ? 'text-light' : 'text-muted'}>
                                   {permission.resource}:{permission.action}
-                                  {permission.is_system_permission && ' (System)'}
+                                  {permission.is_system_permission && ` (${t('system', 'System')})`}
                                 </small>
                               </label>
                             </div>
@@ -616,7 +618,7 @@ const RoleManagementPage = () => {
                   border: isDark ? '1px solid #4a5568' : '1px solid #e2e8f0'
                 }}>
                   <strong className={isDark ? 'text-light' : 'text-dark'}>
-                    Selected: {selectedPermissions.length} permissions
+                    {t('selected', 'Selected')}: {selectedPermissions.length} {t('permissions', 'permissions')}
                   </strong>
                   <br />
                   <small className={isDark ? 'text-light' : 'text-muted'}>
@@ -634,28 +636,28 @@ const RoleManagementPage = () => {
                     setSelectedPermissions([]);
                   }}
                 >
-                  Cancel
+                  {t('cancel', 'Cancel')}
                 </button>
                 <button 
                   type="button" 
                   className="btn btn-danger me-2"
                   onClick={() => setSelectedPermissions([])}
                 >
-                  Clear All
+                  {t('clearAll', 'Clear All')}
                 </button>
                 <button 
                   type="button" 
                   className="btn btn-danger me-2"
                   onClick={() => setSelectedPermissions(allPermissions.map(p => p.permission_id))}
                 >
-                  Select All
+                  {t('selectAll', 'Select All')}
                 </button>
                 <button 
                   type="button" 
                   className="btn btn-danger"
                   onClick={handlePermissionUpdate}
                 >
-                  Update Permissions
+                  {t('updatePermissions', 'Update Permissions')}
                 </button>
               </div>
             </div>

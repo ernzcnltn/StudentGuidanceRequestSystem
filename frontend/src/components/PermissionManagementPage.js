@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { useAdminAuth } from '../contexts/AdminAuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { useToast } from '../contexts/ToastContext';
+import { useTranslation } from '../hooks/useTranslation';
 import { apiService } from '../services/api';
 import { useConfirmation } from '../hooks/useConfirmation';
 import ConfirmationModal from './ConfirmationModal';
@@ -11,6 +12,7 @@ const PermissionManagementPage = () => {
   const { admin, isSuperAdmin } = useAdminAuth();
   const { isDark } = useTheme();
   const { showSuccess, showError, showInfo } = useToast();
+const { t, translateDbText } = useTranslation();
   const { confirmationState, showConfirmation } = useConfirmation();
   const [loading, setLoading] = useState(true);
   const [permissions, setPermissions] = useState({});
@@ -61,7 +63,7 @@ const PermissionManagementPage = () => {
 
     } catch (error) {
       console.error('Error loading permission data:', error);
-      showError('Failed to load permission data');
+      showError(t('failedToLoadPermissionData', 'Failed to load permission data'));
     } finally {
       setLoading(false);
     }
@@ -71,7 +73,7 @@ const PermissionManagementPage = () => {
     e.preventDefault();
     
     if (!apiService.rbacHelpers.validatePermissionData(newPermission)) {
-      showError('Please fill in all required fields');
+      showError(t('pleaseSelectUserAndRoles', 'Please fill in all required fields'));
       return;
     }
 
@@ -85,7 +87,7 @@ const PermissionManagementPage = () => {
       const result = await apiService.rbacCreatePermission(newPermission);
       
       if (result.data.success) {
-        showSuccess('Permission created successfully');
+        showSuccess(t('permissionCreatedSuccessfully', 'Permission created successfully'));
         setShowCreateModal(false);
         setNewPermission({
           permission_name: '',
@@ -100,20 +102,20 @@ const PermissionManagementPage = () => {
     } catch (error) {
       console.error('Error creating permission:', error);
       if (error.response?.status === 409) {
-        showError('Permission with this name already exists');
+        showError(t('permissionNameAlreadyExists', 'Permission with this name already exists'));
       } else {
-        showError('Failed to create permission');
+        showError(t('failedToCreatePermission', 'Failed to create permission'));
       }
     }
   };
 
   const handleDeletePermission = async (permissionId, permissionName) => {
     const confirmed = await showConfirmation({
-      title: 'Delete Permission',
-      message: `Are you sure you want to delete the permission "${permissionName}"?`,
+      title: t('deletePermission', 'Delete Permission'),
+      message: t('deletePermissionConfirmation', `Are you sure you want to delete the permission "${permissionName}"?`, { permissionName }),
       type: 'warning',
-      confirmText: 'Delete Permission',
-      cancelText: 'Cancel'
+      confirmText: t('deletePermission', 'Delete Permission'),
+      cancelText: t('cancel', 'Cancel')
     });
 
     if (!confirmed) return;
@@ -122,15 +124,15 @@ const PermissionManagementPage = () => {
       const result = await apiService.rbacDeletePermission(permissionId);
       
       if (result.data.success) {
-        showSuccess('Permission deleted successfully');
+        showSuccess(t('permissionDeletedSuccessfully', 'Permission deleted successfully'));
         loadData();
       }
     } catch (error) {
       console.error('Error deleting permission:', error);
       if (error.response?.status === 400) {
-        showError('Cannot delete system permissions');
+        showError(t('cannotDeleteSystemPermissions', 'Cannot delete system permissions'));
       } else {
-        showError('Failed to delete permission');
+        showError(t('failedToDeletePermission', 'Failed to delete permission'));
       }
     }
   };
@@ -198,7 +200,7 @@ const PermissionManagementPage = () => {
                 color: isDark ? '#ffffff' : '#000000'
               }}
             >
-              Previous
+              {t('previous', 'Previous')}
             </button>
           </li>
           
@@ -235,7 +237,7 @@ const PermissionManagementPage = () => {
                 color: isDark ? '#ffffff' : '#000000'
               }}
             >
-              Next
+              {t('next', 'Next')}
             </button>
           </li>
         </ul>
@@ -252,8 +254,8 @@ const PermissionManagementPage = () => {
   if (!isSuperAdmin()) {
     return (
       <div className="alert alert-warning">
-        <h5>Access Denied</h5>
-        <p>Permission Management is only available for Super Administrators.</p>
+        <h5>{t('accessDenied', 'Access Denied')}</h5>
+        <p>{t('permissionManagementOnlyForSuperAdmin', 'Permission Management is only available for Super Administrators.')}</p>
       </div>
     );
   }
@@ -263,7 +265,7 @@ const PermissionManagementPage = () => {
       <div className="text-center py-5">
         <div className="spinner-border text-danger" role="status"></div>
         <p className={`mt-3 ${isDark ? 'text-light' : 'text-dark'}`}>
-          Loading permissions...
+          {t('loadingPermissions', 'Loading permissions...')}
         </p>
       </div>
     );
@@ -275,10 +277,10 @@ const PermissionManagementPage = () => {
       <div className="d-flex justify-content-between align-items-center mb-4">
         <div>
           <h3 className={isDark ? 'text-light' : 'text-dark'}>
-            Permission Management
+            {t('permissionManagement', 'Permission Management')}
           </h3>
           <p className={isDark ? 'text-light' : 'text-muted'}>
-            Create and manage system permissions for role-based access control
+            {t('createAndManageSystemPermissions', 'Create and manage system permissions for role-based access control')}
           </p>
         </div>
         
@@ -286,7 +288,7 @@ const PermissionManagementPage = () => {
           className="btn btn-primary"
           onClick={() => setShowCreateModal(true)}
         >
-          Create Permission
+          {t('createPermission', 'Create Permission')}
         </button>
       </div>
 
@@ -296,7 +298,7 @@ const PermissionManagementPage = () => {
           <input
             type="text"
             className="form-control"
-            placeholder="Search permissions..."
+            placeholder={t('searchPermissions', 'Search permissions...')}
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             style={{
@@ -318,7 +320,7 @@ const PermissionManagementPage = () => {
               color: isDark ? '#ffffff' : '#000000'
             }}
           >
-            <option value="">All Resources</option>
+            <option value="">{t('allResources', 'All Resources')}</option>
             {getResources().map(resource => (
               <option key={resource} value={resource}>{resource}</option>
             ))}
@@ -334,7 +336,7 @@ const PermissionManagementPage = () => {
               onChange={(e) => setFilterSystemOnly(e.target.checked)}
             />
             <label className={`form-check-label ${isDark ? 'text-light' : 'text-dark'}`}>
-              System permissions only
+              {t('systemPermissionsOnly', 'System permissions only')}
             </label>
           </div>
         </div>
@@ -344,12 +346,10 @@ const PermissionManagementPage = () => {
             className="btn btn-outline-secondary w-100"
             onClick={loadData}
           >
-            Refresh
+            {t('refresh', 'Refresh')}
           </button>
         </div>
       </div>
-
-      
 
       {/* Permissions Table */}
       <div className="card" style={cardStyle}>
@@ -357,8 +357,8 @@ const PermissionManagementPage = () => {
           {filteredPermissions.length === 0 ? (
             <div className="text-center py-4">
               <div className={`text-muted ${isDark ? 'text-light' : ''}`}>
-                <h5>No permissions found</h5>
-                <p>No permissions match your current filters.</p>
+                <h5>{t('noPermissionsFound', 'No permissions found')}</h5>
+                <p>{t('noPermissionsMatchFilters', 'No permissions match your current filters.')}</p>
               </div>
             </div>
           ) : (
@@ -367,13 +367,12 @@ const PermissionManagementPage = () => {
                 <table className="table table-hover">
                   <thead className={isDark ? 'table-dark' : 'table-light'}>
                     <tr>
-                      <th>Display Name</th>
-                      <th>Permission Name</th>
-                      <th>Resource</th>
-                      
-                      <th>Type</th>
-                      <th>Description</th>
-                      <th>Actions</th>
+                      <th>{t('displayName', 'Display Name')}</th>
+                      <th>{t('permissionName', 'Permission Name')}</th>
+                      <th>{t('resource', 'Resource')}</th>
+                      <th>{t('type', 'Type')}</th>
+                      <th>{t('description', 'Description')}</th>
+                      <th>{t('actions', 'Actions')}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -397,46 +396,45 @@ const PermissionManagementPage = () => {
                             {permission.resource}
                           </span>
                         </td>
-
                         <td>
                           {permission.is_system_permission ? (
                             <span className="badge bg-danger text-dark">
-                              System
+                              {t('system', 'System')}
                             </span>
                           ) : (
                             <span className="badge bg-danger">
-                              Custom
+                              {t('custom', 'Custom')}
                             </span>
                           )}
                         </td>
-                        <td>
-                          <small className={isDark ? 'text-light' : 'text-muted'}>
-                            {permission.description ? 
-                              (permission.description.length > 50 ? 
-                                permission.description.substring(0, 50) + '...' : 
-                                permission.description
-                              ) : 
-                              'No description'
-                            }
-                          </small>
-                        </td>
+                       <td>
+  <small className={isDark ? 'text-light' : 'text-muted'}>
+    {permission.description ? 
+      (translateDbText(permission.description, 'permissionDescriptions').length > 50 ? 
+        translateDbText(permission.description, 'permissionDescriptions').substring(0, 50) + '...' : 
+        translateDbText(permission.description, 'permissionDescriptions')
+      ) : 
+      t('noDescription', 'No description')
+    }
+  </small>
+</td>
                         <td>
                           <div className="btn-group" role="group">
                             <button
                               className="btn btn-outline-danger btn-sm"
                               onClick={() => handleViewDetails(permission)}
-                              title="View Details"
+                              title={t('viewDetails', 'View Details')}
                             >
-                              View
+                              {t('view', 'View')}
                             </button>
                             
                             {!permission.is_system_permission && (
                               <button
                                 className="btn btn-outline-danger btn-sm"
                                 onClick={() => handleDeletePermission(permission.permission_id, permission.display_name)}
-                                title="Delete Permission"
+                                title={t('deletePermission', 'Delete Permission')}
                               >
-                                Delete
+                                {t('delete', 'Delete')}
                               </button>
                             )}
                           </div>
@@ -457,7 +455,11 @@ const PermissionManagementPage = () => {
               {/* Results Info */}
               <div className="mt-3 text-center">
                 <small className={isDark ? 'text-light' : 'text-muted'}>
-                  Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, filteredPermissions.length)} of {filteredPermissions.length} permissions
+                  {t('showingResults', 'Showing {start} to {end} of {total} permissions', {
+                    start: ((currentPage - 1) * itemsPerPage) + 1,
+                    end: Math.min(currentPage * itemsPerPage, filteredPermissions.length),
+                    total: filteredPermissions.length
+                  })}
                 </small>
               </div>
             </>
@@ -471,7 +473,7 @@ const PermissionManagementPage = () => {
           <div className="modal-dialog">
             <div className="modal-content" style={cardStyle}>
               <div className="modal-header">
-                <h5 className="modal-title">Create New Permission</h5>
+                <h5 className="modal-title">{t('createNewPermission', 'Create New Permission')}</h5>
                 <button 
                   type="button" 
                   className="btn-close"
@@ -485,14 +487,14 @@ const PermissionManagementPage = () => {
                 <div className="modal-body">
                   <div className="mb-3">
                     <label className={`form-label ${isDark ? 'text-light' : 'text-dark'}`}>
-                      Display Name *
+                      {t('displayName', 'Display Name')} *
                     </label>
                     <input
                       type="text"
                       className="form-control"
                       value={newPermission.display_name}
                       onChange={(e) => setNewPermission({...newPermission, display_name: e.target.value})}
-                      placeholder="e.g., View Department Requests"
+                      placeholder={t('displayNamePlaceholderPermission', 'e.g., View Department Requests')}
                       required
                       style={{
                         backgroundColor: isDark ? '#000000' : '#ffffff',
@@ -506,14 +508,14 @@ const PermissionManagementPage = () => {
                     <div className="col-md-6">
                       <div className="mb-3">
                         <label className={`form-label ${isDark ? 'text-light' : 'text-dark'}`}>
-                          Resource *
+                          {t('resource', 'Resource')} *
                         </label>
                         <input
                           type="text"
                           className="form-control"
                           value={newPermission.resource}
                           onChange={(e) => setNewPermission({...newPermission, resource: e.target.value})}
-                          placeholder="e.g., requests"
+                          placeholder={t('resourcePlaceholder', 'e.g., requests')}
                           list="resources-list"
                           required
                           style={{
@@ -532,14 +534,14 @@ const PermissionManagementPage = () => {
                     <div className="col-md-6">
                       <div className="mb-3">
                         <label className={`form-label ${isDark ? 'text-light' : 'text-dark'}`}>
-                          Action *
+                          {t('action', 'Action')} *
                         </label>
                         <input
                           type="text"
                           className="form-control"
                           value={newPermission.action}
                           onChange={(e) => setNewPermission({...newPermission, action: e.target.value})}
-                          placeholder="e.g., view_department"
+                          placeholder={t('actionPlaceholder', 'e.g., view_department')}
                           list="actions-list"
                           required
                           style={{
@@ -559,14 +561,14 @@ const PermissionManagementPage = () => {
 
                   <div className="mb-3">
                     <label className={`form-label ${isDark ? 'text-light' : 'text-dark'}`}>
-                      Permission Name (Auto-generated)
+                      {t('permissionNameAutoGenerated', 'Permission Name (Auto-generated)')}
                     </label>
                     <input
                       type="text"
                       className="form-control"
                       value={newPermission.permission_name || `${newPermission.resource}.${newPermission.action}`}
                       onChange={(e) => setNewPermission({...newPermission, permission_name: e.target.value})}
-                      placeholder="Auto-generated from resource:action"
+                      placeholder={t('autoGeneratedFromResourceAction', 'Auto-generated from resource:action')}
                       style={{
                         backgroundColor: isDark ? '#000000' : '#ffffff',
                         borderColor: isDark ? '#333333' : '#ced4da',
@@ -574,19 +576,19 @@ const PermissionManagementPage = () => {
                       }}
                     />
                     <small className={isDark ? 'text-light' : 'text-muted'}>
-                      Leave blank to auto-generate from resource and action
+                      {t('leaveBlankToAutoGenerate', 'Leave blank to auto-generate from resource and action')}
                     </small>
                   </div>
 
                   <div className="mb-3">
                     <label className={`form-label ${isDark ? 'text-light' : 'text-dark'}`}>
-                      Description
+                      {t('description', 'Description')}
                     </label>
                     <textarea
                       className="form-control"
                       value={newPermission.description}
                       onChange={(e) => setNewPermission({...newPermission, description: e.target.value})}
-                      placeholder="Describe what this permission allows"
+                      placeholder={t('describeWhatPermissionAllows', 'Describe what this permission allows')}
                       rows="3"
                       style={{
                         backgroundColor: isDark ? '#000000' : '#ffffff',
@@ -605,7 +607,7 @@ const PermissionManagementPage = () => {
                         onChange={(e) => setNewPermission({...newPermission, is_system_permission: e.target.checked})}
                       />
                       <label className={`form-check-label ${isDark ? 'text-light' : 'text-dark'}`}>
-                        System Permission (Protected from deletion)
+                        {t('systemPermissionProtected', 'System Permission (Protected from deletion)')}
                       </label>
                     </div>
                   </div>
@@ -616,10 +618,10 @@ const PermissionManagementPage = () => {
                     className="btn btn-secondary"
                     onClick={() => setShowCreateModal(false)}
                   >
-                    Cancel
+                    {t('cancel', 'Cancel')}
                   </button>
                   <button type="submit" className="btn btn-primary">
-                    Create Permission
+                    {t('createPermission', 'Create Permission')}
                   </button>
                 </div>
               </form>
@@ -634,7 +636,7 @@ const PermissionManagementPage = () => {
           <div className="modal-dialog modal-lg">
             <div className="modal-content" style={cardStyle}>
               <div className="modal-header">
-                <h5 className="modal-title">Permission Details</h5>
+                <h5 className="modal-title">{t('permissionDetails', 'Permission Details')}</h5>
                 <button 
                   type="button" 
                   className="btn-close"
@@ -653,25 +655,20 @@ const PermissionManagementPage = () => {
                     <table className="table table-borderless">
                       <tbody>
                         <tr>
-                          <td><strong>Display Name:</strong></td>
+                          <td><strong>{t('displayName', 'Display Name')}:</strong></td>
                           <td>{selectedPermission.display_name}</td>
                         </tr>
                         <tr>
-                          <td><strong>Permission Name:</strong></td>
+                          <td><strong>{t('permissionName', 'Permission Name')}:</strong></td>
                           <td><code>{selectedPermission.permission_name}</code></td>
                         </tr>
                         <tr>
-                          <td><strong>Resource:</strong></td>
+                          <td><strong>{t('resource', 'Resource')}:</strong></td>
                           <td>
                             <span className="badge bg-info">
                               {selectedPermission.resource}
                             </span>
                           </td>
-                        </tr>
-                        <tr>
-                          
-                          
-                          
                         </tr>
                       </tbody>
                     </table>
@@ -680,26 +677,26 @@ const PermissionManagementPage = () => {
                     <table className="table table-borderless">
                       <tbody>
                         <tr>
-                          <td><strong>System Permission:</strong></td>
+                          <td><strong>{t('systemPermission', 'System Permission')}:</strong></td>
                           <td>
                             {selectedPermission.is_system_permission ? (
-                              <span className="badge bg-danger text-dark">Yes</span>
+                              <span className="badge bg-danger text-dark">{t('yes', 'Yes')}</span>
                             ) : (
-                              <span className="badge bg-danger">No</span>
+                              <span className="badge bg-danger">{t('no', 'No')}</span>
                             )}
                           </td>
                         </tr>
                         <tr>
-                          <td><strong>Permission ID:</strong></td>
+                          <td><strong>{t('permissionId', 'Permission ID')}:</strong></td>
                           <td><code>{selectedPermission.permission_id}</code></td>
                         </tr>
                         <tr>
-                          <td><strong>Created:</strong></td>
+                          <td><strong>{t('created', 'Created')}:</strong></td>
                           <td>
                             <small className={isDark ? 'text-light' : 'text-muted'}>
                               {selectedPermission.created_at ? 
                                 new Date(selectedPermission.created_at).toLocaleString() : 
-                                'Unknown'
+                                t('unknown', 'Unknown')
                               }
                             </small>
                           </td>
@@ -709,14 +706,12 @@ const PermissionManagementPage = () => {
                   </div>
                 </div>
                 
-                <div className="mt-3">
-                  <strong>Description:</strong>
-                  <p className={`mt-2 ${isDark ? 'text-light' : 'text-muted'}`}>
-                    {selectedPermission.description || 'No description provided'}
-                  </p>
-                </div>
-
-                
+               <div className="mt-3">
+  <strong>{t('description', 'Description')}:</strong>
+  <p className={`mt-2 ${isDark ? 'text-light' : 'text-muted'}`}>
+    {translateDbText(selectedPermission.description, 'permissionDescriptions') || t('noDescriptionProvided', 'No description provided')}
+  </p>
+</div>
               </div>
               <div className="modal-footer">
                 <button 
@@ -727,7 +722,7 @@ const PermissionManagementPage = () => {
                     setSelectedPermission(null);
                   }}
                 >
-                  Close
+                  {t('close', 'Close')}
                 </button>
               </div>
             </div>

@@ -6,12 +6,15 @@ import { useToast } from '../contexts/ToastContext';
 import { apiService } from '../services/api';
 import { useConfirmation } from '../hooks/useConfirmation';
 import ConfirmationModal from './ConfirmationModal';
+import { useTranslation } from '../hooks/useTranslation';
+
 
 const UserManagementPage = ({ departmentFilter = null }) => {
   const { admin, isSuperAdmin, isDepartmentAdmin, hasPermission } = useAdminAuth();
   const { isDark } = useTheme();
   const { showSuccess, showError, showInfo } = useToast();
   const { confirmationState, showConfirmation } = useConfirmation();
+const { t } = useTranslation();
 
   const [loading, setLoading] = useState(true);
   const [users, setUsers] = useState([]);
@@ -70,7 +73,7 @@ const UserManagementPage = ({ departmentFilter = null }) => {
       } else {
         console.error('Failed to load users:', usersRes.reason);
         setUsers([]);
-        showError('Failed to load users');
+showError(t('failedToLoadUsers'));
       }
       
       // Handle roles response
@@ -80,12 +83,12 @@ const UserManagementPage = ({ departmentFilter = null }) => {
       } else {
         console.error('Failed to load roles:', rolesRes.reason);
         setRoles([]);
-        showError('Failed to load roles');
+showError(t('failedToLoadRoles'));
       }
 
     } catch (error) {
       console.error('Error loading user data:', error);
-      showError('Failed to load user data');
+showError(t('failedToLoadUserData'));
       setUsers([]);
       setRoles([]);
     } finally {
@@ -96,17 +99,17 @@ const UserManagementPage = ({ departmentFilter = null }) => {
   const handleDeleteUser = async (userId, username, fullName) => {
     // Güvenlik kontrolü
     if (userId === admin.admin_id) {
-      showError('Cannot delete your own account');
+showError(t('cannotDeleteOwnAccount'));
       return;
     }
 
     // Modern confirmation dialog
     const confirmed = await showConfirmation({
-      title: 'Delete User Account',
-      message: `Are you sure you want to delete user "${fullName || username}"?\n\nThis action will:\n• Remove all role assignments\n• Deactivate the user account\n• This action cannot be easily undone`,
+      title: t('deleteUserAccount'),
+      message: t('deleteUserConfirmation', { user: fullName || username }),
       type: 'danger',
-      confirmText: 'Delete User',
-      cancelText: 'Cancel',
+      confirmText: t('deleteUser'),
+      cancelText: t('cancel'),
       requireTextConfirmation: true,
       confirmationText: 'DELETE'
     });
@@ -117,24 +120,24 @@ const UserManagementPage = ({ departmentFilter = null }) => {
       const result = await apiService.deleteAdminUser(userId);
       
       if (result.data.success) {
-        showSuccess(`User "${username}" has been deleted successfully`);
+showSuccess(t('userDeletedSuccessfully', { username }));
         loadData(); // Reload the user list
       }
     } catch (error) {
       console.error('Error deleting user:', error);
       if (error.response?.status === 403) {
-        showError('Access denied: You cannot delete this user');
+showError(t('accessDeniedCannotDeleteUser'));
       } else if (error.response?.status === 400) {
-        showError(error.response.data.error || 'Cannot delete this user');
+showError(error.response.data.error || t('cannotDeleteThisUser'));
       } else {
-        showError('Failed to delete user');
+showError(t('failedToDeleteUser'));
       }
     }
   };
 
   const handleRoleAssignment = async () => {
     if (!selectedUser || selectedRoles.length === 0) {
-      showError('Please select user and roles');
+showError(t('pleaseSelectUserAndRoles'));
       return;
     }
 
@@ -173,9 +176,9 @@ const UserManagementPage = ({ departmentFilter = null }) => {
       const failed = results.filter(r => !r.success).length;
       
       if (successful > 0) {
-        showSuccess(`${successful} roles assigned successfully${failed > 0 ? `, ${failed} failed` : ''}`);
+showSuccess(t('rolesAssignedSuccessfully', { successful, failed: failed > 0 ? `, ${failed} failed` : '' }));
       } else {
-        showError(`All role assignments failed`);
+showError(t('allRoleAssignmentsFailed'));
       }
       
       // Modal'ı kapat ve data'yı yenile
@@ -187,7 +190,7 @@ const UserManagementPage = ({ departmentFilter = null }) => {
       
     } catch (error) {
       console.error('Role assignment error:', error);
-      showError('Failed to assign roles: ' + (error.response?.data?.error || error.message));
+showError(t('failedToAssignRoles') + ': ' + (error.response?.data?.error || error.message));
     }
   };
 
@@ -196,12 +199,12 @@ const UserManagementPage = ({ departmentFilter = null }) => {
       const result = await apiService.rbacRemoveRole(userId, roleId);
       
       if (result.data.success) {
-        showSuccess('Role removed successfully');
+showSuccess(t('roleRemovedSuccessfully'));
         loadData();
       }
     } catch (error) {
       console.error('Error removing role:', error);
-      showError('Failed to remove role');
+showError(t('failedToRemoveRole'));
     }
   };
 
@@ -209,7 +212,7 @@ const UserManagementPage = ({ departmentFilter = null }) => {
     e.preventDefault();
     
     if (!hasPermission('users', 'create')) {
-      showError('You do not have permission to create users');
+showError(t('noPermissionCreateUsers'));
       return;
     }
 
@@ -223,7 +226,7 @@ const UserManagementPage = ({ departmentFilter = null }) => {
       const result = await apiService.createAdminUser(userData);
       
       if (result.data.success) {
-        showSuccess('User created successfully');
+showSuccess(t('userCreatedSuccessfully'));
         setShowCreateModal(false);
         setNewUser({
           username: '',
@@ -236,13 +239,13 @@ const UserManagementPage = ({ departmentFilter = null }) => {
       }
     } catch (error) {
       console.error('Error creating user:', error);
-      showError('Failed to create user');
+showError(t('failedToCreateUser'));
     }
   };
 
   const handleToggleSuperAdmin = async (userId, currentStatus) => {
     if (!isSuperAdmin()) {
-      showError('Only super admins can modify super admin status');
+showError(t('onlySuperAdminsCanModify'));
       return;
     }
 
@@ -250,12 +253,12 @@ const UserManagementPage = ({ departmentFilter = null }) => {
       const result = await apiService.rbacUpdateSuperAdminStatus(userId, !currentStatus);
       
       if (result.data.success) {
-        showSuccess(`Super admin status ${!currentStatus ? 'granted' : 'revoked'}`);
+showSuccess(t('superAdminStatusUpdated', { status: !currentStatus ? t('granted') : t('revoked') }));
         loadData();
       }
     } catch (error) {
       console.error('Error updating super admin status:', error);
-      showError('Failed to update super admin status');
+showError(t('failedToUpdateSuperAdminStatus'));
     }
   };
 
@@ -299,7 +302,8 @@ const UserManagementPage = ({ departmentFilter = null }) => {
                 color: isDark ? '#ffffff' : '#000000'
               }}
             >
-              Previous
+              {t('previous')}
+
             </button>
           </li>
           
@@ -336,7 +340,7 @@ const UserManagementPage = ({ departmentFilter = null }) => {
                 color: isDark ? '#ffffff' : '#000000'
               }}
             >
-              Next
+          {t('next')}
             </button>
           </li>
         </ul>
@@ -360,7 +364,7 @@ const UserManagementPage = ({ departmentFilter = null }) => {
       <div className="text-center py-5">
         <div className="spinner-border text-danger" role="status"></div>
         <p className={`mt-3 ${isDark ? 'text-light' : 'text-dark'}`}>
-          Loading users...
+{t('loadingUsers')}
         </p>
       </div>
     );
@@ -377,13 +381,13 @@ const UserManagementPage = ({ departmentFilter = null }) => {
       <div className="d-flex justify-content-between align-items-center mb-4">
         <div>
           <h3 className={isDark ? 'text-light' : 'text-dark'}>
-            User Management
+{t('userManagement')}
             {departmentFilter && (
               <span className="badge bg-info ms-2">{departmentFilter}</span>
             )}
           </h3>
           <p className={isDark ? 'text-light' : 'text-muted'}>
-            Manage user accounts and role assignments
+{t('manageUserAccountsAndRoles')}
           </p>
         </div>
         
@@ -392,7 +396,7 @@ const UserManagementPage = ({ departmentFilter = null }) => {
             className="btn btn-danger"
             onClick={() => setShowCreateModal(true)}
           >
-            Create User
+{t('createUser')}
           </button>
         )}
       </div>
@@ -403,7 +407,7 @@ const UserManagementPage = ({ departmentFilter = null }) => {
           <input
             type="text"
             className="form-control"
-            placeholder="Search users..."
+            placeholder=" "
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             style={{
@@ -426,7 +430,7 @@ const UserManagementPage = ({ departmentFilter = null }) => {
                 color: isDark ? '#ffffff' : '#000000'
               }}
             >
-              <option value="">All Departments</option>
+              <option value="">{t('allDepartments')}</option>
               {getDepartments().map(dept => (
                 <option key={dept} value={dept}>{dept}</option>
               ))}
@@ -445,7 +449,7 @@ const UserManagementPage = ({ departmentFilter = null }) => {
               color: isDark ? '#ffffff' : '#000000'
             }}
           >
-            <option value="">All Roles</option>
+            <option value="">{t('allRoles')}</option>
             {roles.map(role => (
               <option key={role.role_id} value={role.role_name}>{role.display_name}</option>
             ))}
@@ -460,12 +464,12 @@ const UserManagementPage = ({ departmentFilter = null }) => {
             <table className="table table-hover">
               <thead className={isDark ? 'table-dark' : 'table-light'}>
                 <tr>
-                  <th>User</th>
-                  <th>Email</th>
-                  <th>Department</th>
-                  <th>Roles</th>
+                  <th>{t('user')}</th>
+                  <th>{t('email')}</th>
+                  <th>{t('department')}</th>
+                  <th>{t('roles')}</th>
                   
-                  <th>Actions</th>
+                  <th>{t('actions')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -473,8 +477,8 @@ const UserManagementPage = ({ departmentFilter = null }) => {
                   <tr>
                     <td colSpan="6" className="text-center py-4">
                       <div className={`text-muted ${isDark ? 'text-light' : ''}`}>
-                        <h5>No users found</h5>
-                        <p>No users match your current filters.</p>
+                        <h5>{t('noUsersFound')}</h5>
+                        <p>{t('noUsersMatchFilters')}</p>
                       </div>
                     </td>
                   </tr>
@@ -526,7 +530,7 @@ const UserManagementPage = ({ departmentFilter = null }) => {
                                 setShowRoleModal(true);
                               }}
                             >
-                              Manage Roles
+                              {t('manageRoles')}
                             </button>
                           )}
                           
@@ -535,7 +539,7 @@ const UserManagementPage = ({ departmentFilter = null }) => {
                               className="btn btn-outline-danger btn-sm"
                               onClick={() => handleToggleSuperAdmin(user.admin_id, user.is_super_admin)}
                             >
-                              {user.is_super_admin ? 'Revoke Super' : 'Make Super'}
+                              {user.is_super_admin ? t('revokeSuper') : t('makeSuper')}
                             </button>
                           )}
 
@@ -548,7 +552,8 @@ const UserManagementPage = ({ departmentFilter = null }) => {
                                 user.full_name
                               )}
                             >
-                              Delete
+                              {t('delete')}
+
                             </button>
                           )}
                         </div>
@@ -575,7 +580,7 @@ const UserManagementPage = ({ departmentFilter = null }) => {
             <div className="modal-content" style={cardStyle}>
               <div className="modal-header">
                 <h5 className="modal-title">
-                  Manage Roles - {selectedUser.full_name || selectedUser.username}
+{t('manageRoles')} - {selectedUser.full_name || selectedUser.username}
                 </h5>
                 <button 
                   type="button" 
@@ -590,7 +595,7 @@ const UserManagementPage = ({ departmentFilter = null }) => {
               <div className="modal-body">
                 {/* Current Roles */}
                 <div className="mb-4">
-                  <h6 className={isDark ? 'text-light' : 'text-dark'}>Current Roles</h6>
+                  <h6 className={isDark ? 'text-light' : 'text-dark'}>{t('currentRoles')}</h6>
                   {selectedUser.roles && selectedUser.roles.length > 0 ? (
                     <div className="d-flex flex-wrap gap-2">
                       {selectedUser.role_display_names.map((roleName, index) => (
@@ -614,18 +619,18 @@ const UserManagementPage = ({ departmentFilter = null }) => {
                       ))}
                     </div>
                   ) : (
-                    <p className={isDark ? 'text-light' : 'text-muted'}>No roles assigned</p>
+                    <p className={isDark ? 'text-light' : 'text-muted'}>{t('noRolesAssigned')}</p>
                   )}
                 </div>
 
                 {/* Assign New Roles */}
                 {hasPermission('users', 'manage_roles') && (
                   <div>
-                    <h6 className={isDark ? 'text-light' : 'text-dark'}>Assign New Roles</h6>
+                    <h6 className={isDark ? 'text-light' : 'text-dark'}>{t('assignNewRoles')}</h6>
                     
                     <div className="mb-3">
                       <label className={`form-label ${isDark ? 'text-light' : 'text-dark'}`}>
-                        Select Roles
+                       {t('selectRoles')}
                       </label>
                       <select
                         multiple
@@ -648,13 +653,15 @@ const UserManagementPage = ({ departmentFilter = null }) => {
                           ))}
                       </select>
                       <small className={isDark ? 'text-light' : 'text-muted'}>
-                        Hold Ctrl/Cmd to select multiple roles
+                        {t('holdCtrlToSelectMultiple')}
+
                       </small>
                     </div>
 
                     <div className="mb-3">
                       <label className={`form-label ${isDark ? 'text-light' : 'text-dark'}`}>
-                        Expiry Date (Optional)
+                        {t('expiryDateOptional')}
+
                       </label>
                       <input
                         type="datetime-local"
@@ -681,7 +688,8 @@ const UserManagementPage = ({ departmentFilter = null }) => {
                     setSelectedRoles([]);
                   }}
                 >
-                  Cancel
+                  {t('cancel')}
+
                 </button>
                 {hasPermission('users', 'manage_roles') && (
                   <button 
@@ -690,7 +698,8 @@ const UserManagementPage = ({ departmentFilter = null }) => {
                     onClick={handleRoleAssignment}
                     disabled={selectedRoles.length === 0}
                   >
-                    Assign Roles
+                   {t('assignRoles')}
+
                   </button>
                 )}
               </div>
@@ -705,7 +714,7 @@ const UserManagementPage = ({ departmentFilter = null }) => {
           <div className="modal-dialog">
             <div className="modal-content" style={cardStyle}>
               <div className="modal-header">
-                <h5 className="modal-title">Create New User</h5>
+                <h5 className="modal-title">{t('createNewUser')}</h5>
                 <button 
                   type="button" 
                   className="btn-close"
@@ -716,7 +725,8 @@ const UserManagementPage = ({ departmentFilter = null }) => {
                 <div className="modal-body">
                   <div className="mb-3">
                     <label className={`form-label ${isDark ? 'text-light' : 'text-dark'}`}>
-                      Username *
+                     {t('username')} *
+
                     </label>
                     <input
                       type="text"
@@ -734,7 +744,7 @@ const UserManagementPage = ({ departmentFilter = null }) => {
 
                   <div className="mb-3">
                     <label className={`form-label ${isDark ? 'text-light' : 'text-dark'}`}>
-                      Full Name *
+                      {t('fullName')} *
                     </label>
                     <input
                       type="text"
@@ -752,7 +762,7 @@ const UserManagementPage = ({ departmentFilter = null }) => {
 
                   <div className="mb-3">
                     <label className={`form-label ${isDark ? 'text-light' : 'text-dark'}`}>
-                      Email *
+                     {t('email')} *
                     </label>
                     <input
                       type="email"
@@ -771,7 +781,7 @@ const UserManagementPage = ({ departmentFilter = null }) => {
                   {!departmentFilter && isSuperAdmin() && (
                     <div className="mb-3">
                       <label className={`form-label ${isDark ? 'text-light' : 'text-dark'}`}>
-                        Department *
+                        {t('department')} *
                       </label>
                       <select
                         className="form-select"
@@ -784,19 +794,19 @@ const UserManagementPage = ({ departmentFilter = null }) => {
                           color: isDark ? '#ffffff' : '#000000'
                         }}
                       >
-                        <option value="">Select Department</option>
-                        <option value="Accounting">Accounting</option>
-                        <option value="Academic">Academic</option>
-                        <option value="Student Affairs">Student Affairs</option>
-                        <option value="Dormitory">Dormitory</option>
-                        <option value="Campus Services">Campus Services</option>
+                        <option value="">{t('selectDepartment')}</option>
+                        <option value="Accounting">{t('accounting')}</option>
+                        <option value="Academic">{t('academic')}</option>
+                        <option value="Student Affairs">{t('studentaffairs')}</option>
+                        <option value="Dormitory">{t('dormitory')}</option>
+                        <option value="Campus Services">{t('campusservices')}</option>
                       </select>
                     </div>
                   )}
 
                   <div className="mb-3">
                     <label className={`form-label ${isDark ? 'text-light' : 'text-dark'}`}>
-                      Password *
+                     {t('password')} *
                     </label>
                     <input
                       type="password"
@@ -812,7 +822,7 @@ const UserManagementPage = ({ departmentFilter = null }) => {
                       }}
                     />
                     <small className={isDark ? 'text-light' : 'text-muted'}>
-                      Minimum 6 characters
+                     {t('minimumSixCharacters')}
                     </small>
                   </div>
                 </div>
@@ -822,10 +832,10 @@ const UserManagementPage = ({ departmentFilter = null }) => {
                     className="btn btn-secondary"
                     onClick={() => setShowCreateModal(false)}
                   >
-                    Cancel
+                    {t('cancel')}
                   </button>
                   <button type="submit" className="btn btn-danger">
-                    Create User
+                    {t('createUser')}
                   </button>
                 </div>
               </form>

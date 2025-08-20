@@ -46,7 +46,7 @@ const RequestsPage = () => {
         setRequests(sortedRequests);
       } catch (error) {
         console.error('Error fetching requests:', error);
-        setError('Failed to load requests');
+setError(t('failed_to_load_requests'));
       } finally {
         setLoading(false);
       }
@@ -95,7 +95,7 @@ const RequestsPage = () => {
       setRequests(sortedRequests);
     } catch (error) {
       console.error('Error fetching requests:', error);
-      setError('Failed to load requests');
+setError(t('failed_to_load_requests'));
     } finally {
       setLoading(false);
     }
@@ -170,7 +170,7 @@ const RequestsPage = () => {
                 color: isDark ? '#ffffff' : '#000000'
               }}
             >
-              Previous
+{t('previous')}
             </button>
           </li>
           
@@ -207,7 +207,8 @@ const RequestsPage = () => {
                 color: isDark ? '#ffffff' : '#000000'
               }}
             >
-              Next
+              {t('next')}
+
             </button>
           </li>
         </ul>
@@ -252,7 +253,7 @@ const RequestsPage = () => {
                 }}
               >
                 <h5 className="modal-title">
-                  Request Details - #{request.request_id}
+                 {t('request_details')}
                 </h5>
                 <button 
                   type="button" 
@@ -268,7 +269,7 @@ const RequestsPage = () => {
                 <div className="row">
                   <div className="col-md-6">
                     <div className="mb-3">
-                      <label className="form-label fw-bold">Request Type:</label>
+<label className="form-label fw-bold">{t('requestType')}:</label>
                       <div 
                         className="p-2 rounded border"
                         style={{
@@ -282,7 +283,7 @@ const RequestsPage = () => {
                   </div>
                   <div className="col-md-6">
                     <div className="mb-3">
-                      <label className="form-label fw-bold">Priority:</label>
+<label className="form-label fw-bold">{t('priority')}:</label>
                       <div>
                         <span className={`badge ${getPriorityBadge(request.priority)}`}>
                           {t(request.priority.toLowerCase())}
@@ -293,7 +294,7 @@ const RequestsPage = () => {
                 </div>
 
                 <div className="mb-3">
-                  <label className="form-label fw-bold">Status:</label>
+<label className="form-label fw-bold">{t('status')}:</label>
                   <div>
                     <span className={`badge ${getStatusBadge(request.status)}`}>
                       {t(request.status.toLowerCase())}
@@ -302,7 +303,7 @@ const RequestsPage = () => {
                 </div>
 
                 <div className="mb-3">
-                  <label className="form-label fw-bold">Content:</label>
+<label className="form-label fw-bold">{t('content')}:</label>
                   <div 
                     className="p-3 rounded border"
                     style={{
@@ -319,7 +320,7 @@ const RequestsPage = () => {
                 <div className="row">
                   <div className="col-md-6">
                     <div className="mb-3">
-                      <label className="form-label fw-bold">Submitted:</label>
+<label className="form-label fw-bold">{t('submitted')}:</label>
                       <div className={isDark ? 'text-light' : 'text-muted'}>
                         <div>{submittedDate.date}</div>
                         <small>{submittedDate.time}</small>
@@ -328,7 +329,7 @@ const RequestsPage = () => {
                   </div>
                   <div className="col-md-6">
                     <div className="mb-3">
-                      <label className="form-label fw-bold">Last Updated:</label>
+<label className="form-label fw-bold">{t('last_updated')}:</label>
                       <div className={isDark ? 'text-light' : 'text-muted'}>
                         <div>{updatedDate.date}</div>
                         <small>{updatedDate.time}</small>
@@ -339,8 +340,7 @@ const RequestsPage = () => {
 
                 {request.attachment_count > 0 && (
                   <div className="mb-3">
-                    <label className="form-label fw-bold">Attachments:</label>
-                    <div>
+<label className="form-label fw-bold">{t('attachments')}:</label>                    <div>
                       <button
                         className="btn btn-outline-secondary btn-sm"
                         onClick={() => {
@@ -349,7 +349,7 @@ const RequestsPage = () => {
                           onClose();
                         }}
                       >
-                        View Files ({request.attachment_count})
+                       {t('viewFiles')} ({request.attachment_count})
                       </button>
                     </div>
                   </div>
@@ -364,7 +364,7 @@ const RequestsPage = () => {
                 }}
               >
                 <button type="button" className="btn btn-secondary" onClick={onClose}>
-                  Close
+                   {t('close')}
                 </button>
                 
                 {(request.status === 'Informed' || request.status === 'Completed') && (
@@ -379,7 +379,7 @@ const RequestsPage = () => {
                       onClose();
                     }}
                   >
-                    View Responses
+                   {t('view_responses')}
                   </button>
                 )}
 
@@ -402,7 +402,7 @@ const RequestsPage = () => {
                     }}
                     disabled={loadingRejectionDetails}
                   >
-                    {loadingRejectionDetails ? 'Loading...' : 'View Rejection Reason'}
+  {loadingRejectionDetails ? t('loading') + '...' : t('view_rejection_reason')}
                   </button>
                 )}
               </div>
@@ -485,7 +485,7 @@ const RequestsPage = () => {
                 }}
               >
                 <h5 className="modal-title">
-                  Responses for: {requestTitle}
+                  {t('responses_for')} 
                 </h5>
                 <button 
                   type="button" 
@@ -501,33 +501,31 @@ const RequestsPage = () => {
                 {loading ? (
                   <div className="text-center py-4">
                     <div className="spinner-border text-danger" role="status"></div>
-                    <p className="mt-3">Loading responses...</p>
+<p className="mt-3">{t('loading_responses')}...</p>
                   </div>
                 ) : error ? (
                   <div className="alert alert-danger">
-                    <h6>Error Loading Responses</h6>
+<h6>{t('error_loading_responses')}</h6>
                     <p className="mb-2">{error}</p>
                     <button className="btn btn-outline-danger btn-sm" onClick={fetchResponses}>
-                      Try Again
+  {t('tryAgain')}
                     </button>
                   </div>
                 ) : responses.length === 0 ? (
                   <div className="text-center py-5">
                     <div className={isDark ? 'text-light' : 'text-muted'}>
                       <div style={{ fontSize: '4rem' }}>💬</div>
-                      <h5 className="mt-3">No responses yet</h5>
-                      <p>The admin hasn't responded to this request yet.</p>
+                      <h5 className="mt-3">{t('noResponsesYet')}</h5>
+                      <p>{t('adminHasntResponded')}</p>
                     </div>
                   </div>
                 ) : (
                   <div>
                     <div className="d-flex justify-content-between align-items-center mb-3">
                       <h6 className="mb-0">
-                        Admin Responses ({responses.length})
+                       {t('adminResponses')} ({responses.length})
                       </h6>
-                      <button className="btn btn-outline-danger btn-sm" onClick={fetchResponses}>
-                        Refresh
-                      </button>
+                      
                     </div>
                     
                     {responses.map((response, index) => (
@@ -574,7 +572,7 @@ const RequestsPage = () => {
                               }}
                             >
                               <small className="text-info fw-bold">
-                                Attachments ({response.attachments.length}):
+                              {t('attachments')} ({response.attachments.length}):
                               </small>
                               <div className="d-flex flex-wrap gap-1 mt-1">
                                 {response.attachments.map((file, fileIndex) => (
@@ -600,10 +598,10 @@ const RequestsPage = () => {
                 }}
               >
                 <div className={`small me-auto ${isDark ? 'text-light' : 'text-muted'}`}>
-                  {error ? 'Error loading responses' : `${responses.length} responses found`}
+                 
                 </div>
                 <button type="button" className="btn btn-secondary" onClick={onClose}>
-                  Close
+                  {t('Close')}
                 </button>
               </div>
             </div>
@@ -617,9 +615,9 @@ const RequestsPage = () => {
     return (
       <div className="text-center py-5">
         <div className="spinner-border text-danger" role="status">
-          <span className="visually-hidden">Loading</span>
+          <span className="visually-hidden">{t('loading')}</span>
         </div>
-        <p className="mt-3 text-muted">Loading your requests...</p>
+        <p className="mt-3 text-muted">{t('loading_your_requests')}</p>
       </div>
     );
   }
@@ -627,11 +625,11 @@ const RequestsPage = () => {
   if (error) {
     return (
       <div className="alert alert-danger" role="alert">
-        <h4 className="alert-heading">Error!</h4>
+        <h4 className="alert-heading">{t('error')}</h4>
         <p>{error}</p>
         <hr />
         <button className="btn btn-outline-danger" onClick={fetchRequests}>
-          Try Again
+                 {t('tryAgain')}
         </button>
       </div>
     );
@@ -646,12 +644,12 @@ const RequestsPage = () => {
       {/* Header */}
       <div className="d-flex justify-content-between align-items-center mb-4">
         <div>
-          <h2 className="mb-1">My Requests</h2>
-          <p className={`mb-0 ${isDark ? 'text-light' : 'text-muted'}`}>Track and manage your requests</p>
+          <h2 className="mb-1">{t('myRequests')}</h2>
+          <p className={`mb-0 ${isDark ? 'text-light' : 'text-muted'}`}>{t('track_and_manage_requests')}</p>
         </div>
         <Link to="/create-request" className="btn btn-danger">
-          <i className="bi bi-plus-circle me-2"></i>
-          Create Request
+          
+         {t('createRequest')}
         </Link>
       </div>
 
@@ -668,7 +666,7 @@ const RequestsPage = () => {
               setCurrentPage(1);
             }}
           >
-            View All ({requests.length})
+           {t('view_all')} ({requests.length})
           </button>
           <button
             type="button"
@@ -678,7 +676,7 @@ const RequestsPage = () => {
               setCurrentPage(1);
             }}
           >
-            Pending ({requests.filter(r => r.status === 'Pending').length})
+           {t('pending')} ({requests.filter(r => r.status === 'Pending').length})
           </button>
           <button
             type="button"
@@ -688,7 +686,7 @@ const RequestsPage = () => {
               setCurrentPage(1);
             }}
           >
-            Informed ({requests.filter(r => r.status === 'Informed').length})
+           {t('informed')}  ({requests.filter(r => r.status === 'Informed').length})
           </button>
           <button
             type="button"
@@ -698,7 +696,7 @@ const RequestsPage = () => {
               setCurrentPage(1);
             }}
           >
-            Completed ({requests.filter(r => r.status === 'Completed').length})
+           {t('completed')} ({requests.filter(r => r.status === 'Completed').length})
           </button>
           <button
             type="button"
@@ -708,12 +706,11 @@ const RequestsPage = () => {
               setCurrentPage(1);
             }}
           >
-            Rejected ({requests.filter(r => r.status === 'Rejected').length})
+            {t('rejected')} ({requests.filter(r => r.status === 'Rejected').length})
           </button>
         </div>
 
         <div className={`text-sm ${isDark ? 'text-light' : 'text-muted'}`}>
-          Showing {paginatedRequests.length} of {filteredRequests.length} requests
         </div>
       </div>
 
@@ -739,7 +736,7 @@ const RequestsPage = () => {
               </p>
               {filter === 'all' && (
                 <Link to="/create-request" className="btn btn-danger">
-                  Create Your First Request
+                {t('create_your_first_request')}
                 </Link>
               )}
             </div>
@@ -750,11 +747,11 @@ const RequestsPage = () => {
                   <thead className={isDark ? 'table-dark' : 'table-light'}>
                     <tr>
                       
-                      <th>Type</th>
-                      <th>Content</th>
-                      <th>Priority</th>
-                      <th>Status</th>
-                      <th>Submitted</th>
+                      <th>{t('type')}</th>
+                      <th>{t('content')}</th>
+                      <th>{t('priority')}</th>
+                      <th>{t('status')}</th>
+                      <th>{t('submitted')}</th>
                       
                     </tr>
                   </thead>
@@ -902,7 +899,7 @@ const RequestsPage = () => {
                   }}
                 >
                   <h5 className="modal-title text-danger">
-                    Rejection Details
+                   {t('rejection_details')}
                   </h5>
                   <button
                     type="button"
@@ -918,7 +915,7 @@ const RequestsPage = () => {
                   {loadingRejectionDetails ? (
                     <div className="text-center py-4">
                       <div className="spinner-border text-danger" role="status"></div>
-                      <p className="mt-3">Loading...</p>
+                      <p className="mt-3">{t('loading')}</p>
                     </div>
                   ) : (
                     <div 
@@ -930,12 +927,12 @@ const RequestsPage = () => {
                     >
                       <div className="card-header bg-danger text-white">
                         <h6 className="mb-0">
-                          Why was this request rejected?
+                          {t('why_was_this_request_rejected')}
                         </h6>
                       </div>
                       <div className="card-body">
                         <div className="mb-3">
-                          <label className="form-label fw-bold">Rejection Reason:</label>
+                          <label className="form-label fw-bold">{t('rejection_reason')}</label>
                           <div 
                             className="p-3 rounded border"
                             style={{
@@ -943,13 +940,13 @@ const RequestsPage = () => {
                               borderColor: isDark ? '#718096' : '#e2e8f0'
                             }}
                           >
-                            {selectedRequestForRejectionDetails.reason || 'No reason provided'}
+                            {selectedRequestForRejectionDetails.reason || t('no_reason_provided')}
                           </div>
                         </div>
 
                         {selectedRequestForRejectionDetails.additional_info && (
                           <div className="mb-3">
-                            <label className="form-label fw-bold">Additional Information:</label>
+                            <label className="form-label fw-bold">{t('additional_information')}</label>
                             <div 
                               className="p-3 rounded border"
                               style={{
@@ -964,16 +961,16 @@ const RequestsPage = () => {
 
                         <div className="row">
                           <div className="col-md-6">
-                            <label className="form-label fw-bold">Rejected Date:</label>
+                            <label className="form-label fw-bold">{t('rejected_date')}</label>
                             <p className={isDark ? 'text-light' : 'text-muted'}>
                               {selectedRequestForRejectionDetails.rejected_at 
                                 ? new Date(selectedRequestForRejectionDetails.rejected_at).toLocaleString()
-                                : 'Unknown'
+                                : t('unknown')
                               }
                             </p>
                           </div>
                           <div className="col-md-6">
-                            <label className="form-label fw-bold">Rejected By:</label>
+                            <label className="form-label fw-bold">{t('rejected_by')}</label>
                             <p className={isDark ? 'text-light' : 'text-muted'}>
                               {selectedRequestForRejectionDetails.admin_name || 'Unknown Admin'}
                             </p>
@@ -992,13 +989,13 @@ const RequestsPage = () => {
                     }}
                   >
                     <h6 className="alert-heading">
-                      What can you do next?
+                      {t('what_can_you_do_next')}
                     </h6>
                     <ul className="mb-0">
-                      <li>Review the rejection reason carefully</li>
-                      <li>If you think this was a mistake, contact the {selectedRequestForRejectionDetails.admin_name || 'admin'} directly</li>
-                      <li>You can submit a new request with the required corrections</li>
-                      <li>Contact student support if you need additional help</li>
+                     <li>{t('review_rejection_reason')}</li>
+                   
+                      <li>{t('submit_new_request_corrections')}</li>
+                      <li>{t('contact_student_support')}</li>
                     </ul>
                   </div>
                 </div>
@@ -1011,21 +1008,21 @@ const RequestsPage = () => {
                   }}
                 >
                   <div className={`small me-auto ${isDark ? 'text-light' : 'text-muted'}`}>
-                    Request #{selectedRequestForRejectionDetails.requestId}
+                   {t('request')} #{selectedRequestForRejectionDetails.requestId}
                   </div>
                   <button
                     type="button"
                     className="btn btn-secondary"
                     onClick={() => setShowRejectionDetailsModal(false)}
                   >
-                    Close
+                      {t('close')}
                   </button>
                   <Link 
                     to="/create-request" 
                     className="btn btn-danger"
                     onClick={() => setShowRejectionDetailsModal(false)}
                   >
-                    Submit New Request
+                   {t('submit_new_request')}
                   </Link>
                 </div>
               </div>

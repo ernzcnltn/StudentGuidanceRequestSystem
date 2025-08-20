@@ -5,6 +5,9 @@ import { translations } from '../locales/translations';
 export const useTranslation = () => {
   const { currentLanguage } = useLanguage();
   
+
+
+
   const t = (key, defaultValue = key, interpolations = {}) => {
     // Boş key kontrolü
     if (!key || typeof key !== 'string') {
@@ -49,6 +52,14 @@ export const useTranslation = () => {
     
     return result;
   };
+
+
+  const translateDbText = (text, mappingKey) => {
+  if (!text) return '';
+  
+  const mappings = translations[currentLanguage]?.[mappingKey];
+  return mappings?.[text] || text;
+};
 
   // Talep türü çevirisi için özel fonksiyon
   const translateRequestType = (requestTypeName) => {
@@ -95,6 +106,7 @@ const translateDescription = (description) => {
     t,
     translateRequestType,
     translateDescription, // YENİ FONKSIYON
+     translateDbText, // YENİ FONKSIYON
     currentLanguage
   };
 };

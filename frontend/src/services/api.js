@@ -75,6 +75,52 @@ const initializeTokens = () => {
 // Sayfa yüklendiğinde token'ları initialize et
 initializeTokens();
 
+
+
+// UNIFIED LOGIN METHODS
+const unifiedAuthMethods = {
+  // UNIFIED LOGIN - Works for both students and admins
+  unifiedLogin: (email, password) => {
+    console.log('🔐 Unified login API call:', { email: email?.substring(0, 10) + '...' });
+    return axios.post(`${BASE_URL}/auth/login`, { email, password });
+  },
+
+  // VERIFY TOKEN - Works for both user types
+  verifyToken: () => {
+    const studentToken = localStorage.getItem('student_token');
+    const adminToken = localStorage.getItem('admin_token');
+    
+    if (adminToken) {
+      return adminApi.post('/auth/verify-token');
+    } else if (studentToken) {
+      return studentApi.post('/auth/verify-token');
+    } else {
+      return Promise.reject(new Error('No authentication token found'));
+    }
+  },
+
+  // CHECK EMAIL AVAILABILITY
+  checkEmailAvailability: (email) => {
+    console.log('📧 Checking email availability:', email);
+    return axios.post(`${BASE_URL}/auth/check-email`, { email });
+  },
+
+  // CHANGE PASSWORD - Works for current user
+  changePassword: (currentPassword, newPassword) => {
+    const isAdmin = !!localStorage.getItem('admin_token');
+    const api = isAdmin ? adminApi : studentApi;
+    
+    console.log('🔐 Changing password for:', isAdmin ? 'admin' : 'student');
+    return api.post('/auth/change-password', {
+      current_password: currentPassword,
+      new_password: newPassword
+    });
+  }
+};
+
+
+
+
 const academicCalendarMethods = {
   // ===== ACADEMIC CALENDAR METHODS =====
   
@@ -1629,6 +1675,8 @@ const adminStatisticsMethods = {
 export const apiService = {
   // ===== EXISTING METHODS (PRESERVED) =====
 
+  ...unifiedAuthMethods,
+  
   
 ...academicCalendarMethods,
 

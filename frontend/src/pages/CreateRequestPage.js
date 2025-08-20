@@ -49,7 +49,7 @@ const CreateRequestPage = () => {
         setRequestTypes(response.data.data);
       } catch (error) {
         console.error('Error fetching request types:', error);
-        showError('Failed to load request types');
+        showError(t('failedToLoadRequestTypes'));
       }
     };
 
@@ -104,7 +104,7 @@ const CreateRequestPage = () => {
                   setCanSubmitRequestNow(true);
                   setLastRequestInfo(null);
                   clearInterval(timer);
-                  showSuccess('✅ You can now submit a new request!');
+                  showSuccess(t('youCanNowSubmitNewRequest'));
                 } else {
                   setLastRequestInfo(prev => ({
                     ...prev,
@@ -147,7 +147,7 @@ const CreateRequestPage = () => {
     if (!canCreateDuringWorkingHours) {
       return {
         type: 'working_hours',
-        message: 'Outside working hours (Monday-Friday 08:30-17:30)',
+        message: t('outsideWorkingHours'),
         icon: ''
       };
     }
@@ -155,7 +155,8 @@ const CreateRequestPage = () => {
     if (!canSubmitRequestNow) {
       return {
         type: '24_hour_limit',
-        message: `Wait ${lastRequestInfo?.hoursRemaining || 0} more hours (24-hour limit)`,
+        message:t('waitMoreHours', { hours: lastRequestInfo?.hoursRemaining || 0 }),
+
         icon: ''
       };
     }
@@ -163,7 +164,7 @@ const CreateRequestPage = () => {
     if (academicCalendarStatus && !academicCalendarStatus.canCreateRequest) {
       return {
         type: 'academic_calendar',
-        message: academicCalendarStatus.message || 'Academic calendar restriction',
+        message: academicCalendarStatus.message || t('academicCalendarRestriction'),
         icon: ''
       };
     }
@@ -172,11 +173,11 @@ const CreateRequestPage = () => {
   };
 
   const getFileIcon = (fileType) => {
-    if (fileType.includes('pdf')) return '📄';
-    if (fileType.includes('image')) return '🖼️';
+    if (fileType.includes('pdf')) return '';
+    if (fileType.includes('image')) return '';
     if (fileType.includes('word') || fileType.includes('document')) return '📝';
     if (fileType.includes('csv') || fileType.includes('excel')) return '📊';
-    return '📎';
+    return '';
   };
 
   useEffect(() => {
@@ -238,7 +239,7 @@ const CreateRequestPage = () => {
     selectedFiles.forEach(file => {
       const isDuplicate = files.some(existingFile => existingFile.name === file.name);
       if (isDuplicate) {
-        errors.push(`${file.name}: File already added`);
+        errors.push(`${file.name}: ${t('fileAlreadyAdded')}`)
         return;
       }
       
@@ -322,7 +323,7 @@ const CreateRequestPage = () => {
 
     const oversizedFiles = files.filter(file => file.size > 2 * 1024 * 1024);
     if (oversizedFiles.length > 0) {
-      showError(`Files too large: ${oversizedFiles.map(f => f.name).join(', ')}. Maximum size is 2MB per file.`);
+showError(t('filesTooLarge', { files: oversizedFiles.map(f => f.name).join(', ') }));
       return;
     }
 
@@ -375,32 +376,32 @@ const CreateRequestPage = () => {
       });
       setCanSubmitRequestNow(false);
       
-      showInfo('ℹ️ Remember: You can submit your next request after 24 hours during working hours.');
+      showInfo(' Remember: You can submit your next request after 24 hours during working hours.');
       
       setTimeout(() => {
         navigate('/requests');
       }, 2000);
       
     } catch (error) {
-      console.error('❌ Request creation error:', error);
+      console.error(' Request creation error:', error);
       
       // ⭐ ENHANCED: Better error handling for calendar restrictions
       if (error.response?.status === 423) {
         const errorData = error.response.data;
         
         if (errorData.errorCode === 'ACADEMIC_HOLIDAY') {
-          showError(` Academic Holiday: ${errorData.error}`);
+showError(t('academicHoliday') + ': ' + errorData.error);
           if (errorData.guidance?.next_available_date) {
-            showInfo(` Next available: ${errorData.guidance.next_available_date}`);
+showInfo(t('nextAvailable') + ': ' + errorData.guidance.next_available_date);
           }
         } else if (errorData.errorCode === 'OUTSIDE_WORKING_HOURS') {
-          showError('❌ Outside working hours: Requests can only be created Monday-Friday 08:30-17:30 (TRNC Time)');
+showError(t('outsideWorkingHoursLong'));
           if (errorData.guidance?.nextOpening) {
             showInfo(` ${errorData.guidance.nextOpening}`);
           }
           setShowWorkingHoursModal(true);
         } else {
-          showError(`❌ ${errorData.error}`);
+          showError(` ${errorData.error}`);
         }
         return;
       }
@@ -409,7 +410,7 @@ const CreateRequestPage = () => {
         const errorData = error.response.data;
         
         if (errorData.errorCode === 'DAILY_LIMIT_EXCEEDED') {
-          showError(` Daily limit exceeded: ${errorData.error}`);
+showError(t('dailyLimitExceeded') + ': ' + errorData.error);
           if (errorData.details) {
             setLastRequestInfo({
               lastRequestTime: new Date(errorData.details.last_request_time),
@@ -417,12 +418,12 @@ const CreateRequestPage = () => {
               hoursRemaining: errorData.details.hours_remaining
             });
             setCanSubmitRequestNow(false);
-            showInfo(` Next request available: ${new Date(errorData.details.actual_next_available_time || errorData.details.next_allowed_time).toLocaleString('tr-TR')}`);
+showInfo(t('nextRequestAvailable') + ': ' + new Date(errorData.details.actual_next_available_time || errorData.details.next_allowed_time).toLocaleString('tr-TR'));
           }
         } else if (errorData.errorCode === 'HOURLY_RATE_LIMIT_EXCEEDED') {
-          showError(`⏰ Rate limit exceeded: ${errorData.error}`);
+showError(t('rateLimitExceeded') + ': ' + errorData.error);
           if (errorData.details) {
-            showInfo(`⏱️ Please wait ${errorData.details.minutes_remaining} more minutes`);
+showInfo(t('pleaseWaitMinutes', { minutes: errorData.details.minutes_remaining }));
           }
         }
         return;
@@ -452,7 +453,7 @@ const CreateRequestPage = () => {
 
         {success && (
           <div className="alert alert-success" role="alert">
-            {success} Redirecting to your requests...
+{success} {t('redirectingToRequests')}
           </div>
         )}
 
@@ -464,18 +465,14 @@ const CreateRequestPage = () => {
                 const restriction = getRestrictionReason();
                 return restriction ? (
                   <div className="alert alert-danger mb-4">
-                    <h6 className="alert-heading"> Request Creation Restricted</h6>
+<h6 className="alert-heading">{t('requestCreationRestricted')}</h6>
                     <p className="mb-2">{restriction.message}</p>
                     
-                    {restriction.type === 'working_hours' && (
-                      <p className="mb-0">
-                        <strong>Working hours:</strong> Monday-Friday, 08:30-17:30 (TRNC Time)
-                      </p>
-                    )}
+                   
                     
                     {restriction.type === '24_hour_limit' && lastRequestInfo && (
                       <p className="mb-0">
-                        <strong>{t('Next request available')}:</strong> {lastRequestInfo.nextAllowedTime.toLocaleString('tr-TR')}
+<strong>{t('nextRequestAvailable')}:</strong> {lastRequestInfo.nextAllowedTime.toLocaleString('tr-TR')}
                       </p>
                     )}
                     
@@ -483,7 +480,7 @@ const CreateRequestPage = () => {
                       <div>
                         {academicCalendarStatus.details.holidayNames && (
                           <p className="mb-0">
-                            <strong>Current holiday:</strong> {academicCalendarStatus.details.holidayNames}
+<strong>{t('currentHoliday')}:</strong> {academicCalendarStatus.details.holidayNames}
                           </p>
                         )}
                       </div>
@@ -540,7 +537,7 @@ const CreateRequestPage = () => {
                     {selectedType.is_document_required && (
                       <div className="mt-2">
                         <strong className="text-warning">
-                          ⚠️ {t('documentUploadRequired')}
+                           {t('documentUploadRequired')}
                         </strong>
                       </div>
                     )}
@@ -633,7 +630,7 @@ const CreateRequestPage = () => {
                              {files.length > 0 ? 'Add More Files' : t('chooseFiles')}
                            </div>
                            <small className="text-white-50">
-                             Max 3 files • 2MB each
+{t('maxFilesLimit')}
                            </small>
                          </label>
                        </div>
@@ -651,9 +648,9 @@ const CreateRequestPage = () => {
                        >
                          <div className="text-muted text-center">
                            <div style={{ fontSize: '2.5rem', marginBottom: '15px' }}>📎</div>
-                           <h6 className="mb-2">Drag files here</h6>
+<h6 className="mb-2">{t('dragFilesHere')}</h6>
                            <p className="mb-0 small">
-                             or use the button to browse
+  {t('orUseButtonToBrowse')}
                            </p>
                          </div>
                        </div>
@@ -664,11 +661,11 @@ const CreateRequestPage = () => {
                      <div className="col-12">
                        <div className="d-flex justify-content-between align-items-center">
                          <div className="form-text">
-                           <strong>Allowed:</strong> PDF, Images, DOC, CSV
+<strong>{t('allowed')}:</strong> {t('allowedFileTypes')}
                          </div>
                          <div className="text-end">
                            <span className={`badge ${files.length >= 3 ? 'bg-warning' : 'bg-info'}`}>
-                             {files.length} / 3 files
+{files.length} / 3 {t('files')}
                            </span>
                          </div>
                        </div>
@@ -676,7 +673,7 @@ const CreateRequestPage = () => {
                        {selectedType.is_document_required && (
                          <div className="alert alert-warning mt-2 py-2">
                            <small>
-                             <strong>⚠️ Required:</strong> {t('documentUploadRequired')}
+<strong> {t('required')}:</strong> {t('documentUploadRequired')}
                            </small>
                          </div>
                        )}
@@ -687,7 +684,7 @@ const CreateRequestPage = () => {
                      <div className="mt-4">
                        <div className="d-flex justify-content-between align-items-center mb-3">
                          <h6 className="mb-0">
-                           Selected Files ({files.length})
+{t('selectedFiles')} ({files.length})
                          </h6>
                          <button
                            type="button"
@@ -695,7 +692,7 @@ const CreateRequestPage = () => {
                            onClick={() => setFiles([])}
                            disabled={loading || submitting || !canActuallyCreateRequest()}
                          >
-                           🗑️ Clear All
+ {t('clearAll')}
                          </button>
                        </div>
                        
@@ -751,7 +748,8 @@ const CreateRequestPage = () => {
                                      ></div>
                                    </div>
                                    <small className="text-success">
-                                     ✓ Ready to upload
+                                     {t('readyToUpload')}
+
                                    </small>
                                  </div>
                                </div>
@@ -777,7 +775,7 @@ const CreateRequestPage = () => {
                      <li>{t('provideDetail')}</li>
                      <li>{t('prepareFiles')}</li>
                      <li>{t('useHighPriority')}</li>
-                     <li>Ensure you're submitting during working hours and non-holiday periods</li>
+{t('ensureWorkingHoursAndHolidays')}
                     
                    </ul>
                  </div>
@@ -807,13 +805,14 @@ const CreateRequestPage = () => {
                    (() => {
                      const restriction = getRestrictionReason();
                      if (restriction?.type === '24_hour_limit') {
-                       return <> Wait {lastRequestInfo?.hoursRemaining || 0} hours</>;
+                       return <> {t('waitHours', { hours: lastRequestInfo?.hoursRemaining || 0 })} </>;
                      } else if (restriction?.type === 'working_hours') {
-                       return <> Outside Working Hours</>;
+                       return <> {t('outsideWorkingHours')}</>;
                      } else if (restriction?.type === 'academic_calendar') {
-                       return <> Academic Holiday</>;
+                       return <> {t('academicHoliday')}
+</>;
                      } else {
-                       return <> Request Restricted</>;
+                       return <> {t('requestRestricted')}</>;
                      }
                    })()
                  ) : (
@@ -830,14 +829,13 @@ const CreateRequestPage = () => {
                  if (restriction?.type === '24_hour_limit' && lastRequestInfo) {
                    return (
                      <small className="text-muted text-center">
-                       Next request available: {lastRequestInfo.nextAllowedTime.toLocaleString('tr-TR')}
+{t('nextRequestAvailable')}: {lastRequestInfo.nextAllowedTime.toLocaleString('tr-TR')}
                      </small>
                    );
                  } else if (restriction?.type === 'academic_calendar' && academicCalendarStatus?.details?.nextAvailable) {
                    return (
                      <small className="text-muted text-center">
-                       Next available: {academicCalendarStatus.details.nextAvailable}
-                     </small>
+{t('nextAvailable')}: {academicCalendarStatus.details.nextAvailable}                     </small>
                    );
                  }
                  return null;

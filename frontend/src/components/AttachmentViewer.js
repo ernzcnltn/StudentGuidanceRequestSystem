@@ -104,11 +104,11 @@ const AttachmentViewer = ({ requestId, onClose }) => {
   };
 
   const getFileIcon = (fileType) => {
-    if (fileType.includes('pdf')) return '📄';
-    if (fileType.includes('image')) return '🖼️';
+    if (fileType.includes('pdf')) return '';
+    if (fileType.includes('image')) return '';
     if (fileType.includes('word') || fileType.includes('document')) return '📝';
     if (fileType.includes('csv') || fileType.includes('excel')) return '📊';
-    return '📎';
+    return '';
   };
 
   const canPreview = (fileType) => {
@@ -321,7 +321,7 @@ const AttachmentViewer = ({ requestId, onClose }) => {
           <div className="modal-content">
             <div className="modal-header">
               <h5 className="modal-title">
-                📎 {t('attachments')}
+                 {t('attachments')}
               </h5>
               <button 
                 type="button" 

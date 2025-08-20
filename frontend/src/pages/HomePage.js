@@ -21,11 +21,11 @@ const HomePage = () => {
     console.log('Student logout button clicked!');
     
     const confirmed = await showConfirmation({
-      title: 'Logout Confirmation',
-      message: 'Are you sure you want to logout from the student portal?',
+      title: t('logoutConfirmation'),
+      message: t('logoutConfirmationMessage'),
       type: 'danger',
-      confirmText: 'Logout',
-      cancelText: 'Cancel'
+      confirmText: t('logout'),
+      cancelText: t('cancel')
     });
 
     if (confirmed) {
@@ -83,9 +83,9 @@ const HomePage = () => {
     return (
       <div className="text-center py-5">
         <div className="spinner-border text-danger" role="status">
-          <span className="visually-hidden">Loading</span>
+          <span className="visually-hidden">{t('loading')}</span>
         </div>
-        <p className="mt-3">Loading...</p>
+        <p className="mt-3">{t('loading')}...</p>
       </div>
     );
   }
@@ -102,13 +102,12 @@ const HomePage = () => {
           color: '#ffffff'
         }}
       >
-        <h1 className="display-4">Welcome to Student Portal</h1>
+        <h1 className="display-4">{t('welcome_to_student_portal')}</h1>
         <p className="lead">
-          Submit and track your requests efficiently
+          {t('submit_and_track_efficiently')}
         </p>
         <Link className="btn btn-light btn-lg" to="/create-request">
-        
-          Create Request
+          {t('createRequest')}
         </Link>
       </div>
 
@@ -116,9 +115,9 @@ const HomePage = () => {
       <div className="row">
         <div className="col-md-12">
           <div className="d-flex justify-content-between align-items-center mb-3">
-            <h3 className={isDark ? 'text-white' : 'text-dark'}>Request Categories</h3>
+            <h3 className={isDark ? 'text-white' : 'text-dark'}>{t('request_categories')}</h3>
             <small className={isDark ? 'text-gray-400' : 'text-muted'}>
-              Click on a category to create a request
+              {t('click_on_category_to_create')}
             </small>
           </div>
           
@@ -155,11 +154,11 @@ const HomePage = () => {
                   >
                     <div className="d-flex align-items-center">
                       <i 
-                        
+                        className={`${getCategoryIcon(category)} me-2`}
                         style={{ fontSize: '1.5rem', color: '#dc2626' }}
                       ></i>
                       <h5 className="mb-0">
-                        {category}
+                        {t(category.toLowerCase().replace(/\s+/g, ''))}
                       </h5>
                     </div>
                     <span className="badge bg-danger">
@@ -188,7 +187,7 @@ const HomePage = () => {
                       <small className={`${isDark ? 'text-gray-400' : 'text-muted'} d-flex align-items-center justify-content-between`}>
                         <span>
                           <i className="bi bi-cursor-fill me-2"></i>
-                          Click to create request
+                          {t('click_to_create_request')}
                         </span>
                         <i className="bi bi-arrow-right text-danger"></i>
                       </small>
@@ -226,28 +225,28 @@ const HomePage = () => {
               >
                 <h5 className="mb-0">
                   <i className="bi bi-bar-chart me-2 text-danger"></i>
-                  Your Statistics
+                  {t('your_statistics')}
                 </h5>
               </div>
               <div className="card-body">
                 <div className="row text-center">
                   <div className="col-6">
                     <div className="h5 text-warning">{stats.pending_requests || 0}</div>
-                    <small className={isDark ? 'text-gray-400' : 'text-muted'}>Pending</small>
+                    <small className={isDark ? 'text-gray-400' : 'text-muted'}>{t('pending')}</small>
                   </div>
                   <div className="col-6">
                     <div className="h5 text-info">{stats.informed_requests || 0}</div>
-                    <small className={isDark ? 'text-gray-400' : 'text-muted'}>Informed</small>
+                    <small className={isDark ? 'text-gray-400' : 'text-muted'}>{t('informed')}</small>
                   </div>
                 </div>
                 <div className="row text-center mt-2">
                   <div className="col-6">
                     <div className="h5 text-success">{stats.completed_requests || 0}</div>
-                    <small className={isDark ? 'text-gray-400' : 'text-muted'}>Completed</small>
+                    <small className={isDark ? 'text-gray-400' : 'text-muted'}>{t('completed')}</small>
                   </div>
                   <div className="col-6">
                     <div className="h4 text-danger">{stats.total_requests || 0}</div>
-                    <small className={isDark ? 'text-gray-400' : 'text-muted'}>Total</small>
+                    <small className={isDark ? 'text-gray-400' : 'text-muted'}>{t('totalRequests')}</small>
                   </div>
                 </div>
               </div>

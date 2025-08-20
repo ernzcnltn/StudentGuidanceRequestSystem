@@ -114,11 +114,11 @@ const AdminResponseModal = ({ requestId, requestTitle, onClose, onResponseAdded 
   };
 
   const getFileIcon = (fileType) => {
-    if (fileType.includes('pdf')) return '📄';
-    if (fileType.includes('image')) return '🖼️';
+    if (fileType.includes('pdf')) return '';
+    if (fileType.includes('image')) return '';
     if (fileType.includes('word') || fileType.includes('document')) return '📝';
     if (fileType.includes('csv') || fileType.includes('excel') || fileType.includes('sheet')) return '📊';
-    return '📎';
+    return '';
   };
 
   const handleSubmitResponse = async (e) => {
@@ -279,7 +279,7 @@ const AdminResponseModal = ({ requestId, requestTitle, onClose, onResponseAdded 
                   {/* File Upload Section for Admin Response */}
                   <div className="mb-4">
                     <label className="form-label">
-                      <strong>📎{t('attachFilesOptional')} </strong>
+                      <strong>{t('attachFilesOptional')} </strong>
                     </label>
                     
                     <div className="border rounded p-3" style={{ backgroundColor: '#f8f9fa' }}>

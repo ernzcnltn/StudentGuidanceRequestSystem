@@ -22,6 +22,9 @@ import { useConfirmation } from '../hooks/useConfirmation';
 import ConfirmationModal from '../components/ConfirmationModal';
 
 // Request Detail Modal Component
+
+
+
 const RequestDetailModal = ({ 
   show, 
   onHide, 
@@ -48,6 +51,7 @@ const RequestDetailModal = ({
     return statusStyles[status] || 'bg-secondary text-white';
   };
 
+  
   const getPriorityBadge = (priority) => {
     const priorityStyles = {
       'Urgent': 'bg-danger text-white',
@@ -86,7 +90,7 @@ const RequestDetailModal = ({
             }}>
               <h5 className="modal-title">
                 <i className="fas fa-file-alt me-2 text-danger"></i>
-                Request Details  
+                {t('requestDetails')} 
               </h5>
               <button
                 type="button"
@@ -113,12 +117,12 @@ const RequestDetailModal = ({
                     }}>
                       <h6 className="mb-0">
                         <i className="fas fa-info-circle me-2"></i>
-                        Basic Information
+                        {t('basicInformation')}
                       </h6>
                     </div>
                     <div className="card-body">
                       <div className="mb-3">
-                        <label className="form-label fw-bold">Request Type:</label>
+                        <label className="form-label fw-bold">{t('requestType')}:</label>
                         <div className="p-2 rounded" style={{
                           backgroundColor: isDark ? '#000000' : '#ffffff',
                           border: `1px solid ${isDark ? '#4a5568' : '#e2e8f0'}`
@@ -128,7 +132,7 @@ const RequestDetailModal = ({
                       </div>
 
                       <div className="mb-3">
-                        <label className="form-label fw-bold">Student:</label>
+                        <label className="form-label fw-bold">{t('student')}::</label>
                         <div className="p-2 rounded" style={{
                           backgroundColor: isDark ? '#000000' : '#ffffff',
                           border: `1px solid ${isDark ? '#4a5568' : '#e2e8f0'}`
@@ -141,7 +145,7 @@ const RequestDetailModal = ({
                       </div>
 
                       <div className="mb-3">
-                        <label className="form-label fw-bold">Status:</label>
+                        <label className="form-label fw-bold">{t('status')}:</label>
                         <div>
                           <span className={`badge ${getStatusBadge(request.status)}`}>
                             {t(request.status.toLowerCase())}
@@ -150,7 +154,7 @@ const RequestDetailModal = ({
                       </div>
 
                       <div className="mb-3">
-                        <label className="form-label fw-bold">Priority:</label>
+                        <label className="form-label fw-bold">{t('priority')}:</label>
                         <div>
                           <span className={`badge ${getPriorityBadge(request.priority)}`}>
                             {request.priority || 'Medium'}
@@ -159,7 +163,7 @@ const RequestDetailModal = ({
                       </div>
 
                       <div className="mb-3">
-                        <label className="form-label fw-bold">Submitted:</label>
+                        <label className="form-label fw-bold">{t('submitted')}:</label>
                         <div className={isDark ? 'text-light' : 'text-muted'}>
                           <div>{new Date(request.submitted_at).toLocaleDateString()}</div>
                           <small>{new Date(request.submitted_at).toLocaleTimeString()}</small>
@@ -168,14 +172,14 @@ const RequestDetailModal = ({
 
                       {request.attachment_count > 0 && (
                         <div className="mb-3">
-                          <label className="form-label fw-bold">Attachments:</label>
+                          <label className="form-label fw-bold">{t('attachments')}:</label>
                           <div>
                             <button 
                               className="btn btn-outline-secondary btn-sm w-100"
                               onClick={() => onViewAttachments(request.request_id)}
                             >
                               <i className="fas fa-paperclip me-2"></i>
-                              View Files ({request.attachment_count})
+                             {t('viewFiles')} ({request.attachment_count})
                             </button>
                           </div>
                         </div>
@@ -196,7 +200,7 @@ const RequestDetailModal = ({
                     }}>
                       <h6 className="mb-0">
                         <i className="fas fa-file-text me-2"></i>
-                        Request Content
+                       {t('requestContent')}
                       </h6>
                     </div>
                     <div className="card-body">
@@ -210,7 +214,7 @@ const RequestDetailModal = ({
                         fontFamily: 'system-ui, -apple-system, sans-serif',
                         lineHeight: '1.6'
                       }}>
-                        {request.content || 'No content provided'}
+                        {request.content || t('contactInformation')}
                       </div>
                     </div>
                   </div>
@@ -227,14 +231,14 @@ const RequestDetailModal = ({
                       }}>
                         <h6 className="mb-0">
                           <i className="fas fa-address-card me-2"></i>
-                          Contact Information
+                         {t('contactInformation')}
                         </h6>
                       </div>
                       <div className="card-body">
                         <div className="row">
                           {request.student_email && (
                             <div className="col-md-6">
-                              <label className="form-label fw-bold">Email:</label>
+                              <label className="form-label fw-bold">{t('email')}:</label>
                               <div className="p-2 rounded" style={{
                                 backgroundColor: isDark ? '#000000' : '#ffffff',
                                 border: `1px solid ${isDark ? '#4a5568' : '#e2e8f0'}`
@@ -251,7 +255,7 @@ const RequestDetailModal = ({
                           )}
                           {request.student_phone && (
                             <div className="col-md-6">
-                              <label className="form-label fw-bold">Phone:</label>
+                              <label className="form-label fw-bold">{t('phone')}:</label>
                               <div className="p-2 rounded" style={{
                                 backgroundColor: isDark ? '#000000' : '#ffffff',
                                 border: `1px solid ${isDark ? '#4a5568' : '#e2e8f0'}`
@@ -286,7 +290,7 @@ const RequestDetailModal = ({
                     onClick={() => onSendResponse(request)}
                   >
                     <i className="fas fa-reply me-2"></i>
-                    Send Response
+                    {t('sendResponse')}
                   </button>
                 )}
 
@@ -296,7 +300,7 @@ const RequestDetailModal = ({
                     onClick={() => onUpdateStatus(request.request_id, 'Completed')}
                   >
                     <i className="fas fa-check me-2"></i>
-                    Mark Complete
+                   {t('markComplete')}
                   </button>
                 )}
 
@@ -306,7 +310,7 @@ const RequestDetailModal = ({
                     onClick={() => onRejectRequest(request)}
                   >
                     <i className="fas fa-times me-2"></i>
-                    Reject
+                   {t('reject')}
                   </button>
                 )}
 
@@ -314,7 +318,7 @@ const RequestDetailModal = ({
                   className="btn btn-secondary ms-auto"
                   onClick={onHide}
                 >
-                  Close
+                  {t('close')}
                 </button>
               </div>
             </div>
@@ -354,7 +358,7 @@ const AdminDashboardPage = () => {
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [selectedRequestForReject, setSelectedRequestForReject] = useState(null);
   const [rejectLoading, setRejectLoading] = useState(false);
-
+  
   // Request Detail Modal States
   const [showRequestDetailModal, setShowRequestDetailModal] = useState(false);
   const [selectedRequestForDetail, setSelectedRequestForDetail] = useState(null);
@@ -362,8 +366,7 @@ const AdminDashboardPage = () => {
   const { confirmationState, showConfirmation } = useConfirmation();
   const { isDark, toggleTheme } = useTheme();
   const { currentLanguage, changeLanguage, languages } = useLanguage();
-  const { t, translateRequestType } = useTranslation();
-  const [activeTab, setActiveTab] = useState('dashboard');
+const { t, translateRequestType, translateDbText } = useTranslation();  const [activeTab, setActiveTab] = useState('dashboard');
   const [dashboardData, setDashboardData] = useState(null);
   const [requests, setRequests] = useState([]);
   const [requestTypes, setRequestTypes] = useState([]);
@@ -392,11 +395,11 @@ const AdminDashboardPage = () => {
     console.log('Logout button clicked!');
     
     const confirmed = await showConfirmation({
-      title: 'Logout Confirmation',
-      message: 'Are you sure you want to logout from the admin panel?',
+      title: t('logoutConfirmation'),
+      message: t('areYouSureLogoutAdmin'),
       type: 'danger',
-      confirmText: 'Logout',
-      cancelText: 'Cancel'
+      confirmText: t('logout'),
+      cancelText: t('cancel')
     });
 
     if (confirmed) {
@@ -475,7 +478,7 @@ const AdminDashboardPage = () => {
 
   const fetchDashboardData = useCallback(async () => {
     if (!canViewAnalytics()) {
-      showError('You do not have permission to view analytics');
+showError(t('noPermissionViewAnalytics'));
       return;
     }
 
@@ -492,7 +495,7 @@ const AdminDashboardPage = () => {
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
       if (error.response?.status === 403) {
-        showError('Access denied: Insufficient permissions for dashboard');
+showError(t('accessDeniedInsufficientPermissions'));
       }
     } finally {
       setLoading(false);
@@ -501,7 +504,7 @@ const AdminDashboardPage = () => {
 
   const fetchRequests = useCallback(async () => {
     if (!canViewRequests()) {
-      showError('You do not have permission to view requests');
+showError(t('noPermissionViewRequests'));
       return;
     }
 
@@ -516,7 +519,7 @@ const AdminDashboardPage = () => {
     } catch (error) {
       console.error('Error fetching requests:', error);
       if (error.response?.status === 403) {
-        showError('Access denied: Insufficient permissions to view requests');
+showError(t('accessDeniedViewRequests'));
       }
       setRequests([]);
     } finally {
@@ -526,7 +529,7 @@ const AdminDashboardPage = () => {
 
   const fetchRequestTypes = useCallback(async () => {
     if (!canManageSettings()) {
-      showError('You do not have permission to manage settings');
+showError(t('noPermissionManageSettings'));
       return;
     }
 
@@ -539,7 +542,7 @@ const AdminDashboardPage = () => {
     } catch (error) {
       console.error('Error fetching request types:', error);
       if (error.response?.status === 403) {
-        showError('Access denied: Insufficient permissions to manage request types');
+showError(t('accessDeniedManageRequestTypes'));
       }
       setRequestTypes([]);
     } finally {
@@ -589,7 +592,7 @@ const AdminDashboardPage = () => {
 
   const handleRejectRequest = async (rejectionReason) => {
     if (!selectedRequestForReject) {
-      showError('No request selected for rejection');
+showError(t('noRequestSelectedForRejection'));
       return;
     }
 
@@ -623,16 +626,19 @@ const AdminDashboardPage = () => {
     } catch (error) {
       console.error('Error rejecting request:', error);
       
-      let errorMessage = 'Failed to reject request. Please try again.';
+      let errorMessage =t('failedToRejectRequest');
       
       if (error.response?.status === 403) {
-        errorMessage = 'Access denied: Insufficient permissions to reject requests';
+        errorMessage = t('accessDeniedRejectRequests');
       } else if (error.response?.status === 400) {
-        errorMessage = error.response.data?.error || 'Invalid rejection request';
+        errorMessage = error.response.data?.error || t('invalidRejectionRequest')
+;
       } else if (error.response?.status === 404) {
-        errorMessage = 'Request not found';
+        errorMessage = t('requestNotFound')
+;
       } else if (error.message === 'Network error: Could not reach server') {
-        errorMessage = 'Cannot connect to server. Please check your connection.';
+        errorMessage = t('cannotConnectToServer')
+;
       } else if (error.response?.data?.error) {
         errorMessage = error.response.data.error;
       }
@@ -655,7 +661,7 @@ const AdminDashboardPage = () => {
 
   const updateRequestStatus = async (requestId, newStatus) => {
     if (!canManageRequests()) {
-      showError('You do not have permission to manage requests');
+showError(t('noPermissionManageRequests'));
       return;
     }
 
@@ -667,23 +673,23 @@ const AdminDashboardPage = () => {
       fetchRequests();
       
       if (newStatus === 'Completed') {
-        showSuccess(`Request #${requestId} marked as completed`);
+showSuccess(t('requestMarkedAsCompleted', { id: requestId }));
       } else {
-        showSuccess(`Request #${requestId} status updated to ${newStatus}`);
+showSuccess(t('requestStatusUpdated', { id: requestId, status: newStatus }));
       }
     } catch (error) {
       console.error('Error updating request status:', error);
       if (error.response?.status === 403) {
-        showError('Access denied: Insufficient permissions to update request status');
+showError(t('accessDeniedUpdateRequestStatus'));
       } else {
-        showError('Failed to update request status');
+showError(t('failedToUpdateRequestStatus'));
       }
     }
   };
 
   const toggleRequestType = async (typeId) => {
     if (!canManageRequestTypes()) {
-      showError('You do not have permission to manage request types');
+showError(t('noPermissionManageRequestTypes'));
       return;
     }
 
@@ -693,16 +699,16 @@ const AdminDashboardPage = () => {
     } catch (error) {
       console.error('Error toggling request type:', error);
       if (error.response?.status === 403) {
-        showError('Access denied: Insufficient permissions to toggle request type');
+showError(t('accessDeniedToggleRequestType'));
       } else {
-        showError('Failed to toggle request type');
+showError(t('failedToToggleRequestType'));
       }
     }
   };
 
   const handleNotificationClick = (requestId, type) => {
     if (!canViewRequests()) {
-      showError('You do not have permission to view requests');
+showError(t('noPermissionAddRequestTypes'));
       return;
     }
 
@@ -745,20 +751,20 @@ const AdminDashboardPage = () => {
       });
       setShowAddForm(false);
       fetchRequestTypes();
-      showSuccess('Request type added successfully!');
+showSuccess(t('requestTypeAddedSuccessfully'));
     } catch (error) {
       console.error('Error adding request type:', error);
       if (error.response?.status === 403) {
-        showError('Access denied: Insufficient permissions to add request type');
+showError(t('accessDeniedAddRequestType'));
       } else {
-        showError('Failed to add request type');
+showError(t('failedToAddRequestType'));
       }
     }
   };
 
   const refreshRequests = () => {
     if (!canViewRequests()) {
-      showError('You do not have permission to view requests');
+showError(t('noPermissionViewRequests'));
       return;
     }
     setFilters({ status: 'Pending' });
@@ -851,7 +857,7 @@ const AdminDashboardPage = () => {
                 color: isDark ? '#ffffff' : '#000000'
               }}
             >
-              Previous
+              {t('previous')}
             </button>
           </li>
           
@@ -888,7 +894,8 @@ const AdminDashboardPage = () => {
                 color: isDark ? '#ffffff' : '#000000'
               }}
             >
-              Next
+              {t('next')}
+
             </button>
           </li>
         </ul>
@@ -918,10 +925,10 @@ const AdminDashboardPage = () => {
                     {t('welcomeBack')}, {admin?.full_name || admin?.username}
                   </p>
                   {isSuperAdmin() && (
-                    <small className="badge bg-danger">Super Admin</small>
+                    <small className="badge bg-danger">{t('superAdmin')}</small>
                   )}
                   {isDepartmentAdmin() && !isSuperAdmin() && (
-                    <small className="badge bg-primary">Department Admin</small>
+                    <small className="badge bg-primary">{t('departmentAdmin')}</small>
                   )}
                 </div>
               </div>
@@ -945,7 +952,7 @@ const AdminDashboardPage = () => {
           <h3 className={isDark ? 'text-light' : 'text-dark'}>
             {t('manageRequests')} - {department}
             {!canManageRequests() && (
-              <small className="badge bg-warning ms-2">Read Only</small>
+              <small className="badge bg-warning ms-2">{t('readOnly')}</small>
             )}
           </h3>
           
@@ -978,7 +985,7 @@ const AdminDashboardPage = () => {
                   {t('loading')}...
                 </>
               ) : (
-                'Refresh'
+                t('refresh')
               )}
             </button>
           </div>
@@ -993,7 +1000,7 @@ const AdminDashboardPage = () => {
             {loading ? (
               <div className="text-center">
                 <div className="spinner-border text-danger" role="status"></div>
-                <p className={isDark ? 'text-light' : 'text-dark'}>{t('loading')} requests...</p>
+                <p className={isDark ? 'text-light' : 'text-dark'}>{t('loadingRequests')}</p>
               </div>
             ) : (
               <>
@@ -1002,12 +1009,12 @@ const AdminDashboardPage = () => {
                     <thead className={isDark ? 'table-dark' : 'table-light'}>
                       <tr>
                         
-                        <th>Type</th>
-                        <th>Student</th>
-                        <th>Priority</th>
-                        <th>Status</th>
-                        <th>Submitted</th>
-                        <th>Actions</th>
+                        <th>{t('type')}</th>
+                        <th>{t('student')}</th>
+                        <th>{t('priority')}</th>
+                        <th>{t('status')}</th>
+                        <th>{t('submitted')}</th>
+                        <th>{t('actions')}</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -1016,7 +1023,7 @@ const AdminDashboardPage = () => {
                           <td colSpan="7" className="text-center py-4">
                             <div className={`text-muted ${isDark ? 'text-light' : ''}`}>
                               <h5>{t('noRequests')}</h5>
-                              <p>No requests found for the current filters.</p>
+                              <p>{t('noRequestsFoundForFilters')}</p>
                             </div>
                           </td>
                         </tr>
@@ -1073,7 +1080,7 @@ const AdminDashboardPage = () => {
                                       setShowAttachments(true);
                                     }}
                                   >
-                                    Files ({request.attachment_count})
+{t('filesCount', { count: request.attachment_count })}
                                   </button>
                                 )}
 
@@ -1083,7 +1090,7 @@ const AdminDashboardPage = () => {
                                     onClick={() => fetchRejectionDetails(request.request_id)}
                                     disabled={rejectionDetailsLoading}
                                   >
-                                    View Rejection
+                                   {t('viewRejection')}
                                   </button>
                                 )}
                               </div>
@@ -1125,7 +1132,8 @@ const AdminDashboardPage = () => {
             <p className={isDark ? 'text-light' : 'text-muted'}>
               {canManageRequestTypes() 
                 ? t('enableDisableRequestTypes')
-                : 'You can view request types but cannot modify them'
+                : t('canViewButNotModify')
+
               }
             </p>
           </div>
@@ -1249,11 +1257,11 @@ const AdminDashboardPage = () => {
                   <table className="table table-hover">
                     <thead className={isDark ? 'table-dark' : 'table-light'}>
                       <tr>
-                        <th>Type Name</th>
-                        <th>Description</th>
-                        <th>Document Required</th>
-                        <th>Status</th>
-                        <th>Actions</th>
+                        <th>{t('typeName')}</th>
+                        <th>{t('description')}</th>
+                        <th>{t('documentRequired')}</th>
+                        <th>{t('status')}</th>
+                        <th>{t('actions')}</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -1262,7 +1270,7 @@ const AdminDashboardPage = () => {
                           <td colSpan="5" className="text-center py-4">
                             <div className={`text-muted ${isDark ? 'text-light' : ''}`}>
                               <h5>{t('noRequestTypes')}</h5>
-                              <p>No request types available for {department} department.</p>
+{t('noRequestTypesAvailable', { department })}
                             </div>
                           </td>
                         </tr>
@@ -1276,14 +1284,14 @@ const AdminDashboardPage = () => {
                             </td>
                             <td>
                               <span className={isDark ? 'text-light' : 'text-muted'}>
-                                {type.description_en || t('noDescriptionAvailable')}
+{translateDbText(type.description_en, 'requestTypeDescriptions') || t('noDescriptionAvailable')}
                               </span>
                             </td>
                             <td>
                               {type.is_document_required ? (
-                                <span className="badge bg-danger text-dark">Required</span>
+                                <span className="badge bg-danger text-dark">{t('Required')}</span>
                               ) : (
-                                <span className="badge bg-danger">Optional</span>
+                                <span className="badge bg-danger">{t('optional')}</span>
                               )}
                             </td>
                             <td>
@@ -1301,7 +1309,7 @@ const AdminDashboardPage = () => {
                                     onChange={() => toggleRequestType(type.type_id)}
                                   />
                                   <label className={`form-check-label ${isDark ? 'text-light' : 'text-dark'}`}>
-                                    {type.is_disabled ? 'Enable' : 'Disable'}
+                                    {type.is_disabled ? t('enable') : t('disable')}
                                   </label>
                                 </div>
                               ) : (
@@ -1332,8 +1340,8 @@ const AdminDashboardPage = () => {
     if (!isSuperAdmin() && !isDepartmentAdmin()) {
       return (
         <div className="alert alert-warning">
-          <h5>Access Denied</h5>
-          <p>User Management requires admin privileges.</p>
+          <h5>{t('accessDenied')}</h5>
+          <p>{t('userManagementRequiresAdmin')}</p>
         </div>
       );
     }
@@ -1345,8 +1353,8 @@ const AdminDashboardPage = () => {
     if (!isSuperAdmin()) {
       return (
         <div className="alert alert-warning">
-          <h5>Access Denied</h5>
-          <p>Role Management is only available for Super Administrators.</p>
+          <h5>{t('accessDenied')}</h5>
+          <p>{t('roleManagementSuperAdminOnly')}</p>
         </div>
       );
     }
@@ -1358,8 +1366,8 @@ const AdminDashboardPage = () => {
     if (!isSuperAdmin()) {
       return (
         <div className="alert alert-warning">
-          <h5>Access Denied</h5>
-          <p>Permission Management is only available for Super Administrators.</p>
+          <h5>{t('accessDenied')}</h5>
+          <p>{t('permissionManagementSuperAdminOnly')}</p>
         </div>
       );
     }
@@ -1428,10 +1436,11 @@ const AdminDashboardPage = () => {
             : 'linear-gradient(135deg, #dc2626 0%, #b91c1c 100%)'
         }}>
           <h5 className="mb-0 text-white">
-            Admin Panel
+            {t('adminPanel')}
           </h5>
           <small className="text-white opacity-90">
-            {department} Department
+            {department} {t('department')}
+
           </small>
         </div>
         
@@ -1530,7 +1539,7 @@ const AdminDashboardPage = () => {
                      
                     </h4>
                     <small className="opacity-90">
-                      {isSuperAdmin() ? 'System Administrator' : t('manageDepartment')}
+                      {isSuperAdmin() ? t('systemAdministrator') : t('manageDepartment')}
                     </small>
                   </div>
                 </div>
@@ -1568,7 +1577,7 @@ const AdminDashboardPage = () => {
                       e.target.style.transform = 'translateY(0)';
                     }}
                   >
-                    <span>Logout</span>
+                    <span>{t('logout')}</span>
                   </button>
                 </div>
               </div>
@@ -1670,7 +1679,7 @@ const AdminDashboardPage = () => {
                   borderColor: isDark ? '#4a5568' : '#e2e8f0'
                 }}>
                   <h5 className="modal-title text-danger">
-                    Rejection Details 
+                    {t('rejectionDetails')} 
                   </h5>
                   <button
                     type="button"
@@ -1689,26 +1698,27 @@ const AdminDashboardPage = () => {
                   }}>
                     <div className="card-header bg-danger text-white">
                       <h6 className="mb-0">
-                        Rejection Information
+                        {t('rejectionInformation')}
                       </h6>
                     </div>
                     <div className="card-body">
                       <div className="mb-3">
                         <label className="form-label fw-bold">
-                          Rejection Reason:
+                          {t('rejectionReason')}:
                         </label>
                         <div className="p-3 rounded border" style={{
                           backgroundColor: isDark ? '#000000' : '#ffffff',
                           borderColor: isDark ? '#4a5568' : '#cbd5e0'
                         }}>
-                          {selectedRejectionDetails.reason || 'No reason provided'}
+                          {selectedRejectionDetails.reason || t('noReasonProvided')}
                         </div>
                       </div>
 
                       {selectedRejectionDetails.additional_info && (
                         <div className="mb-3">
                           <label className="form-label fw-bold">
-                            Additional Information:
+                           {t('additionalInformation')}:
+
                           </label>
                           <div className="p-3 rounded border" style={{
                             backgroundColor: isDark ? '#000000' : '#ffffff',
@@ -1722,21 +1732,21 @@ const AdminDashboardPage = () => {
                       <div className="row">
                         <div className="col-md-6">
                           <label className="form-label fw-bold">
-                            Rejected Date:
+                           {t('rejectedDate')}:
                           </label>
                           <p className={isDark ? 'text-light' : 'text-muted'}>
                             {selectedRejectionDetails.rejected_at 
                               ? new Date(selectedRejectionDetails.rejected_at).toLocaleString()
-                              : 'Unknown'
+                              : t('unknown')
                             }
                           </p>
                         </div>
                         <div className="col-md-6">
                           <label className="form-label fw-bold">
-                            Rejected By:
+                           {t('rejectedBy')}:
                           </label>
                           <p className={isDark ? 'text-light' : 'text-muted'}>
-                            {selectedRejectionDetails.admin_name || 'Unknown Admin'}
+                            {selectedRejectionDetails.admin_name || t('unknownAdmin')}
                           </p>
                         </div>
                       </div>
