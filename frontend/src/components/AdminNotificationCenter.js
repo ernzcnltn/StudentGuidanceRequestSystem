@@ -155,18 +155,18 @@ const AdminNotificationCenter = ({ onNotificationClick }) => {
     }
   };
 
-  const getNotificationIcon = (type) => {
-    const icons = {
-      'new_request': '',
-      'status_update': '',
-      'urgent_request': '',
-      'system': '',
-      'department': '',
-      'student_message': '',
-      'priority_change': ''
-    };
-    return icons[type] || '🔔';
+const getNotificationIcon = (type) => {
+  const icons = {
+    'new_request': <i className="bi bi-file-earmark-plus text-primary"></i>,
+    'status_update': <i className="bi bi-arrow-repeat text-info"></i>,
+    'urgent_request': <i className="bi bi-exclamation-triangle text-danger"></i>,
+    'system': <i className="bi bi-gear text-warning"></i>,
+    'department': <i className="bi bi-building text-secondary"></i>,
+    'student_message': <i className="bi bi-chat-dots text-success"></i>,
+    'priority_change': <i className="bi bi-arrow-up-circle text-warning"></i>
   };
+  return icons[type] || <i className="bi bi-bell text-info"></i>;
+};
 
   const getNotificationColor = (type, priority) => {
     if (priority === 'urgent' || type === 'urgent_request') return 'text-danger';
@@ -191,22 +191,24 @@ const AdminNotificationCenter = ({ onNotificationClick }) => {
 
   return (
     <div className="dropdown">
-      <button
-        className="btn btn-outline-light position-relative"
-        type="button"
-        onClick={() => setIsOpen(!isOpen)}
-        style={{ border: 'none' }}
-      >
-        🔔
-        {unreadCount > 0 && (
-          <span 
-            className="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger"
-            style={{ fontSize: '0.7rem' }}
-          >
-            {unreadCount > 99 ? '99+' : unreadCount}
-          </span>
-        )}
-      </button>
+   <button
+  className="btn btn-outline-light position-relative"
+  type="button"
+  onClick={() => setIsOpen(!isOpen)}
+  style={{ border: 'none' }}
+>
+  {/* Bootstrap Icons bell kullan */}
+  <i className="bi bi-bell" style={{ fontSize: '1.2rem' }}></i>
+  
+  {unreadCount > 0 && (
+    <span 
+      className="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger"
+      style={{ fontSize: '0.7rem' }}
+    >
+      {unreadCount > 99 ? '99+' : unreadCount}
+    </span>
+  )}
+</button>
 
       {isOpen && (
         <div 
@@ -222,7 +224,7 @@ const AdminNotificationCenter = ({ onNotificationClick }) => {
           }}
         >
           <div className="dropdown-header d-flex justify-content-between align-items-center">
-            <h6 className="mb-0">📢 {t('adminNotifications', 'Admin Bildirimleri')}</h6>
+            <h6 className="mb-0"> {t('adminNotifications', 'Admin Bildirimleri')}</h6>
             <div className="d-flex gap-2">
               {/* HEPSINI OKUNDU İŞARETLE BUTONU KALDIRILDI */}
               
@@ -254,7 +256,7 @@ const AdminNotificationCenter = ({ onNotificationClick }) => {
             </div>
           ) : notifications.length === 0 ? (
             <div className="dropdown-item-text text-center py-4 text-muted">
-              <div style={{ fontSize: '2rem' }}>🔔</div>
+              <div style={{ fontSize: '2rem' }}></div>
               <p className="mb-0">{t('noNotifications', 'Bildirim yok')}</p>
             </div>
           ) : (

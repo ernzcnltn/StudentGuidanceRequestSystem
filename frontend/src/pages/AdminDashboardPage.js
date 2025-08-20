@@ -1773,32 +1773,38 @@ showError(t('noPermissionViewRequests'));
       )}
 
       {/* Dark Mode Toggle */}
-      <div 
-        style={{
-          position: 'fixed',
-          bottom: '20px',
-          right: '20px',
-          zIndex: 9999
-        }}
-      >
-        <button
-          className={`btn ${isDark ? 'btn-light' : 'btn-dark'} shadow-lg`}
-          onClick={toggleTheme}
-          style={{
-            borderRadius: '50%',
-            width: '60px',
-            height: '60px',
-            fontSize: '1.5rem',
-            border: 'none',
-            transition: 'all 0.3s ease'
-          }}
-          title={isDark ? t('switchToLightMode') : t('switchToDarkMode')}
-          onMouseEnter={(e) => e.target.style.transform = 'scale(1.1)'}
-          onMouseLeave={(e) => e.target.style.transform = 'scale(1)'}
-        >
-          {isDark ? '☀️' : '🌙'}
-        </button>
-      </div>
+<div 
+  style={{
+    position: 'fixed',
+    bottom: '20px',
+    right: '20px',
+    zIndex: 9999
+  }}
+>
+  <button
+    className={`btn ${isDark ? 'btn-light' : 'btn-dark'} shadow-lg`}
+    onClick={toggleTheme}
+    style={{
+      borderRadius: '50%',
+      width: '60px',
+      height: '60px',
+      fontSize: '1.5rem',
+      border: 'none',
+      transition: 'all 0.3s ease',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center'
+    }}
+    title={isDark ? t('switchToLightMode') : t('switchToDarkMode')}
+    onMouseEnter={(e) => e.target.style.transform = 'scale(1.1)'}
+    onMouseLeave={(e) => e.target.style.transform = 'scale(1)'}
+  >
+    {/* EMOJİ YERİNE BOOTSTRAP ICONS */}
+    <i className={`bi ${isDark ? 'bi bi-brightness-high-fill' : 'bi bi-moon-stars-fill'}`} 
+       style={{ fontSize: '1.5rem' }}>
+    </i>
+  </button>
+</div>
 
       {/* Confirmation Modal */}
       <ConfirmationModal {...confirmationState} />

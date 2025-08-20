@@ -1,4 +1,4 @@
-// frontend/src/components/AcademicCalendarManager.js - FIXED VERSION
+// frontend/src/components/AcademicCalendarManager.js - TRANSLATED VERSION
 import React, { useState, useEffect } from 'react';
 import { useAdminAuth } from '../contexts/AdminAuthContext';
 import { useToast } from '../contexts/ToastContext';
@@ -9,8 +9,8 @@ const AcademicCalendarManager = () => {
   const { admin, isSuperAdmin } = useAdminAuth();
   const { showSuccess, showError, showInfo, showWarning } = useToast();
   const { t } = useTranslation();
-const [eventsCurrentPage, setEventsCurrentPage] = useState(1);
-const [eventsPerPage] = useState(10);
+  const [eventsCurrentPage, setEventsCurrentPage] = useState(1);
+  const [eventsPerPage] = useState(10);
 
   const [calendarStatus, setCalendarStatus] = useState(null);
   const [uploadHistory, setUploadHistory] = useState([]);
@@ -70,7 +70,7 @@ const [eventsPerPage] = useState(10);
       }
     } catch (error) {
       console.error('Failed to fetch calendar status:', error);
-      showError('Failed to load calendar status');
+      showError(t('loadHistoryFailed'));
     } finally {
       setLoading(false);
     }
@@ -78,54 +78,51 @@ const [eventsPerPage] = useState(10);
 
   // Fetch upload history
   const fetchUploadHistory = async () => {
-  try {
-    console.log('📂 Fetching upload history...');
-    
-    // ✅ FIXED: Simplified API call
-    const response = await apiService.getAcademicCalendarUploads({
-      limit: 20,
-      offset: 0
-    });
-    
-    console.log('📂 Upload history response:', response);
-    
-    if (response.data && response.data.success) {
-      setUploadHistory(response.data.data.uploads || []);
-      console.log('✅ Upload history loaded:', response.data.data.uploads?.length || 0, 'items');
-    } else {
-      console.error('❌ Upload history response not successful:', response.data);
-      setUploadHistory([]);
-      showError('Failed to load upload history: Invalid response format');
-    }
-  } catch (error) {
-    console.error('❌ Failed to fetch upload history:', error);
-    setUploadHistory([]);
-    
-    // Better error messaging
-    let errorMessage = 'Failed to load upload history';
-    
-    if (error.response?.status === 500) {
-      errorMessage = 'Server error while loading upload history';
-    } else if (error.response?.status === 403) {
-      errorMessage = 'Access denied: Super admin required';
-    } else if (error.response?.status === 401) {
-      errorMessage = 'Authentication required';
-    } else if (error.code === 'NETWORK_ERROR') {
-      errorMessage = 'Network error: Cannot reach server';
-    }
-    
-    showError(errorMessage);
-    
-    // Show detailed error in development
-    if (process.env.NODE_ENV === 'development') {
-      console.error('Detailed error:', {
-        status: error.response?.status,
-        data: error.response?.data,
-        message: error.message
+    try {
+      console.log('Fetching upload history...');
+      
+      const response = await apiService.getAcademicCalendarUploads({
+        limit: 20,
+        offset: 0
       });
+      
+      console.log('Upload history response:', response);
+      
+      if (response.data && response.data.success) {
+        setUploadHistory(response.data.data.uploads || []);
+        console.log('Upload history loaded:', response.data.data.uploads?.length || 0, 'items');
+      } else {
+        console.error('Upload history response not successful:', response.data);
+        setUploadHistory([]);
+        showError(t('loadHistoryFailed'));
+      }
+    } catch (error) {
+      console.error('Failed to fetch upload history:', error);
+      setUploadHistory([]);
+      
+      let errorMessage = t('loadHistoryFailed');
+      
+      if (error.response?.status === 500) {
+        errorMessage = t('serverError');
+      } else if (error.response?.status === 403) {
+        errorMessage = t('accessDeniedError');
+      } else if (error.response?.status === 401) {
+        errorMessage = t('authRequired');
+      } else if (error.code === 'NETWORK_ERROR') {
+        errorMessage = t('networkErrorHistory');
+      }
+      
+      showError(errorMessage);
+      
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Detailed error:', {
+          status: error.response?.status,
+          data: error.response?.data,
+          message: error.message
+        });
+      }
     }
-  }
-};
+  };
 
   // Handle file selection
   const handleFileSelect = (event) => {
@@ -144,7 +141,7 @@ const [eventsPerPage] = useState(10);
     ];
 
     if (!allowedTypes.includes(file.type)) {
-      showError('Please select a Word document (.doc, .docx) or text file (.txt)');
+      showError(t('invalidFileType'));
       event.target.value = '';
       return;
     }
@@ -152,13 +149,16 @@ const [eventsPerPage] = useState(10);
     // Validate file size (10MB limit)
     const maxSize = 10 * 1024 * 1024;
     if (file.size > maxSize) {
-      showError('File size must be less than 10MB');
+      showError(t('fileSizeLimit'));
       event.target.value = '';
       return;
     }
 
     setSelectedFile(file);
-    showInfo(`Selected file: ${file.name} (${formatFileSize(file.size)})`);
+    showInfo(t('selectedFileInfo', '', { 
+      fileName: file.name, 
+      fileSize: formatFileSize(file.size) 
+    }));
   };
 
   // Format file size
@@ -171,115 +171,113 @@ const [eventsPerPage] = useState(10);
   };
 
   // Handle calendar upload
- const handleUpload = async () => {
-  if (!selectedFile) {
-    showError('Please select a file to upload');
-    return;
-  }
+  const handleUpload = async () => {
+    if (!selectedFile) {
+      showError(t('selectFileToUpload'));
+      return;
+    }
 
-  if (!academicYear) {
-    showError('Please select an academic year');
-    return;
-  }
+    if (!academicYear) {
+      showError(t('selectAcademicYearMsg'));
+      return;
+    }
 
-  try {
-    setUploadInProgress(true);
-    showInfo('Starting calendar upload and processing...');
+    try {
+      setUploadInProgress(true);
+      showInfo(t('startingUpload'));
 
-    const formData = new FormData();
-    formData.append('calendar_document', selectedFile);
-    formData.append('academic_year', academicYear);
+      const formData = new FormData();
+      formData.append('calendar_document', selectedFile);
+      formData.append('academic_year', academicYear);
 
-    console.log('📤 Uploading calendar:', {
-      fileName: selectedFile.name,
-      academicYear: academicYear,
-      fileSize: selectedFile.size
-    });
+      console.log('Uploading calendar:', {
+        fileName: selectedFile.name,
+        academicYear: academicYear,
+        fileSize: selectedFile.size
+      });
 
-    const response = await apiService.uploadAcademicCalendar(formData);
-    
-    console.log('📤 Upload response:', response);
-
-    // ✅ FIX: Enhanced response handling
-    if (response && response.data && response.data.success) {
-      const data = response.data.data;
-      showSuccess(`✅ Calendar uploaded successfully! Processed ${data.events_processed} events.`);
+      const response = await apiService.uploadAcademicCalendar(formData);
       
-      setSelectedFile(null);
-      setShowUploadModal(false);
-      
-      // Reset file input
-      const fileInput = document.getElementById('calendar-file-input');
-      if (fileInput) fileInput.value = '';
-      
-      // Refresh data
-      await fetchCalendarStatus();
-      await fetchUploadHistory();
+      console.log('Upload response:', response);
 
-      // Show events summary
-      if (data.events_summary && data.events_summary.length > 0) {
-        showInfo(`Sample events: ${data.events_summary.slice(0, 3).map(e => e.name).join(', ')}`);
+      if (response && response.data && response.data.success) {
+        const data = response.data.data;
+        showSuccess(t('uploadSuccess', '', { 
+          eventsCount: data.events_processed 
+        }));
+        
+        setSelectedFile(null);
+        setShowUploadModal(false);
+        
+        // Reset file input
+        const fileInput = document.getElementById('calendar-file-input');
+        if (fileInput) fileInput.value = '';
+        
+        // Refresh data
+        await fetchCalendarStatus();
+        await fetchUploadHistory();
+
+        // Show events summary
+        if (data.events_summary && data.events_summary.length > 0) {
+          showInfo(t('sampleEvents', '', { 
+            events: data.events_summary.slice(0, 3).map(e => e.name).join(', ') 
+          }));
+        }
+      } else {
+        const errorMsg = response?.data?.error || 'Unknown error occurred';
+        const details = response?.data?.details || '';
+        const stage = response?.data?.stage || 'unknown';
+        
+        console.error('Upload failed:', { errorMsg, details, stage });
+        showError(t('uploadFailed', '', { error: errorMsg }));
+        
+        if (details) {
+          showWarning(t('details', '', { details }));
+        }
       }
-    } else {
-      // Handle response structure issues
-      const errorMsg = response?.data?.error || 'Unknown error occurred';
-      const details = response?.data?.details || '';
-      const stage = response?.data?.stage || 'unknown';
+    } catch (error) {
+      console.error('Calendar upload error:', error);
       
-      console.error('❌ Upload failed:', { errorMsg, details, stage });
-      showError(`Upload failed: ${errorMsg}`);
+      let errorMessage = t('uploadError');
+      let details = '';
       
+      if (error.response) {
+        const responseData = error.response.data;
+        errorMessage = responseData?.error || t('serverError');
+        details = responseData?.details || '';
+        
+        console.error('Server error response:', responseData);
+      } else if (error.request) {
+        errorMessage = t('networkError');
+        details = t('checkConnection');
+      } else {
+        errorMessage = t('uploadError');
+        details = error.message;
+      }
+      
+      showError(errorMessage);
       if (details) {
-        showWarning(`Details: ${details}`);
+        showWarning(t('details', '', { details }));
       }
+    } finally {
+      setUploadInProgress(false);
     }
-  } catch (error) {
-    console.error('❌ Calendar upload error:', error);
-    
-    // ✅ FIX: Enhanced error handling
-    let errorMessage = 'Failed to upload calendar';
-    let details = '';
-    
-    if (error.response) {
-      // Server responded with error
-      const responseData = error.response.data;
-      errorMessage = responseData?.error || 'Server error';
-      details = responseData?.details || '';
-      
-      console.error('Server error response:', responseData);
-    } else if (error.request) {
-      // Network error
-      errorMessage = 'Network error - cannot reach server';
-      details = 'Please check your internet connection';
-    } else {
-      // Other error
-      errorMessage = 'Upload error';
-      details = error.message;
-    }
-    
-    showError(errorMessage);
-    if (details) {
-      showWarning(`Details: ${details}`);
-    }
-  } finally {
-    setUploadInProgress(false);
-  }
-};
+  };
 
   // Update calendar settings
   const updateSettings = async () => {
     try {
-      showInfo('Updating calendar settings...');
+      showInfo(t('updatingSettings'));
       
       const response = await apiService.updateAcademicCalendarSettings(settings);
       
       if (response.data.success) {
-        showSuccess('Calendar settings updated successfully');
+        showSuccess(t('settingsUpdated'));
         await fetchCalendarStatus();
       }
     } catch (error) {
       console.error('Settings update error:', error);
-      showError('Failed to update settings');
+      showError(t('settingsUpdateFailed'));
     }
   };
 
@@ -299,64 +297,64 @@ const [eventsPerPage] = useState(10);
       }
     } catch (error) {
       console.error('Failed to fetch events:', error);
-      showError('Failed to load calendar events');
+      showError(t('loadingEvents'));
     }
   };
 
   // Delete calendar upload
   const deleteUpload = async (uploadId, fileName) => {
-    if (!window.confirm(`Are you sure you want to delete "${fileName}"? This action cannot be undone.`)) {
+    if (!window.confirm(t('confirmDelete', '', { fileName }))) {
       return;
     }
 
     try {
-      showInfo('Deleting calendar upload...');
+      showInfo(t('deletingUpload'));
       
       const response = await apiService.deleteAcademicCalendarUpload(uploadId);
       
       if (response.data.success) {
-        showSuccess('Calendar upload deleted successfully');
+        showSuccess(t('deleteSuccess'));
         await fetchCalendarStatus();
         await fetchUploadHistory();
       }
     } catch (error) {
       console.error('Delete upload error:', error);
-      showError('Failed to delete calendar upload');
+      showError(t('deleteFailed'));
     }
   };
 
   // Get status badge style
   const getStatusBadge = (status) => {
     const badges = {
-      'pending': 'bg-warning text-dark',
-      'processing': 'bg-info text-white',
-      'completed': 'bg-success text-white',
+      'pending': 'bg-danger text-dark',
+      'processing': 'bg-danger text-white',
+      'completed': 'bg-danger text-white',
       'failed': 'bg-danger text-white'
     };
     return badges[status] || 'bg-secondary text-white';
   };
 
-  // Get event type icon
-  const getEventTypeIcon = (eventType) => {
-    const icons = {
-      'holiday': '',
-      'break': '',
-      'exam_period': '',
-      'registration': '',
-      'semester_start': '',
-      'semester_end': '',
-      'orientation': '',
-      'no_classes': ''
+  // Get event type translation
+  const getEventTypeText = (eventType) => {
+    const typeMap = {
+      'holiday': 'holidayEventType',
+      'break': 'breakEventType',
+      'exam_period': 'examPeriodEventType',
+      'registration': 'registrationEventType',
+      'semester_start': 'semesterStartEventType',
+      'semester_end': 'semesterEndEventType',
+      'orientation': 'orientationEventType',
+      'no_classes': 'noClassesEventType'
     };
-    return icons[eventType] || '';
+    return t(typeMap[eventType] || eventType);
   };
 
   // Check if user is super admin
   if (!isSuperAdmin()) {
     return (
       <div className="alert alert-warning">
-        <h5> Access Denied</h5>
-        <p>Academic Calendar Management is only available for Super Administrators.</p>
+        <h5>{t('accessDenied')}</h5>
+        <p>{t('superAdminOnly')}</p>
       </div>
     );
   }
@@ -365,7 +363,7 @@ const [eventsPerPage] = useState(10);
     return (
       <div className="text-center py-5">
         <div className="spinner-border text-primary" role="status"></div>
-        <p className="mt-3">Loading calendar management...</p>
+        <p className="mt-3">{t('loadingCalendar')}</p>
       </div>
     );
   }
@@ -375,15 +373,15 @@ const [eventsPerPage] = useState(10);
       <div className="academic-calendar-manager">
         <div className="d-flex justify-content-between align-items-center mb-4">
           <div>
-            <h3> Academic Calendar Management</h3>
-            <p className="text-muted">Upload and manage academic calendar documents to control student request availability</p>
+            <h3>{t('academicCalendarTitle')}</h3>
+            <p className="text-muted">{t('academicCalendarSubtitle')}</p>
           </div>
           <button 
             className="btn btn-primary"
             onClick={() => setShowUploadModal(true)}
             disabled={uploadInProgress}
           >
-             Upload New Calendar
+            {t('uploadNewCalendar')}
           </button>
         </div>
 
@@ -392,32 +390,34 @@ const [eventsPerPage] = useState(10);
           <div className="col-12">
             <div className="card">
               <div className="card-header">
-                <h5 className="mb-0"> Current Calendar Status</h5>
+                <h5 className="mb-0">{t('currentCalendarStatus')}</h5>
               </div>
               <div className="card-body">
                 {calendarStatus ? (
                   <div className="row">
                     <div className="col-md-6">
-                      <h6></h6>
+                      <h6>{t('systemInfo')}</h6>
                       <ul className="list-unstyled">
                         <li>
-                          <strong>Calendar Enabled:</strong> 
-                          <span className={` ms-2 ${calendarStatus.system_info.calendar_enabled ? 'text-muted' : 'bg-danger'}`}>
-                            {calendarStatus.system_info.calendar_enabled ? 'Yes' : 'No'}
+                          <strong>{t('calendarEnabled')}:</strong> 
+                          <span className={`ms-2 ${calendarStatus.system_info.calendar_enabled ? 'text-primary' : 'text-danger'}`}>
+                            {calendarStatus.system_info.calendar_enabled ? t('yes') : t('no')}
                           </span>
                         </li>
-                        <li><strong>Current Academic Year:</strong> {calendarStatus.system_info.academic_year || 'Not set'}</li>
-                        <li><strong>Holiday Buffer Hours:</strong> {calendarStatus.system_info.buffer_hours}</li>
-                        <li><strong>Current Date:</strong> {calendarStatus.system_info.current_date}</li>
+                        <li><strong>{t('currentAcademicYear')}:</strong> {calendarStatus.system_info.academic_year || t('notSet')}</li>
+                        <li><strong>{t('holidayBufferHours')}:</strong> {calendarStatus.system_info.buffer_hours}</li>
+                        <li><strong>{t('currentDate')}:</strong> {calendarStatus.system_info.current_date}</li>
                       </ul>
                     </div>
                     <div className="col-md-6">
-                      <h6>Today's Status: </h6>
+                      <h6>{t('todaysStatus')}</h6>
                       {calendarStatus.today_status ? (
                         <div>
-                          <p className={`mb-2 ${calendarStatus.today_status.is_holiday ? 'text-danger' : 'text-muted'}`}>
+                          <p className={`mb-2 ${calendarStatus.today_status.is_holiday ? 'text-danger' : 'text-primary'}`}>
                             <strong>
-                              {calendarStatus.today_status.is_holiday ? ' Holiday Period' : ' Regular Working Day'}
+                              {calendarStatus.today_status.is_holiday ? 
+                                t('holidayPeriod') : 
+                                t('regularWorkingDay')}
                             </strong>
                           </p>
                           {calendarStatus.today_status.is_holiday && (
@@ -425,18 +425,18 @@ const [eventsPerPage] = useState(10);
                           )}
                           {calendarStatus.next_available && !calendarStatus.next_available.success && (
                             <p className="text-info">
-                              Next available: {calendarStatus.next_available.next_date}
+                              {t('nextAvailable')}: {calendarStatus.next_available.next_date}
                             </p>
                           )}
                         </div>
                       ) : (
-                        <p className="text-muted">Unable to check today's status</p>
+                        <p className="text-muted">{t('unableToCheckStatus')}</p>
                       )}
                     </div>
                   </div>
                 ) : (
                   <div className="alert alert-warning">
-                    <p className="mb-0">Unable to load calendar status</p>
+                    <p className="mb-0">{t('unableToLoadStatus')}</p>
                   </div>
                 )}
               </div>
@@ -449,7 +449,7 @@ const [eventsPerPage] = useState(10);
           <div className="col-12">
             <div className="card">
               <div className="card-header">
-                <h5 className="mb-0"> Calendar Settings</h5>
+                <h5 className="mb-0">{t('calendarSettings')}</h5>
               </div>
               <div className="card-body">
                 <div className="row">
@@ -466,12 +466,12 @@ const [eventsPerPage] = useState(10);
                         })}
                       />
                       <label className="form-check-label" htmlFor="calendar-enabled">
-                        Enable Academic Calendar Restrictions
+                        {t('enableCalendarRestrictions')}
                       </label>
                     </div>
                   </div>
                   <div className="col-md-4">
-                    <label className="form-label">Holiday Buffer Hours</label>
+                    <label className="form-label">{t('holidayBufferHoursLabel')}</label>
                     <input
                       type="number"
                       className="form-control"
@@ -484,11 +484,11 @@ const [eventsPerPage] = useState(10);
                       })}
                     />
                     <small className="form-text text-muted">
-                      Hours before/after holidays to also block requests
+                      {t('holidayBufferHelp')}
                     </small>
                   </div>
                   <div className="col-md-4">
-                    <label className="form-label">Current Academic Year</label>
+                    <label className="form-label">{t('currentAcademicYear')}</label>
                     <select
                       className="form-select"
                       value={settings.current_academic_year}
@@ -497,7 +497,7 @@ const [eventsPerPage] = useState(10);
                         current_academic_year: e.target.value
                       })}
                     >
-                      <option value="">Select Academic Year</option>
+                      <option value="">{t('selectAcademicYear')}</option>
                       {generateAcademicYearOptions().map(year => (
                         <option key={year} value={year}>{year}</option>
                       ))}
@@ -509,7 +509,7 @@ const [eventsPerPage] = useState(10);
                     className="btn btn-danger"
                     onClick={updateSettings}
                   >
-                    Save Settings
+                    {t('saveSettings')}
                   </button>
                 </div>
               </div>
@@ -517,26 +517,24 @@ const [eventsPerPage] = useState(10);
           </div>
         </div>
 
-       
         {/* Upcoming Events */}
         {calendarStatus?.upcoming_events && calendarStatus.upcoming_events.length > 0 && (
-          <div className="row mb-2">
+          <div className="row mb-4">
             <div className="col-12">
               <div className="card">
                 <div className="card-header">
-                  <h5 className="mb-0"> Upcoming Events (Next 7 Days)</h5>
+                  <h5 className="mb-0">{t('upcomingEvents')}</h5>
                 </div>
                 <div className="card-body">
                   <div className="row">
                     {calendarStatus.upcoming_events.map((event, index) => (
-                      <div key={index} className="col-md-12 mb-1">
+                      <div key={index} className="col-md-12 mb-2">
                         <div className="d-flex align-items-center">
-                          <span className="me-2">{getEventTypeIcon(event.event_type)}</span>
                           <div>
                             <strong>{event.event_name}</strong>
                             <br />
                             <small className="text-muted">
-                              
+                              {event.start_date} - {event.end_date}
                             </small>
                           </div>
                         </div>
@@ -554,31 +552,31 @@ const [eventsPerPage] = useState(10);
           <div className="col-12">
             <div className="card">
               <div className="card-header d-flex justify-content-between align-items-center">
-                <h5 className="mb-0">Upload History</h5>
+                <h5 className="mb-0">{t('uploadHistory')}</h5>
                 <button 
                   className="btn btn-outline-secondary btn-sm"
                   onClick={fetchUploadHistory}
                 >
-                  Refresh
+                  {t('refresh')}
                 </button>
               </div>
               <div className="card-body">
                 {uploadHistory.length === 0 ? (
                   <div className="text-center py-4">
-                    <p className="text-muted">No calendar uploads found</p>
+                    <p className="text-muted">{t('noUploadsFound')}</p>
                   </div>
                 ) : (
                   <div className="table-responsive">
                     <table className="table table-hover">
                       <thead>
                         <tr>
-                          <th>File Name</th>
-                          <th>Academic Year</th>
-                          <th>Status</th>
-                          <th>Events</th>
-                          <th>Uploaded By</th>
-                          <th>Upload Date</th>
-                          <th>Actions</th>
+                          <th>{t('fileName')}</th>
+                          <th>{t('academicYear')}</th>
+                          <th>{t('status')}</th>
+                          <th>{t('events')}</th>
+                          <th>{t('uploadedBy')}</th>
+                          <th>{t('uploadDate')}</th>
+                          <th>{t('actions')}</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -593,9 +591,11 @@ const [eventsPerPage] = useState(10);
                             </td>
                             <td>{upload.academic_year}</td>
                             <td>
-                              
+                              <span className={`badge ${getStatusBadge(upload.processing_status)}`}>
+                                {t(upload.processing_status)}
+                              </span>
                               {upload.is_active && (
-                                <span className="badge bg-primary ms-1">Active</span>
+                                <span className="badge bg-primary ms-1">{t('active')}</span>
                               )}
                             </td>
                             <td>{upload.events_count || 0}</td>
@@ -612,13 +612,13 @@ const [eventsPerPage] = useState(10);
                                   onClick={() => viewCalendarEvents(upload.academic_year)}
                                   disabled={upload.processing_status !== 'completed'}
                                 >
-                                  View Events
+                                  {t('viewEvents')}
                                 </button>
                                 <button 
                                   className="btn btn-outline-danger"
                                   onClick={() => deleteUpload(upload.upload_id, upload.file_name)}
                                 >
-                                   Delete
+                                  {t('delete')}
                                 </button>
                               </div>
                             </td>
@@ -641,7 +641,7 @@ const [eventsPerPage] = useState(10);
             <div className="modal-dialog modal-lg">
               <div className="modal-content">
                 <div className="modal-header">
-                  <h5 className="modal-title"> Upload Academic Calendar</h5>
+                  <h5 className="modal-title">{t('uploadAcademicCalendar')}</h5>
                   <button 
                     type="button" 
                     className="btn-close"
@@ -651,25 +651,24 @@ const [eventsPerPage] = useState(10);
                 </div>
                 <div className="modal-body">
                   <div className="alert alert-info">
-                    <h6> Upload Instructions</h6>
+                    <h6>{t('uploadInstructions')}</h6>
                     <ul className="mb-0">
-                      <li>Upload a Word document (.doc, .docx) or text file (.txt) containing the academic calendar</li>
-                      <li>The document should include dates and event names in Turkish or English</li>
-            
-                      <li>Holiday events will automatically restrict student requests</li>
-                      <li>Maximum file size: 10MB</li>
+                      <li>{t('fileTypeInstruction')}</li>
+                      <li>{t('languageInstruction')}</li>
+                      <li>{t('blockingInstruction')}</li>
+                      <li>{t('fileSizeInstruction')}</li>
                     </ul>
                   </div>
 
                   <div className="mb-3">
-                    <label className="form-label">Academic Year</label>
+                    <label className="form-label">{t('academicYear')}</label>
                     <select
                       className="form-select"
                       value={academicYear}
                       onChange={(e) => setAcademicYear(e.target.value)}
                       disabled={uploadInProgress}
                     >
-                      <option value="">Select Academic Year</option>
+                      <option value="">{t('selectAcademicYear')}</option>
                       {generateAcademicYearOptions().map(year => (
                         <option key={year} value={year}>{year}</option>
                       ))}
@@ -677,7 +676,7 @@ const [eventsPerPage] = useState(10);
                   </div>
 
                   <div className="mb-3">
-                    <label className="form-label">Calendar Document</label>
+                    <label className="form-label">{t('calendarDocument')}</label>
                     <input
                       type="file"
                       className="form-control"
@@ -690,11 +689,11 @@ const [eventsPerPage] = useState(10);
 
                   {selectedFile && (
                     <div className="alert alert-success">
-                      <h6> Selected File</h6>
+                      <h6>{t('selectedFile')}</h6>
                       <p className="mb-0">
                         <strong>{selectedFile.name}</strong><br />
-                        Size: {formatFileSize(selectedFile.size)}<br />
-                        Type: {selectedFile.type}
+                        {t('size')}: {formatFileSize(selectedFile.size)}<br />
+                        {t('type')}: {selectedFile.type}
                       </p>
                     </div>
                   )}
@@ -703,7 +702,7 @@ const [eventsPerPage] = useState(10);
                     <div className="alert alert-info">
                       <div className="d-flex align-items-center">
                         <div className="spinner-border spinner-border-sm me-2"></div>
-                        <span>Processing calendar document...</span>
+                        <span>{t('processingDocument')}</span>
                       </div>
                       <div className="progress mt-2">
                         <div className="progress-bar progress-bar-striped progress-bar-animated" style={{width: '100%'}}></div>
@@ -712,177 +711,176 @@ const [eventsPerPage] = useState(10);
                   )}
                 </div>
                 <div className="modal-footer">
-  <button 
-    type="button" 
-    className="btn btn-secondary"
-    onClick={() => setShowUploadModal(false)}
-    disabled={uploadInProgress}
-  >
-    Cancel
-  </button>
-  <button 
-    type="button" 
-    className="btn btn-primary"
-    onClick={handleUpload}
-    disabled={
-      !selectedFile || 
-      !academicYear || 
-      uploadInProgress ||
-      !selectedFile?.name ||
-      academicYear === ''
-    }
-  >
-    {uploadInProgress ? (
-      <>
-        <span className="spinner-border spinner-border-sm me-2"></span>
-        Processing...
-      </>
-    ) : (
-      ' Upload & Process'
-    )}
-  </button>
-</div>
+                  <button 
+                    type="button" 
+                    className="btn btn-secondary"
+                    onClick={() => setShowUploadModal(false)}
+                    disabled={uploadInProgress}
+                  >
+                    {t('cancel')}
+                  </button>
+                  <button 
+                    type="button" 
+                    className="btn btn-primary"
+                    onClick={handleUpload}
+                    disabled={
+                      !selectedFile || 
+                      !academicYear || 
+                      uploadInProgress ||
+                      !selectedFile?.name ||
+                      academicYear === ''
+                    }
+                  >
+                    {uploadInProgress ? (
+                      <>
+                        <span className="spinner-border spinner-border-sm me-2"></span>
+                        {t('processing')}
+                      </>
+                    ) : (
+                      t('uploadProcess')
+                    )}
+                  </button>
+                </div>
               </div>
             </div>
           </div>
         </div>
       )}
 
-     
-{/* Events Modal */}
-{showEventsModal && (
-  <div className="modal-backdrop fade show" style={{ zIndex: 1040 }}>
-    <div className="modal fade show d-block" style={{ zIndex: 1050 }}>
-      <div className="modal-dialog modal-xl">
-        <div className="modal-content">
-          <div className="modal-header">
-            <h5 className="modal-title"> Calendar Events</h5>
-            <button 
-              type="button" 
-              className="btn-close"
-              onClick={() => {
-                setShowEventsModal(false);
-                setEventsCurrentPage(1); // Reset pagination when modal closes
-              }}
-            ></button>
-          </div>
-          <div className="modal-body">
-            {currentEvents.length === 0 ? (
-              <div className="text-center py-4">
-                <p className="text-muted">No events found</p>
-              </div>
-            ) : (
-              <>
-                {/* Events Info */}
-                <div className="d-flex justify-content-between align-items-center mb-3">
-                  <span className="text-muted">
-                    Showing {Math.min((eventsCurrentPage - 1) * eventsPerPage + 1, currentEvents.length)}-{Math.min(eventsCurrentPage * eventsPerPage, currentEvents.length)} of {currentEvents.length} events
-                  </span>
+      {/* Events Modal */}
+      {showEventsModal && (
+        <div className="modal-backdrop fade show" style={{ zIndex: 1040 }}>
+          <div className="modal fade show d-block" style={{ zIndex: 1050 }}>
+            <div className="modal-dialog modal-xl">
+              <div className="modal-content">
+                <div className="modal-header">
+                  <h5 className="modal-title">{t('calendarEvents')}</h5>
+                  <button 
+                    type="button" 
+                    className="btn-close"
+                    onClick={() => {
+                      setShowEventsModal(false);
+                      setEventsCurrentPage(1);
+                    }}
+                  ></button>
                 </div>
+                <div className="modal-body">
+                  {currentEvents.length === 0 ? (
+                    <div className="text-center py-4">
+                      <p className="text-muted">{t('noEventsFound')}</p>
+                    </div>
+                  ) : (
+                    <>
+                      {/* Events Info */}
+                      <div className="d-flex justify-content-between align-items-center mb-3">
+                        <span className="text-muted">
+                          {t('showingEvents', '', {
+                            start: Math.min((eventsCurrentPage - 1) * eventsPerPage + 1, currentEvents.length),
+                            end: Math.min(eventsCurrentPage * eventsPerPage, currentEvents.length),
+                            total: currentEvents.length
+                          })}
+                        </span>
+                      </div>
 
-                <div className="table-responsive">
-                  <table className="table table-hover">
-                    <thead>
-                      <tr>
-                        <th>Event</th>
-                        <th>Type</th>
-                        <th>Start Date</th>
-                        <th>End Date</th>
-                        <th>Duration</th>
-                        <th>Affects Requests</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {/* Sadece mevcut sayfadaki eventları göster */}
-                      {currentEvents
-                        .slice((eventsCurrentPage - 1) * eventsPerPage, eventsCurrentPage * eventsPerPage)
-                        .map((event, index) => (
-                        <tr key={index}>
-                          <td>
-                            <div className="d-flex align-items-center">
-                              <span className="me-2">{getEventTypeIcon(event.event_type)}</span>
-                              <div>
-                                <strong>{event.event_name}</strong>
-                                {event.description && (
-                                  <>
-                                    <br />
-                                    <small className="text-muted">{event.description}</small>
-                                  </>
-                                )}
-                              </div>
-                            </div>
-                          </td>
-                          <td>
-                            <span className="badge bg-secondary">
-                              {event.event_type.replace('_', ' ')}
-                            </span>
-                          </td>
-                          <td>{event.start_date}</td>
-                          <td>{event.end_date}</td>
-                          <td>
-                            {Math.ceil((new Date(event.end_date) - new Date(event.start_date)) / (1000 * 60 * 60 * 24)) + 1} days
-                          </td>
-                          <td>
-                            <span className={`badge ${event.affects_request_creation ? 'bg-danger' : 'bg-success'}`}>
-                              {event.affects_request_creation ? 'Yes' : 'No'}
-                            </span>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                      <div className="table-responsive">
+                        <table className="table table-hover">
+                          <thead>
+                            <tr>
+                              <th>{t('event')}</th>
+                              <th>{t('eventType')}</th>
+                              <th>{t('startDate')}</th>
+                              <th>{t('endDate')}</th>
+                              <th>{t('duration')}</th>
+                              <th>{t('affectsRequests')}</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {currentEvents
+                              .slice((eventsCurrentPage - 1) * eventsPerPage, eventsCurrentPage * eventsPerPage)
+                              .map((event, index) => (
+                              <tr key={index}>
+                                <td>
+                                  <div>
+                                    <strong>{event.event_name}</strong>
+                                    {event.description && (
+                                      <>
+                                        <br />
+                                        <small className="text-muted">{event.description}</small>
+                                      </>
+                                    )}
+                                  </div>
+                                </td>
+                                <td>
+                                  <span className="badge bg-secondary">
+                                    {getEventTypeText(event.event_type)}
+                                  </span>
+                                </td>
+                                <td>{event.start_date}</td>
+                                <td>{event.end_date}</td>
+                                <td>
+                                  {Math.ceil((new Date(event.end_date) - new Date(event.start_date)) / (1000 * 60 * 60 * 24)) + 1} {t('days')}
+                                </td>
+                                <td>
+                                  <span className={`badge ${event.affects_request_creation ? 'bg-danger' : 'bg-info'}`}>
+                                    {event.affects_request_creation ? t('yes') : t('no')}
+                                  </span>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+
+                      {/* Pagination */}
+                      {Math.ceil(currentEvents.length / eventsPerPage) > 1 && (
+                        <nav aria-label="Events pagination" className="mt-3">
+                          <ul className="pagination justify-content-center">
+                            <li className={`page-item ${eventsCurrentPage === 1 ? 'disabled' : ''}`}>
+                              <button 
+                                className="page-link" 
+                                onClick={() => setEventsCurrentPage(eventsCurrentPage - 1)}
+                                disabled={eventsCurrentPage === 1}
+                              >
+                                {t('previous')}
+                              </button>
+                            </li>
+                            
+                            {[...Array(Math.ceil(currentEvents.length / eventsPerPage))].map((_, index) => (
+                              <li key={index + 1} className={`page-item ${eventsCurrentPage === index + 1 ? 'active' : ''}`}>
+                                <button 
+                                  className="page-link" 
+                                  onClick={() => setEventsCurrentPage(index + 1)}
+                                >
+                                  {index + 1}
+                                </button>
+                              </li>
+                            ))}
+                            
+                            <li className={`page-item ${eventsCurrentPage === Math.ceil(currentEvents.length / eventsPerPage) ? 'disabled' : ''}`}>
+                              <button 
+                                className="page-link" 
+                                onClick={() => setEventsCurrentPage(eventsCurrentPage + 1)}
+                                disabled={eventsCurrentPage === Math.ceil(currentEvents.length / eventsPerPage)}
+                              >
+                                {t('next')}
+                              </button>
+                            </li>
+                          </ul>
+                        </nav>
+                      )}
+                    </>
+                  )}
                 </div>
-
-                {/* Pagination */}
-                {Math.ceil(currentEvents.length / eventsPerPage) > 1 && (
-                  <nav aria-label="Events pagination" className="mt-3">
-                    <ul className="pagination justify-content-center">
-                      <li className={`page-item ${eventsCurrentPage === 1 ? 'disabled' : ''}`}>
-                        <button 
-                          className="page-link" 
-                          onClick={() => setEventsCurrentPage(eventsCurrentPage - 1)}
-                          disabled={eventsCurrentPage === 1}
-                        >
-                          Previous
-                        </button>
-                      </li>
-                      
-                      {[...Array(Math.ceil(currentEvents.length / eventsPerPage))].map((_, index) => (
-                        <li key={index + 1} className={`page-item ${eventsCurrentPage === index + 1 ? 'active' : ''}`}>
-                          <button 
-                            className="page-link" 
-                            onClick={() => setEventsCurrentPage(index + 1)}
-                          >
-                            {index + 1}
-                          </button>
-                        </li>
-                      ))}
-                      
-                      <li className={`page-item ${eventsCurrentPage === Math.ceil(currentEvents.length / eventsPerPage) ? 'disabled' : ''}`}>
-                        <button 
-                          className="page-link" 
-                          onClick={() => setEventsCurrentPage(eventsCurrentPage + 1)}
-                          disabled={eventsCurrentPage === Math.ceil(currentEvents.length / eventsPerPage)}
-                        >
-                          Next
-                        </button>
-                      </li>
-                    </ul>
-                  </nav>
-                )}
-              </>
-            )}
-          </div>
-          <div className="modal-footer">
-            <button 
-              type="button" 
-              className="btn btn-secondary"
-              onClick={() => {
-                setShowEventsModal(false);
-                setEventsCurrentPage(1); // Reset pagination when modal closes
-              }}
-            >
-              Close
+                <div className="modal-footer">
+                  <button 
+                    type="button" 
+                    className="btn btn-secondary"
+                    onClick={() => {
+                      setShowEventsModal(false);
+                      setEventsCurrentPage(1);
+                    }}
+                  >
+                    {t('close')}
                   </button>
                 </div>
               </div>

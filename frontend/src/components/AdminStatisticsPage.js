@@ -5,12 +5,14 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useAdminAuth } from '../contexts/AdminAuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { useToast } from '../contexts/ToastContext';
+import { useTranslation } from '../hooks/useTranslation';
 import { apiService } from '../services/api';
 
 const AdminStatisticsPage = () => {
   const { admin, isSuperAdmin, isDepartmentAdmin, department } = useAdminAuth();
   const { isDark } = useTheme();
   const { showSuccess, showError, showInfo } = useToast();
+  const { t } = useTranslation();
   
   const [unassignedRequests, setUnassignedRequests] = useState([]);
   const [loadingUnassigned, setLoadingUnassigned] = useState(false);
@@ -69,9 +71,9 @@ const AdminStatisticsPage = () => {
     } catch (error) {
       console.error(' Error loading assignment-based admin statistics:', error);
       
-      let errorMessage = 'Failed to load admin statistics';
+      let errorMessage = t('failed_to_load_admin_statistics', 'Failed to load admin statistics');
       if (error.response?.status === 403) {
-        errorMessage = 'Access denied: Insufficient permissions to view statistics';
+        errorMessage = t('access_denied_insufficient_permissions', 'Access denied: Insufficient permissions to view statistics');
       } else if (error.response?.data?.error) {
         errorMessage = error.response.data.error;
       }
@@ -112,7 +114,7 @@ const loadUnassignedRequests = useCallback(async () => {
     }
   } catch (error) {
     console.error('Error loading unassigned requests:', error);
-    showError('Failed to load unassigned requests');
+    showError(t('failed_to_load_unassigned_requests', 'Failed to load unassigned requests'));
     setUnassignedRequests([]); // Clear on error
   } finally {
     setLoadingUnassigned(false);
@@ -121,7 +123,7 @@ const loadUnassignedRequests = useCallback(async () => {
   // Auto-assign all function
  const handleAutoAssignAll = async () => {
   try {
-    showInfo(' Starting auto-assignment...');
+    showInfo(t('starting_auto_assignment', 'Starting auto-assignment...'));
     
     const response = await apiService.autoAssignAllRequests({
       department_filter: isSuperAdmin() ? selectedDepartment : department
@@ -132,11 +134,11 @@ const loadUnassignedRequests = useCallback(async () => {
       const totalProcessed = response.data.data.total_processed || 0;
       
       if (successCount > 0) {
-        showSuccess(` ${successCount} requests auto-assigned successfully!`);
+        showSuccess(t('requests_auto_assigned_successfully', '{count} requests auto-assigned successfully!', { count: successCount }));
       } else if (totalProcessed === 0) {
-        showInfo(' No unassigned requests found');
+        showInfo(t('no_unassigned_requests_found', 'No unassigned requests found'));
       } else {
-        showInfo(` All ${totalProcessed} requests were already assigned`);
+        showInfo(t('all_requests_already_assigned', 'All {count} requests were already assigned', { count: totalProcessed }));
       }
       
       // ZORUNLU REFRESH'LER:
@@ -152,15 +154,22 @@ const loadUnassignedRequests = useCallback(async () => {
       setRefreshing(false); // Force re-render
       
     } else {
-      showError('Failed to auto-assign requests: ' + (response.data.error || 'Unknown error'));
+      showError(t('failed_to_auto_assign_requests', 'Failed to auto-assign requests: {error}', { error: response.data.error || t('unknown_error', 'Unknown error') }));
     }
   } catch (error) {
     console.error('Auto-assign error:', error);
-    showError('Failed to auto-assign requests: ' + (error.response?.data?.error || error.message));
+    showError(t('failed_to_auto_assign_requests', 'Failed to auto-assign requests: {error}', { error: error.response?.data?.error || error.message }));
   }
 };
 
 
+
+  // Load unassigned requests when tab changes
+  useEffect(() => {
+    if (activeTab === 'unassigned') {
+      loadUnassignedRequests();
+    }
+  }, [activeTab, loadUnassignedRequests]);
 
   // Load statistics on parameter change
   useEffect(() => {
@@ -299,13 +308,13 @@ const loadUnassignedRequests = useCallback(async () => {
     return (
       <div className="text-center py-5">
         <div className="spinner-border text-primary" role="status" style={{ width: '3rem', height: '3rem' }}>
-          <span className="visually-hidden">Loading...</span>
+          <span className="visually-hidden">{t('loading', 'Loading')}...</span>
         </div>
         <h5 className={`mt-3 ${isDark ? 'text-light' : 'text-dark'}`}>
           
         </h5>
         <p className={isDark ? 'text-light' : 'text-muted'}>
-          Analyzing admin assignments and performance data...
+          {t('analyzing_admin_assignments_performance', 'Analyzing admin assignments and performance data')}...
         </p>
         <div className="progress mt-3" style={{ width: '300px', margin: '0 auto' }}>
           <div className="progress-bar progress-bar-striped progress-bar-animated bg-success" style={{ width: '100%' }}></div>
@@ -316,7 +325,7 @@ const loadUnassignedRequests = useCallback(async () => {
 
   // ENHANCED: Overview with assignment analytics
   const renderOverview = () => {
-    if (!statistics) return <div className="text-center text-muted py-5">No data available</div>;
+    if (!statistics) return <div className="text-center text-muted py-5">{t('no_data_available', 'No data available')}</div>;
 
     return (
       <div>
@@ -329,19 +338,19 @@ const loadUnassignedRequests = useCallback(async () => {
                   <div className="d-flex justify-content-between align-items-center">
                     <div>
                       <h5 className="mb-0">
-                         {isSuperAdmin() && selectedDepartment ? selectedDepartment : department} Performance Dashboard
+                         {isSuperAdmin() && selectedDepartment ? selectedDepartment : department} {t('performance_dashboard', 'Performance Dashboard')}
                         {statistics?.meta?.data_version === '2.0_assignment_based' && (
-                          <span className="badge bg-success ms-2">Assignment-Based ✓</span>
+                          <span className="badge bg-success ms-2">{t('assignment_based', 'Assignment-Based')} ✓</span>
                         )}
                       </h5>
                       <small className="opacity-75">
-                        Assignment tracking with workload distribution analysis
+                        {t('assignment_tracking_workload_analysis', 'Assignment tracking with workload distribution analysis')}
                       </small>
                     </div>
                     <div className="d-flex align-items-center">
                       {lastRefresh && (
                         <small className="me-3 opacity-75">
-                          Last updated: {lastRefresh.toLocaleTimeString()}
+                          {t('last_updated', 'Last updated')}: {lastRefresh.toLocaleTimeString()}
                         </small>
                       )}
                       
@@ -353,26 +362,26 @@ const loadUnassignedRequests = useCallback(async () => {
                   <div className="row text-center mb-3">
                     <div className="col-md-2">
                       <div className="h3 text-primary mb-1">{departmentSummary.total_admins}</div>
-                      <small className={isDark ? 'text-light' : 'text-muted'}>Total Admins</small>
+                      <small className={isDark ? 'text-light' : 'text-muted'}>{t('total_admins', 'Total Admins')}</small>
                       <div className="mt-1">
                         
                       </div>
                     </div>
                     <div className="col-md-2">
                       <div className="h3 text-primary mb-1">{departmentSummary.total_requests}</div>
-                      <small className={isDark ? 'text-light' : 'text-muted'}>Total Requests</small>
+                      <small className={isDark ? 'text-light' : 'text-muted'}>{t('total_requests', 'Total Requests')}</small>
                       <div className="mt-1">
                         
                       </div>
                     </div>
                     <div className="col-md-2">
                       <div className="h3 text-primary mb-1">{departmentSummary.total_completed}</div>
-                      <small className={isDark ? 'text-light' : 'text-muted'}>Completed</small>
+                      <small className={isDark ? 'text-light' : 'text-muted'}>{t('completed', 'Completed')}</small>
                       
                     </div>
                     <div className="col-md-2">
                       <div className="h3 text-primary mb-1">{departmentSummary.total_pending}</div>
-                      <small className={isDark ? 'text-light' : 'text-muted'}>Pending</small>
+                      <small className={isDark ? 'text-light' : 'text-muted'}>{t('pending', 'Pending')}</small>
                       <div className="mt-1">
                         
                       </div>
@@ -389,7 +398,7 @@ const loadUnassignedRequests = useCallback(async () => {
                     
                     <div className="col-md-3">
                       <div className="d-flex justify-content-between align-items-center mb-1">
-                        <small className={isDark ? 'text-light' : 'text-muted'}>Completion Rate</small>
+                        <small className={isDark ? 'text-light' : 'text-muted'}>{t('completion_rate', 'Completion Rate')}</small>
                         <small className="text-danger"><strong>{departmentSummary.completion_rate}%</strong></small>
                       </div>
                       <div className="progress" style={{ height: '8px' }}>
@@ -398,7 +407,7 @@ const loadUnassignedRequests = useCallback(async () => {
                     </div>
                     <div className="col-md-3">
                       <div className="d-flex justify-content-between align-items-center mb-1">
-                        <small className={isDark ? 'text-light' : 'text-muted'}>Team Utilization</small>
+                        <small className={isDark ? 'text-light' : 'text-muted'}>{t('team_utilization', 'Team Utilization')}</small>
                         <small className="text-danger"><strong>{departmentSummary.utilization_rate}%</strong></small>
                       </div>
                       <div className="progress" style={{ height: '8px' }}>
@@ -407,7 +416,7 @@ const loadUnassignedRequests = useCallback(async () => {
                     </div>
                     <div className="col-md-3">
                       <div className="d-flex justify-content-between align-items-center mb-1">
-                        <small className={isDark ? 'text-light' : 'text-muted'}>Performance Score</small>
+                        <small className={isDark ? 'text-light' : 'text-muted'}>{t('performance_score', 'Performance Score')}</small>
                         <small className="text-danger">
                           <strong>{departmentSummary.avg_performance}%</strong>
                         </small>
@@ -430,7 +439,7 @@ const loadUnassignedRequests = useCallback(async () => {
               <div className="card border-0 shadow-sm" style={cardStyle}>
                 <div className="card-header border-0">
                 
-                  <h6 className="mb-0"> Top Performers</h6>
+                  <h6 className="mb-0">{t('top_performers', 'Top Performers')}</h6>
                 </div>
                 <div className="card-body">
                   {statistics.detailed_admins
@@ -476,9 +485,9 @@ const loadUnassignedRequests = useCallback(async () => {
       return (
         <div className="text-center py-5">
           <div className="spinner-border text-warning" role="status">
-            <span className="visually-hidden">Loading unassigned requests...</span>
+            <span className="visually-hidden">{t('loading_unassigned_requests', 'Loading unassigned requests')}...</span>
           </div>
-          <p className="mt-2">Loading unassigned requests...</p>
+          <p className="mt-2">{t('loading_unassigned_requests', 'Loading unassigned requests')}...</p>
         </div>
       );
     }
@@ -487,8 +496,8 @@ const loadUnassignedRequests = useCallback(async () => {
       return (
         <div className="text-center py-5">
           <div style={{ fontSize: '4rem' }}>✅</div>
-          <h5 className="mt-3">All Requests Assigned!</h5>
-          <p>There are no unassigned requests in the system.</p>
+          <h5 className="mt-3">{t('all_requests_assigned', 'All Requests Assigned')}!</h5>
+          <p>{t('no_unassigned_requests_in_system', 'There are no unassigned requests in the system')}.</p>
         </div>
       );
     }
@@ -500,14 +509,14 @@ const loadUnassignedRequests = useCallback(async () => {
             <div className="alert alert-warning border-0">
               <div className="d-flex justify-content-between align-items-center">
                 <div>
-                  <h6 className="mb-1">⚠️ Unassigned Requests ({unassignedRequests.length})</h6>
-                  <p className="mb-0">These requests need to be assigned to admins for processing.</p>
+                  <h6 className="mb-1">⚠️ {t('unassigned_requests', 'Unassigned Requests')} ({unassignedRequests.length})</h6>
+                  <p className="mb-0">{t('requests_need_assignment', 'These requests need to be assigned to admins for processing')}.</p>
                 </div>
                 <button 
                   className="btn btn-warning"
                   onClick={handleAutoAssignAll}
                 >
-                   Auto-Assign All
+                   {t('auto_assign_all', 'Auto-Assign All')}
                 </button>
               </div>
             </div>
@@ -520,7 +529,7 @@ const loadUnassignedRequests = useCallback(async () => {
               <div className="card border-warning">
                 <div className="card-header bg-warning text-dark">
                   <div className="d-flex justify-content-between align-items-center">
-                    <strong>Request #{request.request_id}</strong>
+                    <strong>{t('request', 'Request')} #{request.request_id}</strong>
                     <span className={`badge bg-secondary`}>
                       {request.status}
                     </span>
@@ -529,9 +538,9 @@ const loadUnassignedRequests = useCallback(async () => {
                 <div className="card-body">
                   <h6 className="card-title">{request.type_name}</h6>
                   <p className="card-text">
-                    <small><strong>Student:</strong> {request.student_name}</small><br />
-                    <small><strong>Department:</strong> {request.category}</small><br />
-                    <small><strong>Submitted:</strong> {new Date(request.submitted_at).toLocaleDateString()}</small>
+                    <small><strong>{t('student', 'Student')}:</strong> {request.student_name}</small><br />
+                    <small><strong>{t('department', 'Department')}:</strong> {request.category}</small><br />
+                    <small><strong>{t('submitted', 'Submitted')}:</strong> {new Date(request.submitted_at).toLocaleDateString()}</small>
                   </p>
                   <p className="card-text">
                     {request.content.length > 100 ? 
@@ -560,7 +569,7 @@ const loadUnassignedRequests = useCallback(async () => {
                   <span className="badge bg-secondary me-2">#{index + 1}</span>
                   {admin.full_name}
                   {admin.is_super_admin && (
-                    <span className="badge bg-danger ms-2">Super</span>
+                    <span className="badge bg-danger ms-2">{t('super', 'Super')}</span>
                   )}
                 </h6>
                 <small className={isDark ? 'text-light' : 'text-muted'}>
@@ -579,15 +588,15 @@ const loadUnassignedRequests = useCallback(async () => {
               <div className="row mb-3 text-center">
                 <div className="col-4">
                   <div className="h5 text-primary mb-1">{admin.total_requests || 0}</div>
-                  <small className={isDark ? 'text-light' : 'text-muted'}>Assigned</small>
+                  <small className={isDark ? 'text-light' : 'text-muted'}>{t('assigned', 'Assigned')}</small>
                 </div>
                 <div className="col-4">
                   <div className="h5 text-primary mb-1">{admin.completed_requests || 0}</div>
-                  <small className={isDark ? 'text-light' : 'text-muted'}>Completed</small>
+                  <small className={isDark ? 'text-light' : 'text-muted'}>{t('completed', 'Completed')}</small>
                 </div>
                 <div className="col-4">
                   <div className="h5 text-primary mb-1">{admin.total_responses || 0}</div>
-                  <small className={isDark ? 'text-light' : 'text-muted'}>Responses</small>
+                  <small className={isDark ? 'text-light' : 'text-muted'}>{t('responses', 'Responses')}</small>
                 </div>
               </div>
 
@@ -595,7 +604,7 @@ const loadUnassignedRequests = useCallback(async () => {
               {admin.has_assignments && (
                 <div className="mb-3">
                   <div className="d-flex justify-content-between align-items-center mb-2">
-                    <small className={isDark ? 'text-light' : 'text-muted'}>Assignment Efficiency</small>
+                    <small className={isDark ? 'text-light' : 'text-muted'}>{t('assignment_efficiency', 'Assignment Efficiency')}</small>
                     <small className={getPerformanceColor(admin.efficiency_score || 0)}>
                       <strong>{admin.efficiency_score || 0}%</strong>
                     </small>
@@ -616,25 +625,25 @@ const loadUnassignedRequests = useCallback(async () => {
                   <div className="badge bg-danger text-light mb-1 d-block">
                     {admin.pending_requests || 0}
                   </div>
-                  <small className={isDark ? 'text-light' : 'text-muted'}>Pending</small>
+                  <small className={isDark ? 'text-light' : 'text-muted'}>{t('pending', 'Pending')}</small>
                 </div>
                 <div className="col-3 text-center">
                   <div className="badge bg-danger mb-1 d-block">
                     {admin.informed_requests || 0}
                   </div>
-                  <small className={isDark ? 'text-light' : 'text-muted'}>Informed</small>
+                  <small className={isDark ? 'text-light' : 'text-muted'}>{t('informed', 'Informed')}</small>
                 </div>
                 <div className="col-3 text-center">
                   <div className="badge bg-danger mb-1 d-block">
                     {admin.rejected_requests || 0}
                   </div>
-                  <small className={isDark ? 'text-light' : 'text-muted'}>Rejected</small>
+                  <small className={isDark ? 'text-light' : 'text-muted'}>{t('rejected', 'Rejected')}</small>
                 </div>
                 <div className="col-3 text-center">
                   <div className="badge bg-danger mb-1 d-block">
                     {formatDuration(admin.avg_response_time_hours || 0)}
                   </div>
-                  <small className={isDark ? 'text-light' : 'text-muted'}>Avg Time</small>
+                  <small className={isDark ? 'text-light' : 'text-muted'}>{t('avg_time', 'Avg Time')}</small>
                 </div>
               </div>
 
@@ -653,8 +662,8 @@ const loadUnassignedRequests = useCallback(async () => {
         <div className="text-center py-5">
           <div className="text-muted">
             <div style={{ fontSize: '4rem' }}></div>
-            <h5 className="mt-3">No Assignment Data Available</h5>
-            <p>No admin assignments found for the selected period and department.</p>
+            <h5 className="mt-3">{t('no_assignment_data_available', 'No Assignment Data Available')}</h5>
+            <p>{t('no_admin_assignments_found', 'No admin assignments found for the selected period and department')}.</p>
             <button 
               className="btn btn-outline-primary"
               onClick={() => loadStatistics(true)}
@@ -663,10 +672,10 @@ const loadUnassignedRequests = useCallback(async () => {
               {refreshing ? (
                 <>
                   <span className="spinner-border spinner-border-sm me-1"></span>
-                  Refreshing...
+                  {t('refreshing', 'Refreshing')}...
                 </>
               ) : (
-                ' Refresh Data'
+                t('refresh_data', 'Refresh Data')
               )}
             </button>
           </div>
@@ -692,7 +701,7 @@ const loadUnassignedRequests = useCallback(async () => {
                       minRequests: 0
                     })}
                   >
-                    Clear Filters
+                    {t('clear_filters', 'Clear Filters')}
                   </button>
                 )}
               </div>
@@ -713,7 +722,7 @@ const loadUnassignedRequests = useCallback(async () => {
       <div className="d-flex justify-content-between align-items-center mb-4">
         <div>
           <h3 className={`${isDark ? 'text-light' : 'text-dark'} d-flex align-items-center`}>
-             Admin Performance Analytics
+             {t('admin_performance_analytics', 'Admin Performance Analytics')}
             {refreshing && <span className="spinner-border spinner-border-sm ms-2"></span>}
             {statistics?.meta?.data_version === '' && (
               <span className="badge bg-success ms-2"></span>
@@ -721,9 +730,9 @@ const loadUnassignedRequests = useCallback(async () => {
           </h3>
           <p className={isDark ? 'text-light' : 'text-muted'}>
             {isSuperAdmin() 
-              ? (selectedDepartment ? `${selectedDepartment} Department` : 'System-wide') 
+              ? (selectedDepartment ? `${selectedDepartment} ${t('department', 'Department')}` : t('system_wide', 'System-wide'))
               : department
-            } performance insights with assignment tracking
+            } {t('performance_insights_assignment_tracking', 'performance insights with assignment tracking')}
             {statistics?.meta && (
               <span className="ms-2">
                 • {new Date(statistics.meta.start_date).toLocaleDateString()} - {new Date(statistics.meta.end_date).toLocaleDateString()}
@@ -744,7 +753,7 @@ const loadUnassignedRequests = useCallback(async () => {
                 
               </>
             ) : (
-              'Refresh'
+              t('refresh', 'Refresh')
             )}
           </button>
         </div>
@@ -754,7 +763,7 @@ const loadUnassignedRequests = useCallback(async () => {
       <div className="row mb-4">
         <div className="col-md-6">
           <label className={`form-label ${isDark ? 'text-light' : 'text-dark'}`}>
-            Time Period:
+            {t('time_period', 'Time Period')}:
           </label>
           <select
             className="form-select"
@@ -766,17 +775,17 @@ const loadUnassignedRequests = useCallback(async () => {
               color: isDark ? '#ffffff' : '#000000'
             }}
           >
-            <option value="7">Last 7 days</option>
-            <option value="30">Last 30 days</option>
-            <option value="90">Last 3 months</option>
-            <option value="180">Last 6 months</option>
+            <option value="7">{t('last_7_days', 'Last 7 days')}</option>
+            <option value="30">{t('last_30_days', 'Last 30 days')}</option>
+            <option value="90">{t('last_3_months', 'Last 3 months')}</option>
+            <option value="180">{t('last_6_months', 'Last 6 months')}</option>
           </select>
         </div>
 
         {isSuperAdmin() && (
           <div className="col-md-6">
             <label className={`form-label ${isDark ? 'text-light' : 'text-dark'}`}>
-              Department:
+              {t('department', 'Department')}:
             </label>
             <select
               className="form-select"
@@ -788,12 +797,12 @@ const loadUnassignedRequests = useCallback(async () => {
                 color: isDark ? '#ffffff' : '#000000'
               }}
             >
-              <option value="">All Departments</option>
-              <option value="Accounting">Accounting</option>
-              <option value="Academic">Academic</option>
-              <option value="Student Affairs">Student Affairs</option>
-              <option value="Dormitory">Dormitory</option>
-              <option value="Campus Services">Campus Services</option>
+              <option value="">{t('all_departments', 'All Departments')}</option>
+              <option value="Accounting">{t('accounting', 'Accounting')}</option>
+              <option value="Academic">{t('academic', 'Academic')}</option>
+              <option value="Student Affairs">{t('student_affairs', 'Student Affairs')}</option>
+              <option value="Dormitory">{t('dormitory', 'Dormitory')}</option>
+              <option value="Campus Services">{t('campus_services', 'Campus Services')}</option>
             </select>
           </div>
         )}
@@ -806,7 +815,7 @@ const loadUnassignedRequests = useCallback(async () => {
             className={`nav-link ${activeTab === 'overview' ? 'active' : ''}`}
             onClick={() => setActiveTab('overview')}
           >
-             Overview
+             {t('overview', 'Overview')}
             {departmentSummary && (
               <span className="badge bg-light text-dark ms-1">
                 {departmentSummary.total_admins}
@@ -819,7 +828,7 @@ const loadUnassignedRequests = useCallback(async () => {
             className={`nav-link ${activeTab === 'detailed' ? 'active' : ''}`}
             onClick={() => setActiveTab('detailed')}
           >
-             Assignment Analysis
+             {t('assignment_analysis', 'Assignment Analysis')}
             {statistics?.detailed_admins && (
               <span className="badge bg-light text-dark ms-1">
                 {filteredAndSortedAdmins.filter(a => a.has_assignments).length}
@@ -846,13 +855,13 @@ const loadUnassignedRequests = useCallback(async () => {
         <div className="text-center py-5">
           <div className="text-muted">
             <div style={{ fontSize: '4rem' }}>⚠️</div>
-            <h5 className="mt-3">Failed to Load Statistics</h5>
-            <p>Unable to fetch admin performance data. Please try again.</p>
+            <h5 className="mt-3">{t('failed_to_load_statistics', 'Failed to Load Statistics')}</h5>
+            <p>{t('unable_to_fetch_admin_performance_data', 'Unable to fetch admin performance data. Please try again')}.</p>
             <button 
               className="btn btn-danger"
               onClick={() => loadStatistics()}
             >
-              🔄 Retry
+               {t('retry', 'Retry')}
             </button>
           </div>
         </div>

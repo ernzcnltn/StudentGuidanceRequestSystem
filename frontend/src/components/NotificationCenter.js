@@ -71,14 +71,14 @@ const NotificationCenter = () => {
 
   const getNotificationIcon = (type) => {
     const icons = {
-      'request_created': '📝',
-      'status_update': '📊',
-      'response_added': '💬',
-      'request_urgent': '🚨',
-      'system': '⚙️',
-      'welcome': '👋'
+      'request_created': '',
+      'status_update': '',
+      'response_added': '',
+      'request_urgent': '',
+      'system': '',
+      'welcome': ''
     };
-    return icons[type] || '🔔';
+    return icons[type] || '';
   };
 
   const getNotificationColor = (type, priority) => {
@@ -109,7 +109,7 @@ const NotificationCenter = () => {
         onClick={() => setIsOpen(!isOpen)}
         style={{ border: 'none' }}
       >
-        🔔
+        
         {unreadCount > 0 && (
           <span 
             className="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger"
@@ -149,7 +149,7 @@ const NotificationCenter = () => {
             </div>
           ) : notifications.length === 0 ? (
             <div className="dropdown-item-text text-center py-4 text-muted">
-              <div style={{ fontSize: '2rem' }}>🔔</div>
+              <div style={{ fontSize: '2rem' }}></div>
               <p className="mb-0">No notifications</p>
             </div>
           ) : (
