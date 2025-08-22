@@ -809,7 +809,7 @@ showError(t('noPermissionViewRequests'));
   const getPriorityBadge = (priority) => {
     const priorityStyles = {
       'Urgent': 'bg-danger text-white',
-      'High': 'bg-high text-dark', 
+      'High': 'bg-high text-white', 
       'Medium': 'bg-medium text-white',
       'Low': 'bg-secondary text-white'
     };
@@ -1316,7 +1316,7 @@ showError(t('noPermissionViewRequests'));
                               {type.is_document_required ? (
                                 <span className="badge bg-danger text-white">{t('Required')}</span>
                               ) : (
-                                <span className="badge bg-high text-dark">{t('optional')}</span>
+                                <span className="badge bg-high text-white">{t('optional')}</span>
                               )}
                             </td>
                             <td>

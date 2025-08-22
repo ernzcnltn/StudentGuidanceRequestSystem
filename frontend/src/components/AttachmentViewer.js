@@ -172,17 +172,19 @@ const AttachmentViewer = ({ requestId, onClose }) => {
         <div 
           className="bg-white rounded shadow-lg"
           style={{ 
-            maxWidth: '95vw',
+            maxWidth: '98vw',
+            width: '100%',
             maxHeight: '95vh',
             overflow: 'auto',
-            position: 'relative'
+            position: 'relative',
+            margin: '0 ',
           }}
           onClick={(e) => e.stopPropagation()}
         >
           {/* Header */}
           <div className="d-flex justify-content-between align-items-center p-3 border-bottom">
             <h5 className="mb-0 d-flex align-items-center">
-              <span className="me-2">📁</span>
+              <span className="me-2"> </span>
               <span title={name}>{name}</span>
             </h5>
             <div className="d-flex gap-2">
@@ -191,7 +193,7 @@ const AttachmentViewer = ({ requestId, onClose }) => {
                 onClick={() => downloadFile(previewFile.filename, name)}
                 title="Download"
               >
-                📥 Download
+                 Download
               </button>
               <button 
                 className="btn btn-sm btn-outline-secondary" 

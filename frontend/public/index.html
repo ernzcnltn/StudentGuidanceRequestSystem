@@ -1,5 +1,3 @@
-<!-- 1. frontend/public/index.html - Permissions Policy Düzeltmesi -->
-
 <!DOCTYPE html>
 <html lang="en">
   <head>
@@ -9,12 +7,19 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="theme-color" content="#000000" />
     
-    <!-- FULLSCREEN POLICY DÜZELTMESİ - Bu satırı ekle -->
-    <meta http-equiv="Permissions-Policy" content="fullscreen=*">
-    <!-- veya -->
-    <meta http-equiv="Feature-Policy" content="fullscreen *">
+    <!-- Tek bir düzgün CSP policy'si -->
+    <meta http-equiv="Content-Security-Policy" content="
+      default-src 'self';
+      script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com;
+      style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net;
+      font-src 'self' https://cdn.jsdelivr.net;
+      img-src 'self' data: blob:;
+      object-src 'self' blob:;
+      frame-src 'self' blob: data:;
+      connect-src 'self' http://localhost:5000;
+    ">
     
-    <!-- PDF ve iframe için ek izinler -->
+    <!-- Permissions Policy (sadece gerekli olanlar) -->
     <meta http-equiv="Permissions-Policy" content="fullscreen=*, camera=(), microphone=(), geolocation=()">
     
     <meta
@@ -24,17 +29,6 @@
     <link rel="apple-touch-icon" href="%PUBLIC_URL%/logo192.png" />
     <link rel="manifest" href="%PUBLIC_URL%/manifest.json" />
     
-    <!-- PDF.js için CSP düzeltmesi -->
-    <meta http-equiv="Content-Security-Policy" content="
-      default-src 'self';
-      script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdnjs.cloudflare.com;
-      style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net;
-      img-src 'self' data: blob:;
-      object-src 'self' blob:;
-      frame-src 'self' blob: data:;
-      connect-src 'self' http://localhost:5000;
-    ">
-    
     <title>FIU Guidance System</title>
   </head>
   
@@ -43,8 +37,8 @@
     <div id="root"></div>
     
     <!-- Bootstrap JavaScript Bundle with Popper -->
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js" 
-            integrity="sha384-C6RzsynM9kWDrMNeT87bh95OGNyZPhcTNXj1NW7RuBCsyN/o0jlpcV8Qyq46cDfL" 
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"
+            integrity="sha384-C6RzsynM9kWDrMNeT87bh95OGNyZPhcTNXj1NW7RuBCsyN/o0jlpcV8Qyq46cDfL"
             crossorigin="anonymous"></script>
   </body>
 </html>

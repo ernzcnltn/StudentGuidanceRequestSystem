@@ -114,7 +114,7 @@ setError(t('failed_to_load_requests'));
   const getPriorityBadge = (priority) => {
     const priorityStyles = {
       'Urgent': 'bg-danger text-white',
-      'High': 'bg-high text-dark',
+      'High': 'bg-high text-white',
       'Medium': 'bg-medium text-white',
       'Low': 'bg-secondary text-white'
     };
