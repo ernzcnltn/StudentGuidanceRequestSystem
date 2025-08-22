@@ -50,31 +50,54 @@ const AcademicCalendarManager = () => {
   };
 
   // Fetch calendar status
-  const fetchCalendarStatus = async () => {
-    try {
-      setLoading(true);
-      const response = await apiService.getAcademicCalendarStatus();
+const fetchCalendarStatus = async () => {
+  try {
+    setLoading(true);
+    const response = await apiService.getAcademicCalendarStatus();
+    
+    if (response.data.success) {
+      const data = response.data.data;
       
-      if (response.data.success) {
-        const data = response.data.data;
-        setCalendarStatus(data);
-        setSettings({
-          academic_calendar_enabled: data.settings.academic_calendar_enabled === 'true',
-          holiday_buffer_hours: parseInt(data.settings.holiday_buffer_hours || '24'),
-          current_academic_year: data.settings.current_academic_year || ''
-        });
-        
-        if (!academicYear && data.settings.current_academic_year) {
-          setAcademicYear(data.settings.current_academic_year);
-        }
+      // 🔍 DEBUG: Upcoming events'i konsola yazdır
+      console.log('📅 All upcoming events from API:', data.upcoming_events);
+      
+      // ✅ FILTER: Sadece affects_request_creation = true olanları göster
+      const restrictedEvents = data.upcoming_events?.filter(event => 
+        event.affects_request_creation === true || 
+        event.affects_request_creation === 1 ||
+        event.affects_request_creation === '1' ||
+        event.affects_request_creation === 'true'
+      ) || [];
+      
+      console.log('🚫 Filtered restricted events:', restrictedEvents);
+      
+      // ✅ Sadece ilk 3 tanesini al
+      const limitedRestrictedEvents = restrictedEvents.slice(0, 3);
+      
+      console.log('🎯 Final limited restricted events:', limitedRestrictedEvents);
+      
+      setCalendarStatus({
+        ...data,
+        upcoming_events: limitedRestrictedEvents // ✅ Filtered events'i kaydet
+      });
+      
+      setSettings({
+        academic_calendar_enabled: data.settings.academic_calendar_enabled === 'true',
+        holiday_buffer_hours: parseInt(data.settings.holiday_buffer_hours || '24'),
+        current_academic_year: data.settings.current_academic_year || ''
+      });
+      
+      if (!academicYear && data.settings.current_academic_year) {
+        setAcademicYear(data.settings.current_academic_year);
       }
-    } catch (error) {
-      console.error('Failed to fetch calendar status:', error);
-      showError(t('loadHistoryFailed'));
-    } finally {
-      setLoading(false);
     }
-  };
+  } catch (error) {
+    console.error('Failed to fetch calendar status:', error);
+    showError(t('loadHistoryFailed'));
+  } finally {
+    setLoading(false);
+  }
+};
 
   // Fetch upload history
   const fetchUploadHistory = async () => {
@@ -487,22 +510,7 @@ const AcademicCalendarManager = () => {
                       {t('holidayBufferHelp')}
                     </small>
                   </div>
-                  <div className="col-md-4">
-                    <label className="form-label">{t('currentAcademicYear')}</label>
-                    <select
-                      className="form-select"
-                      value={settings.current_academic_year}
-                      onChange={(e) => setSettings({
-                        ...settings,
-                        current_academic_year: e.target.value
-                      })}
-                    >
-                      <option value="">{t('selectAcademicYear')}</option>
-                      {generateAcademicYearOptions().map(year => (
-                        <option key={year} value={year}>{year}</option>
-                      ))}
-                    </select>
-                  </div>
+                 
                 </div>
                 <div className="mt-3">
                   <button 
@@ -518,34 +526,66 @@ const AcademicCalendarManager = () => {
         </div>
 
         {/* Upcoming Events */}
-        {calendarStatus?.upcoming_events && calendarStatus.upcoming_events.length > 0 && (
-          <div className="row mb-4">
-            <div className="col-12">
-              <div className="card">
-                <div className="card-header">
-                  <h5 className="mb-0">{t('upcomingEvents')}</h5>
+{/* ✅ UPDATED: Sadece request'i engelleyen events göster */}
+{calendarStatus?.upcoming_events && calendarStatus.upcoming_events.length > 0 ? (
+  <div className="row mb-4">
+    <div className="col-12">
+      <div className="card">
+        <div className="card-header">
+          <div className="d-flex justify-content-between align-items-center">
+            <h5 className="mb-0">{t('upcomingRestrictedEvents')}</h5>
+            <span className="badge bg-danger">
+              {calendarStatus.upcoming_events.length}
+            </span>
+          </div>
+        </div>
+        <div className="card-body">
+          {calendarStatus.upcoming_events.map((event, index) => (
+            <div key={index} className="d-flex align-items-start mb-3 pb-3 border-bottom">
+              <div className="flex-grow-1">
+                <div className="d-flex justify-content-between align-items-start mb-2">
+                  <div>
+                    <strong className="text-danger">{event.event_name}</strong>
+                    {event.buffer_hours_applied > 0 && (
+                      <small className="d-block text-muted">
+                        <i className="fas fa-clock me-1"></i>
+                        {t('restrictionStartsEarly', '', { 
+                          hours: event.buffer_hours_applied,
+                          actualDate: event.start_date 
+                        })}
+                      </small>
+                    )}
+                  </div>
+                  <span className="badge bg-danger">
+                    {event.days_until === 0 ? t('today') : 
+                     event.days_until === 1 ? t('tomorrow') : 
+                     `${event.days_until} ${t('daysLeft')}`}
+                  </span>
                 </div>
-                <div className="card-body">
-                  <div className="row">
-                    {calendarStatus.upcoming_events.map((event, index) => (
-                      <div key={index} className="col-md-12 mb-2">
-                        <div className="d-flex align-items-center">
-                          <div>
-                            <strong>{event.event_name}</strong>
-                            <br />
-                            <small className="text-muted">
-                              {event.start_date} - {event.end_date}
-                            </small>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
+                
+                <div className="row">
+                  <div className="col-md-8">
+                    <small className="text-muted">
+                      <strong>{t('eventPeriod')}:</strong> {event.start_date}
+                      {event.end_date !== event.start_date && ` - ${event.end_date}`}
+                    </small>
+                  </div>
+                  <div className="col-md-4">
+                    <small className="text-muted">
+                      <strong>{t('type')}:</strong> {getEventTypeText(event.event_type)}
+                    </small>
                   </div>
                 </div>
               </div>
             </div>
-          </div>
-        )}
+          ))}
+          
+          
+        </div>
+      </div>
+    </div>
+  </div>
+) :null}
 
         {/* Upload History */}
         <div className="row">

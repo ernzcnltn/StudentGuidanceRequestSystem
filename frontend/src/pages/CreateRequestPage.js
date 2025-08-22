@@ -152,14 +152,7 @@ const CreateRequestPage = () => {
       };
     }
     
-    if (!canSubmitRequestNow) {
-      return {
-        type: '24_hour_limit',
-        message:t('waitMoreHours', { hours: lastRequestInfo?.hoursRemaining || 0 }),
-
-        icon: ''
-      };
-    }
+    
     
     if (academicCalendarStatus && !academicCalendarStatus.canCreateRequest) {
       return {

@@ -969,26 +969,46 @@ router.get('/status', authenticateAdmin, async (req, res) => {
 }
 
     // Get upcoming events with error handling
-    let upcomingEvents = [];
-    try {
-      const [upcomingResult] = await pool.execute(`
-        SELECT 
-          ace.event_name,
-          ace.event_type,
-          ace.start_date,
-          ace.end_date,
-          ace.affects_request_creation,
-          DATEDIFF(ace.start_date, CURDATE()) as days_until
-        FROM academic_calendar_events ace
-        JOIN academic_calendar_uploads acu ON ace.upload_id = acu.upload_id
-        WHERE ace.start_date >= CURDATE() 
-          AND ace.start_date <= DATE_ADD(CURDATE(), INTERVAL 30 DAY)
-          AND acu.is_active = TRUE 
-          AND acu.processing_status = 'completed'
-        ORDER BY ace.start_date ASC
-        LIMIT 10
-      `);
-      upcomingEvents = upcomingResult;
+let upcomingEvents = [];
+try {
+  const [upcomingResult] = await pool.execute(`
+    SELECT 
+      ace.event_name,
+      ace.event_type,
+      DATE(ace.start_date) as start_date,
+      DATE(ace.end_date) as end_date,
+      ace.affects_request_creation,
+      ace.description,
+      DATEDIFF(ace.start_date, CURDATE()) as days_until
+    FROM academic_calendar_events ace
+    JOIN academic_calendar_uploads acu ON ace.upload_id = acu.upload_id
+    WHERE ace.start_date >= CURDATE() 
+      AND ace.start_date <= DATE_ADD(CURDATE(), INTERVAL 30 DAY)
+      AND acu.is_active = TRUE 
+      AND acu.processing_status = 'completed'
+      AND ace.affects_request_creation = TRUE
+    ORDER BY ace.start_date ASC
+    LIMIT 3
+  `);
+  
+  upcomingEvents = upcomingResult.map(event => ({
+    ...event,
+    // ✅ Tarihleri YYYY-MM-DD formatında döndür
+    start_date: event.start_date instanceof Date ? 
+      event.start_date.toISOString().split('T')[0] : 
+      event.start_date,
+    end_date: event.end_date instanceof Date ? 
+      event.end_date.toISOString().split('T')[0] : 
+      event.end_date
+  }));
+
+  
+  console.log(`📅 Found ${upcomingEvents.length} upcoming restricted events:`);
+  upcomingEvents.forEach(event => {
+    console.log(`   📍 ${event.event_name}: ${event.start_date} (${event.days_until} days until)`);
+  });
+  
+
     } catch (eventsError) {
       console.warn('⚠️ Could not fetch upcoming events:', eventsError.message);
     }
@@ -1002,27 +1022,30 @@ router.get('/status', authenticateAdmin, async (req, res) => {
       upcoming_events_count: upcomingEvents.length
     };
 
-    res.json({
-      success: true,
-      data: {
-        settings: defaultSettings,
-        active_calendar: activeCalendar[0] || null,
-        today_status: todayStatus,
-        next_available: nextAvailable,
-        upcoming_events: upcomingEvents,
-        system_info: {
-          current_date: currentDate,
-          academic_year: defaultSettings.current_academic_year,
-          calendar_enabled: defaultSettings.academic_calendar_enabled === 'true',
-          buffer_hours: parseInt(defaultSettings.holiday_buffer_hours || '24'),
-          functions_available: {
-            holiday_check: !todayStatus?.function_error,
-            next_date: !nextAvailable?.function_error
-          },
-          system_health: systemHealth
-        }
-      }
-    });
+   // Response'ta upcoming_events olarak döndür
+res.json({
+  success: true,
+  data: {
+    settings: defaultSettings,
+    active_calendar: activeCalendar[0] || null,
+    today_status: todayStatus,
+    next_available: nextAvailable,
+    upcoming_events: upcomingEvents, // ✅ Sadece kısıtlı eventler
+    system_info: {
+      current_date: currentDate,
+      academic_year: defaultSettings.current_academic_year,
+      calendar_enabled: defaultSettings.academic_calendar_enabled === 'true',
+      buffer_hours: parseInt(defaultSettings.holiday_buffer_hours || '24'),
+      functions_available: {
+        holiday_check: !todayStatus?.function_error,
+        next_date: !nextAvailable?.function_error
+      },
+      system_health: systemHealth,
+      upcoming_restricted_count: upcomingEvents.length // ✅ Debug için sayı
+    }
+  }
+});
+
 
   } catch (error) {
     console.error('❌ Get calendar status error:', error);
@@ -1408,7 +1431,7 @@ router.post('/settings', authenticateAdmin, requireSuperAdmin, async (req, res) 
         updated_at = CURRENT_TIMESTAMP
       `, updateValues);
 
-      console.log('✅ Calendar settings updated successfully by:', req.admin.username);
+      console.log(' Calendar settings updated successfully by:', req.admin.username);
 
       // Return updated settings
       const [updatedSettings] = await pool.execute(`

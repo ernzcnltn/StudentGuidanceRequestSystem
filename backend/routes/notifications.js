@@ -127,58 +127,115 @@ router.get('/student', authenticateToken, async (req, res) => {
 // GET /api/notifications/admin - Get admin notifications
 router.get('/admin', authenticateAdmin, async (req, res) => {
   try {
-    const department = req.admin.department;
+    const adminDepartment = req.admin.department;
+    const adminId = req.admin.admin_id;
     
-    console.log('Fetching admin notifications for department:', department);
+    console.log('🔍 Admin notifications request:', {
+      admin_id: adminId,
+      department: adminDepartment
+    });
     
-    // Get recent notifications for admin
-    const [dynamicNotifications] = await pool.execute(`
-      SELECT 
-        'new_request' as type,
-        CONCAT('New ', gr.priority, ' Priority Request') as title,
-        CONCAT('Request #', gr.request_id, ' from ', s.name, ' - ', rt.type_name) as message,
-        gr.submitted_at as created_at,
-        CASE WHEN gr.status = 'Pending' THEN FALSE ELSE TRUE END as is_read,
-        gr.priority,
-        gr.request_id as related_request_id,
-        CONCAT('request_', gr.request_id, '_', UNIX_TIMESTAMP(gr.submitted_at)) as id
-      FROM guidance_requests gr
-      JOIN students s ON gr.student_id = s.student_id
-      JOIN request_types rt ON gr.type_id = rt.type_id
-      WHERE rt.category = ? 
-        AND gr.submitted_at > DATE_SUB(NOW(), INTERVAL 7 DAY)
+    // Check if super admin
+    let isSuperAdmin = false;
+    try {
+      const [adminRoles] = await pool.execute(`
+        SELECT r.role_name 
+        FROM roles r
+        JOIN user_roles ur ON r.role_id = ur.role_id
+        WHERE ur.user_id = ? AND ur.is_active = 1
+      `, [adminId]);
       
-      UNION ALL
-      
-      SELECT 
-        'urgent_request' as type,
-        CONCAT('🚨 URGENT: Request #', gr.request_id) as title,
-        CONCAT('Urgent request from ', s.name, ' - ', rt.type_name) as message,
-        gr.submitted_at as created_at,
-        FALSE as is_read,
-        'Urgent' as priority,
-        gr.request_id as related_request_id,
-        CONCAT('urgent_', gr.request_id, '_', UNIX_TIMESTAMP(gr.submitted_at)) as id
-      FROM guidance_requests gr
-      JOIN students s ON gr.student_id = s.student_id
-      JOIN request_types rt ON gr.type_id = rt.type_id
-      WHERE rt.category = ? 
-        AND gr.priority = 'Urgent'
-        AND gr.status = 'Pending'
-        AND gr.submitted_at > DATE_SUB(NOW(), INTERVAL 3 DAY)
-      
-      ORDER BY created_at DESC
-      LIMIT 50
-    `, [department, department]);
+      isSuperAdmin = adminRoles.some(role => role.role_name === 'super_admin');
+    } catch (roleError) {
+      console.warn('⚠️ Role check failed:', roleError.message);
+      isSuperAdmin = false;
+    }
     
-    console.log('Admin notifications found:', dynamicNotifications.length);
+    // Get notification states for this admin
+    const [notificationStates] = await pool.execute(`
+      SELECT notification_id, state 
+      FROM notification_states 
+      WHERE admin_id = ?
+    `, [adminId]);
+    
+    const dismissedIds = notificationStates
+      .filter(ns => ns.state === 'dismissed')
+      .map(ns => ns.notification_id);
+    
+    const readIds = notificationStates
+      .filter(ns => ns.state === 'read')
+      .map(ns => ns.notification_id);
+    
+    console.log('📊 Notification states from DB:', {
+      dismissed_count: dismissedIds.length,
+      read_count: readIds.length
+    });
+    
+    // Get notifications based on admin type
+    let notifications = [];
+    
+    if (isSuperAdmin) {
+      const [results] = await pool.execute(`
+        SELECT 
+          'new_request' as type,
+          CONCAT('New Request #', gr.request_id) as title,
+          CONCAT('From ', s.name, ' - ', rt.type_name, ' (', rt.category, ')') as message,
+          gr.submitted_at as created_at,
+          gr.request_id as related_request_id,
+          COALESCE(gr.priority, 'Medium') as priority,
+          CONCAT('request_', gr.request_id, '_', UNIX_TIMESTAMP(gr.submitted_at)) as id
+        FROM guidance_requests gr
+        JOIN students s ON gr.student_id = s.student_id
+        JOIN request_types rt ON gr.type_id = rt.type_id
+        WHERE gr.submitted_at > DATE_SUB(NOW(), INTERVAL 7 DAY)
+          AND gr.status = 'Pending'
+        ORDER BY gr.submitted_at DESC
+        LIMIT 20
+      `);
+      notifications = results;
+    } else {
+      const [results] = await pool.execute(`
+        SELECT 
+          'new_request' as type,
+          CONCAT('New Request #', gr.request_id) as title,
+          CONCAT('From ', s.name, ' - ', rt.type_name) as message,
+          gr.submitted_at as created_at,
+          gr.request_id as related_request_id,
+          COALESCE(gr.priority, 'Medium') as priority,
+          CONCAT('request_', gr.request_id, '_', UNIX_TIMESTAMP(gr.submitted_at)) as id
+        FROM guidance_requests gr
+        JOIN students s ON gr.student_id = s.student_id
+        JOIN request_types rt ON gr.type_id = rt.type_id
+        WHERE rt.category = ?
+          AND gr.submitted_at > DATE_SUB(NOW(), INTERVAL 7 DAY)
+          AND gr.status = 'Pending'
+        ORDER BY gr.submitted_at DESC
+        LIMIT 20
+      `, [adminDepartment]);
+      notifications = results;
+    }
+    
+    // Filter out dismissed notifications and mark read ones
+    const filteredNotifications = notifications
+      .filter(notification => !dismissedIds.includes(notification.id))
+      .map(notification => ({
+        ...notification,
+        is_read: readIds.includes(notification.id)
+      }));
+    
+    console.log('✅ Notifications processed:', {
+      total_generated: notifications.length,
+      filtered_count: filteredNotifications.length,
+      unread_count: filteredNotifications.filter(n => !n.is_read).length
+    });
     
     res.json({
       success: true,
-      data: dynamicNotifications
+      data: filteredNotifications
     });
+    
   } catch (error) {
-    console.error('Error fetching admin notifications:', error);
+    console.error('❌ Admin notifications error:', error);
     res.status(500).json({
       success: false,
       error: 'Failed to fetch notifications'
@@ -186,37 +243,15 @@ router.get('/admin', authenticateAdmin, async (req, res) => {
   }
 });
 
+
 // POST /api/notifications/mark-read/:id - Mark notification as read
 router.post('/mark-read/:id', authenticateUser, async (req, res) => {
   try {
     const notificationId = req.params.id;
-    const isAdmin = req.userType === 'admin';
     
-    console.log('Marking notification as read:', { 
-      notificationId, 
-      userType: req.userType,
-      userId: isAdmin ? req.admin?.admin_id : req.user?.student_id
-    });
+    console.log('📖 Notification mark-read request:', { notificationId });
     
-    // For dynamic notifications (contain underscores), just return success
-    if (notificationId.includes('_')) {
-      res.json({
-        success: true,
-        message: 'Dynamic notification marked as read'
-      });
-      return;
-    }
-    
-    // For stored notifications, update database
-    const userId = isAdmin ? req.admin.admin_id : req.user.student_id;
-    const userType = isAdmin ? 'admin' : 'student';
-    
-    const [result] = await pool.execute(`
-      UPDATE notifications 
-      SET is_read = TRUE 
-      WHERE id = ? AND user_id = ? AND user_type = ?
-    `, [notificationId, userId, userType]);
-    
+    // Frontend localStorage'da halledecek, backend sadece success döner
     res.json({
       success: true,
       message: 'Notification marked as read'
@@ -230,33 +265,23 @@ router.post('/mark-read/:id', authenticateUser, async (req, res) => {
   }
 });
 
-// POST /api/notifications/mark-all-read - Mark all notifications as read
-router.post('/mark-all-read', authenticateUser, async (req, res) => {
+// DELETE /api/notifications/:id - Basit success response  
+router.delete('/:id', authenticateUser, async (req, res) => {
   try {
-    const isAdmin = req.userType === 'admin';
-    const userId = isAdmin ? req.admin.admin_id : req.user.student_id;
-    const userType = isAdmin ? 'admin' : 'student';
+    const notificationId = req.params.id;
     
-    console.log('Marking all notifications as read:', { userId, userType });
+    console.log(' Notification delete request:', { notificationId });
     
-    // Update all stored notifications for this user
-    const [result] = await pool.execute(`
-      UPDATE notifications 
-      SET is_read = TRUE 
-      WHERE user_id = ? AND user_type = ? AND is_read = FALSE
-    `, [userId, userType]);
-    
-    console.log('Updated notifications count:', result.affectedRows);
-    
+    // Frontend localStorage'da halledecek, backend sadece success döner
     res.json({
       success: true,
-      message: `All notifications marked as read`
+      message: 'Notification dismissed successfully'
     });
   } catch (error) {
-    console.error('Error marking all notifications as read:', error);
+    console.error('Error dismissing notification:', error);
     res.status(500).json({
       success: false,
-      error: 'Failed to mark all notifications as read'
+      error: 'Failed to dismiss notification'
     });
   }
 });
@@ -267,129 +292,33 @@ router.delete('/:id', authenticateUser, async (req, res) => {
     const notificationId = req.params.id;
     const isAdmin = req.userType === 'admin';
     
-    console.log('Deleting notification:', { 
+    console.log('🗑️ Dismissing notification:', { 
       notificationId, 
       userType: req.userType 
     });
     
-    // For dynamic notifications, just return success
-    if (notificationId.includes('_')) {
-      res.json({
-        success: true,
-        message: 'Dynamic notification removed from view'
-      });
-      return;
+    if (isAdmin && notificationId.includes('_')) {
+      const adminId = req.admin.admin_id;
+      
+      // Mark as dismissed in database
+      await pool.execute(`
+        INSERT INTO notification_states (admin_id, notification_id, state)
+        VALUES (?, ?, 'dismissed')
+        ON DUPLICATE KEY UPDATE state = 'dismissed', created_at = NOW()
+      `, [adminId, notificationId]);
+      
+      console.log('✅ Notification dismissed in database');
     }
-    
-    // For stored notifications, delete from database
-    const userId = isAdmin ? req.admin.admin_id : req.user.student_id;
-    const userType = isAdmin ? 'admin' : 'student';
-    
-    const [result] = await pool.execute(`
-      DELETE FROM notifications 
-      WHERE id = ? AND user_id = ? AND user_type = ?
-    `, [notificationId, userId, userType]);
     
     res.json({
       success: true,
-      message: 'Notification deleted successfully'
+      message: 'Notification dismissed successfully'
     });
   } catch (error) {
-    console.error('Error deleting notification:', error);
+    console.error('Error dismissing notification:', error);
     res.status(500).json({
       success: false,
-      error: 'Failed to delete notification'
-    });
-  }
-});
-
-// POST /api/notifications/bulk-delete - Delete multiple notifications
-router.post('/bulk-delete', authenticateUser, async (req, res) => {
-  try {
-    const { ids } = req.body;
-    const isAdmin = req.userType === 'admin';
-    
-    console.log('Bulk deleting notifications:', { 
-      ids, 
-      userType: req.userType 
-    });
-    
-    if (!ids || !Array.isArray(ids) || ids.length === 0) {
-      return res.status(400).json({
-        success: false,
-        error: 'Invalid notification IDs'
-      });
-    }
-    
-    // Filter out dynamic notifications
-    const storedIds = ids.filter(id => !id.includes('_'));
-    
-    if (storedIds.length === 0) {
-      res.json({
-        success: true,
-        message: 'All notifications were dynamic - removed from view'
-      });
-      return;
-    }
-    
-    const userId = isAdmin ? req.admin.admin_id : req.user.student_id;
-    const userType = isAdmin ? 'admin' : 'student';
-    
-    const placeholders = storedIds.map(() => '?').join(',');
-    const [result] = await pool.execute(`
-      DELETE FROM notifications 
-      WHERE id IN (${placeholders}) AND user_id = ? AND user_type = ?
-    `, [...storedIds, userId, userType]);
-    
-    res.json({
-      success: true,
-      message: `${result.affectedRows} notifications deleted successfully`
-    });
-  } catch (error) {
-    console.error('Error bulk deleting notifications:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to delete notifications'
-    });
-  }
-});
-
-// GET /api/notifications/unread-count - Get unread notification count
-router.get('/unread-count', authenticateToken, async (req, res) => {
-  try {
-    const studentId = req.user.student_id;
-    
-    // Count dynamic unread notifications
-    const [pendingRequests] = await pool.execute(`
-      SELECT COUNT(*) as count
-      FROM guidance_requests 
-      WHERE student_id = ? 
-        AND status = 'Pending'
-        AND submitted_at > DATE_SUB(NOW(), INTERVAL 7 DAY)
-    `, [studentId]);
-    
-    const [recentResponses] = await pool.execute(`
-      SELECT COUNT(*) as count
-      FROM admin_responses ar
-      JOIN guidance_requests gr ON ar.request_id = gr.request_id
-      WHERE gr.student_id = ? 
-        AND ar.created_at > DATE_SUB(NOW(), INTERVAL 3 DAY)
-        AND ar.is_internal = FALSE
-    `, [studentId]);
-    
-    const unreadCount = pendingRequests[0].count + recentResponses[0].count;
-    
-    res.json({
-      success: true,
-      data: {
-        unread_count: unreadCount
-      }
-    });
-  } catch (error) {
-    console.error('Error getting unread count:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to get unread count'
+      error: 'Failed to dismiss notification'
     });
   }
 });
@@ -399,29 +328,73 @@ router.get('/unread-count', authenticateToken, async (req, res) => {
 router.delete('/all', authenticateUser, async (req, res) => {
   try {
     const isAdmin = req.userType === 'admin';
-    const userId = isAdmin ? req.admin.admin_id : req.user.student_id;
-    const userType = isAdmin ? 'admin' : 'student';
     
-    console.log('Deleting all notifications for user:', { userId, userType });
-    
-    // Delete all stored notifications for this user
-    const [result] = await pool.execute(`
-      DELETE FROM notifications 
-      WHERE user_id = ? AND user_type = ?
-    `, [userId, userType]);
-    
-    console.log('Deleted notifications count:', result.affectedRows);
+    if (isAdmin) {
+      const adminId = req.admin.admin_id;
+      
+      console.log('🗑️ Dismissing all notifications for admin:', adminId);
+      
+      // Get all current notification IDs for this admin
+      const adminDepartment = req.admin.department;
+      
+      // Check if super admin
+      let isSuperAdmin = false;
+      try {
+        const [adminRoles] = await pool.execute(`
+          SELECT r.role_name 
+          FROM roles r
+          JOIN user_roles ur ON r.role_id = ur.role_id
+          WHERE ur.user_id = ? AND ur.is_active = 1
+        `, [adminId]);
+        
+        isSuperAdmin = adminRoles.some(role => role.role_name === 'super_admin');
+      } catch (roleError) {
+        isSuperAdmin = false;
+      }
+      
+      // Get current notification IDs
+      let currentNotifications = [];
+      if (isSuperAdmin) {
+        const [results] = await pool.execute(`
+          SELECT CONCAT('request_', gr.request_id, '_', UNIX_TIMESTAMP(gr.submitted_at)) as id
+          FROM guidance_requests gr
+          WHERE gr.submitted_at > DATE_SUB(NOW(), INTERVAL 7 DAY)
+            AND gr.status = 'Pending'
+        `);
+        currentNotifications = results;
+      } else {
+        const [results] = await pool.execute(`
+          SELECT CONCAT('request_', gr.request_id, '_', UNIX_TIMESTAMP(gr.submitted_at)) as id
+          FROM guidance_requests gr
+          JOIN request_types rt ON gr.type_id = rt.type_id
+          WHERE rt.category = ?
+            AND gr.submitted_at > DATE_SUB(NOW(), INTERVAL 7 DAY)
+            AND gr.status = 'Pending'
+        `, [adminDepartment]);
+        currentNotifications = results;
+      }
+      
+      // Mark all current notifications as dismissed
+      for (const notification of currentNotifications) {
+        await pool.execute(`
+          INSERT INTO notification_states (admin_id, notification_id, state)
+          VALUES (?, ?, 'dismissed')
+          ON DUPLICATE KEY UPDATE state = 'dismissed', created_at = NOW()
+        `, [adminId, notification.id]);
+      }
+      
+      console.log('✅ All notifications dismissed:', currentNotifications.length);
+    }
     
     res.json({
       success: true,
-      message: `All notifications deleted successfully`,
-      deleted_count: result.affectedRows
+      message: 'All notifications dismissed successfully'
     });
   } catch (error) {
-    console.error('Error deleting all notifications:', error);
+    console.error('Error dismissing all notifications:', error);
     res.status(500).json({
       success: false,
-      error: 'Failed to delete all notifications'
+      error: 'Failed to dismiss all notifications'
     });
   }
 });
@@ -429,29 +402,182 @@ router.delete('/all', authenticateUser, async (req, res) => {
 // GET /api/notifications/admin/unread-count - Get admin unread notification count
 router.get('/admin/unread-count', authenticateAdmin, async (req, res) => {
   try {
-    const department = req.admin.department;
+    const adminDepartment = req.admin.department;
+    const adminId = req.admin.admin_id;
     
-    // Count pending requests for department
-    const [pendingRequests] = await pool.execute(`
+    // Check if super admin
+    let isSuperAdmin = false;
+    try {
+      const [adminRoles] = await pool.execute(`
+        SELECT r.role_name 
+        FROM roles r
+        JOIN user_roles ur ON r.role_id = ur.role_id
+        WHERE ur.user_id = ? AND ur.is_active = 1
+      `, [adminId]);
+      
+      isSuperAdmin = adminRoles.some(role => role.role_name === 'super_admin');
+    } catch (roleError) {
+      isSuperAdmin = false;
+    }
+    
+    // Get dismissed and read notification IDs from database
+    const [notificationStates] = await pool.execute(`
+      SELECT notification_id 
+      FROM notification_states 
+      WHERE admin_id = ? AND state IN ('dismissed', 'read')
+    `, [adminId]);
+    
+    const excludedIds = notificationStates.map(ns => ns.notification_id);
+    
+    let unreadCount = 0;
+    
+    if (isSuperAdmin) {
+      let query = `
+        SELECT COUNT(*) as count
+        FROM guidance_requests gr
+        WHERE gr.status = 'Pending'
+          AND gr.submitted_at > DATE_SUB(NOW(), INTERVAL 7 DAY)
+      `;
+      
+      let queryParams = [];
+      
+      if (excludedIds.length > 0) {
+        // Build excluded notification IDs for comparison
+        const excludedConditions = excludedIds.map(id => {
+          return `CONCAT('request_', gr.request_id, '_', UNIX_TIMESTAMP(gr.submitted_at)) != ?`;
+        }).join(' AND ');
+        
+        if (excludedConditions) {
+          query += ` AND ${excludedConditions}`;
+          queryParams = excludedIds;
+        }
+      }
+      
+      const [result] = await pool.execute(query, queryParams);
+      unreadCount = result[0].count;
+      
+    } else {
+      let query = `
+        SELECT COUNT(*) as count
+        FROM guidance_requests gr
+        JOIN request_types rt ON gr.type_id = rt.type_id
+        WHERE rt.category = ?
+          AND gr.status = 'Pending'
+          AND gr.submitted_at > DATE_SUB(NOW(), INTERVAL 7 DAY)
+      `;
+      
+      let queryParams = [adminDepartment];
+      
+      if (excludedIds.length > 0) {
+        const excludedConditions = excludedIds.map(id => {
+          return `CONCAT('request_', gr.request_id, '_', UNIX_TIMESTAMP(gr.submitted_at)) != ?`;
+        }).join(' AND ');
+        
+        if (excludedConditions) {
+          query += ` AND ${excludedConditions}`;
+          queryParams = [adminDepartment, ...excludedIds];
+        }
+      }
+      
+      const [result] = await pool.execute(query, queryParams);
+      unreadCount = result[0].count;
+    }
+    
+    res.json({
+      success: true,
+      data: {
+        unread_count: unreadCount
+      }
+    });
+    
+  } catch (error) {
+    console.error('❌ Admin unread count error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to get unread count'
+    });
+  }
+});
+// GET /api/notifications/unread-count - Get unread notification count
+router.get('/unread-count', authenticateToken, async (req, res) => {
+  try {
+    const studentId = req.user.student_id;
+    
+    // Get dismissed notification IDs from query parameter (optional for future use)
+    const dismissedIds = req.query.dismissed ? req.query.dismissed.split(',').filter(id => id) : [];
+    
+    console.log('🔍 Student unread count request:', {
+      student_id: studentId,
+      dismissed_count: dismissedIds.length
+    });
+    
+    // Count pending requests
+    let pendingQuery = `
       SELECT COUNT(*) as count
-      FROM guidance_requests gr
-      JOIN request_types rt ON gr.type_id = rt.type_id
-      WHERE rt.category = ? 
-        AND gr.status = 'Pending'
-        AND gr.submitted_at > DATE_SUB(NOW(), INTERVAL 7 DAY)
-    `, [department]);
+      FROM guidance_requests 
+      WHERE student_id = ? 
+        AND status = 'Pending'
+        AND submitted_at > DATE_SUB(NOW(), INTERVAL 7 DAY)
+    `;
     
-    // Count urgent requests
-    const [urgentRequests] = await pool.execute(`
+    let pendingParams = [studentId];
+    
+    // If dismissed notifications exist, exclude related requests
+    if (dismissedIds.length > 0) {
+      const dismissedRequestIds = dismissedIds
+        .filter(id => id.includes('_'))
+        .map(id => {
+          const parts = id.split('_');
+          return parts[1]; // Extract request ID
+        })
+        .filter(id => id && !isNaN(id));
+      
+      if (dismissedRequestIds.length > 0) {
+        pendingQuery += ` AND request_id NOT IN (${dismissedRequestIds.map(() => '?').join(',')})`;
+        pendingParams = [studentId, ...dismissedRequestIds];
+      }
+    }
+    
+    const [pendingRequests] = await pool.execute(pendingQuery, pendingParams);
+    
+    // Count recent responses
+    let responsesQuery = `
       SELECT COUNT(*) as count
-      FROM guidance_requests gr
-      JOIN request_types rt ON gr.type_id = rt.type_id
-      WHERE rt.category = ? 
-        AND gr.priority = 'Urgent'
-        AND gr.status = 'Pending'
-    `, [department]);
+      FROM admin_responses ar
+      JOIN guidance_requests gr ON ar.request_id = gr.request_id
+      WHERE gr.student_id = ? 
+        AND ar.created_at > DATE_SUB(NOW(), INTERVAL 3 DAY)
+        AND ar.is_internal = FALSE
+    `;
     
-    const unreadCount = pendingRequests[0].count + urgentRequests[0].count;
+    let responsesParams = [studentId];
+    
+    // If dismissed notifications exist, exclude related responses
+    if (dismissedIds.length > 0) {
+      const dismissedRequestIds = dismissedIds
+        .filter(id => id.includes('response_'))
+        .map(id => {
+          const parts = id.split('_');
+          return parts[1]; // Extract request ID
+        })
+        .filter(id => id && !isNaN(id));
+      
+      if (dismissedRequestIds.length > 0) {
+        responsesQuery += ` AND gr.request_id NOT IN (${dismissedRequestIds.map(() => '?').join(',')})`;
+        responsesParams = [studentId, ...dismissedRequestIds];
+      }
+    }
+    
+    const [recentResponses] = await pool.execute(responsesQuery, responsesParams);
+    
+    const unreadCount = pendingRequests[0].count + recentResponses[0].count;
+    
+    console.log('📊 Student unread count calculated:', {
+      pending_requests: pendingRequests[0].count,
+      recent_responses: recentResponses[0].count,
+      total_unread: unreadCount,
+      dismissed_count: dismissedIds.length
+    });
     
     res.json({
       success: true,
@@ -460,7 +586,7 @@ router.get('/admin/unread-count', authenticateAdmin, async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Error getting admin unread count:', error);
+    console.error('Error getting student unread count:', error);
     res.status(500).json({
       success: false,
       error: 'Failed to get unread count'

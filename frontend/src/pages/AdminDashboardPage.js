@@ -706,29 +706,54 @@ showError(t('failedToToggleRequestType'));
     }
   };
 
-  const handleNotificationClick = (requestId, type) => {
-    if (!canViewRequests()) {
-showError(t('noPermissionAddRequestTypes'));
-      return;
-    }
+const handleNotificationClick = (requestId, type) => {
+  if (!canViewRequests()) {
+    showError(t('noPermissionViewRequests'));
+    return;
+  }
 
-    setActiveTab('requests');
-    setFilters({ status: '' });
-    
-    setTimeout(() => {
-      const requestElement = document.getElementById(`request-${requestId}`);
-      if (requestElement) {
-        requestElement.scrollIntoView({ 
-          behavior: 'smooth', 
-          block: 'center' 
-        });
-        requestElement.style.backgroundColor = '#fff3cd';
-        setTimeout(() => {
-          requestElement.style.backgroundColor = '';
-        }, 3000);
-      }
-    }, 300);
-  };
+  console.log('Notification clicked, navigating to request:', requestId);
+  
+  // Switch to requests tab
+  setActiveTab('requests');
+  
+  // Clear filters to show all requests
+  setFilters({ status: '' });
+  
+  // Reset pagination to first page
+  setCurrentPage(1);
+  
+  // Wait for tab switch and data load, then scroll to request
+  setTimeout(() => {
+    // Re-fetch requests to ensure we have all data
+    fetchRequests().then(() => {
+      // After data is loaded, try to scroll to the request
+      setTimeout(() => {
+        const requestElement = document.getElementById(`request-${requestId}`);
+        if (requestElement) {
+          requestElement.scrollIntoView({ 
+            behavior: 'smooth', 
+            block: 'center' 
+          });
+          
+          // Highlight the request temporarily
+          requestElement.style.backgroundColor = '#fff3cd';
+          requestElement.style.border = '2px solid #ffc107';
+          requestElement.style.borderRadius = '8px';
+          
+          setTimeout(() => {
+            requestElement.style.backgroundColor = '';
+            requestElement.style.border = '';
+            requestElement.style.borderRadius = '';
+          }, 5000);
+        } else {
+          // If request not found, show info message
+          showInfo(t('requestNotFoundInCurrentView', 'Request not found in current view. It may be in a different status filter.'));
+        }
+      }, 500);
+    });
+  }, 100);
+};
 
   const handleAddRequestType = async (e) => {
     e.preventDefault();
@@ -773,9 +798,9 @@ showError(t('noPermissionViewRequests'));
 
   const getStatusBadge = (status) => {
     const statusStyles = {
-      'Pending': 'bg-danger text-white',
-      'Informed': 'bg-danger text-white',
-      'Completed': 'bg-danger text-white',
+      'Pending': 'bg-warning text-white',
+      'Informed': 'bg-info text-white',
+      'Completed': 'bg-success text-white',
       'Rejected': 'bg-danger text-white'
     };
     return statusStyles[status] || 'bg-secondary text-white';
@@ -784,9 +809,9 @@ showError(t('noPermissionViewRequests'));
   const getPriorityBadge = (priority) => {
     const priorityStyles = {
       'Urgent': 'bg-danger text-white',
-      'High': 'bg-danger text-white', 
-      'Medium': 'bg-danger text-white',
-      'Low': 'bg-danger text-white'
+      'High': 'bg-high text-dark', 
+      'Medium': 'bg-medium text-white',
+      'Low': 'bg-secondary text-white'
     };
     return priorityStyles[priority] || 'bg-info text-white';
   };
@@ -1289,9 +1314,9 @@ showError(t('noPermissionViewRequests'));
                             </td>
                             <td>
                               {type.is_document_required ? (
-                                <span className="badge bg-danger text-dark">{t('Required')}</span>
+                                <span className="badge bg-danger text-white">{t('Required')}</span>
                               ) : (
-                                <span className="badge bg-danger">{t('optional')}</span>
+                                <span className="badge bg-high text-dark">{t('optional')}</span>
                               )}
                             </td>
                             <td>

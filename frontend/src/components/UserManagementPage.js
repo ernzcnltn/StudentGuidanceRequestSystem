@@ -14,7 +14,7 @@ const UserManagementPage = ({ departmentFilter = null }) => {
   const { isDark } = useTheme();
   const { showSuccess, showError, showInfo } = useToast();
   const { confirmationState, showConfirmation } = useConfirmation();
-const { t } = useTranslation();
+const { t, translateDbText } = useTranslation();
 
   const [loading, setLoading] = useState(true);
   const [users, setUsers] = useState([]);
@@ -36,12 +36,30 @@ const { t } = useTranslation();
     full_name: '',
     email: '',
     department: departmentFilter || '',
-    password: ''
+    password: '',
+    roles: []
   });
 
   // Role assignment state
   const [selectedRoles, setSelectedRoles] = useState([]);
   const [roleExpiryDate, setRoleExpiryDate] = useState('');
+
+  // Department translation helper
+  const translateDepartment = (department) => {
+    const departmentTranslations = {
+      'Accounting': t('accounting'),
+      'Academic': t('academic'),
+      'Student Affairs': t('studentaffairs'),
+      'Dormitory': t('dormitory'),
+      'Campus Services': t('campusservices')
+    };
+    return departmentTranslations[department] || department;
+  };
+
+  // Role translation helper
+  const translateRole = (roleName) => {
+    return translateDbText(roleName, 'roles');
+  };
 
   useEffect(() => {
     if (hasPermission('users', 'view')) {
@@ -222,18 +240,32 @@ showError(t('noPermissionCreateUsers'));
         department: departmentFilter || newUser.department
       };
 
-      // This would need to be implemented in the backend
+      // Create user first
       const result = await apiService.createAdminUser(userData);
       
       if (result.data.success) {
-showSuccess(t('userCreatedSuccessfully'));
+        const newUserId = result.data.admin_id;
+        
+        // Assign roles if any selected
+        if (newUser.roles && newUser.roles.length > 0) {
+          for (const roleId of newUser.roles) {
+            try {
+              await apiService.rbacAssignRole(newUserId, parseInt(roleId), null);
+            } catch (roleError) {
+              console.error('Error assigning role during user creation:', roleError);
+            }
+          }
+        }
+        
+        showSuccess(t('userCreatedSuccessfully'));
         setShowCreateModal(false);
         setNewUser({
           username: '',
           full_name: '',
           email: '',
           department: departmentFilter || '',
-          password: ''
+          password: '',
+          roles: []
         });
         loadData();
       }
@@ -383,7 +415,7 @@ showError(t('failedToUpdateSuperAdminStatus'));
           <h3 className={isDark ? 'text-light' : 'text-dark'}>
 {t('userManagement')}
             {departmentFilter && (
-              <span className="badge bg-info ms-2">{departmentFilter}</span>
+              <span className="badge bg-info ms-2">{translateDepartment(departmentFilter)}</span>
             )}
           </h3>
           <p className={isDark ? 'text-light' : 'text-muted'}>
@@ -407,7 +439,7 @@ showError(t('failedToUpdateSuperAdminStatus'));
           <input
             type="text"
             className="form-control"
-            placeholder=" "
+            placeholder={t('search')}
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             style={{
@@ -432,7 +464,7 @@ showError(t('failedToUpdateSuperAdminStatus'));
             >
               <option value="">{t('allDepartments')}</option>
               {getDepartments().map(dept => (
-                <option key={dept} value={dept}>{dept}</option>
+                <option key={dept} value={dept}>{translateDepartment(dept)}</option>
               ))}
             </select>
           </div>
@@ -451,7 +483,7 @@ showError(t('failedToUpdateSuperAdminStatus'));
           >
             <option value="">{t('allRoles')}</option>
             {roles.map(role => (
-              <option key={role.role_id} value={role.role_name}>{role.display_name}</option>
+<option key={role.role_id} value={role.role_name}>{translateDbText(role.display_name, 'roleDisplayNames')}</option>
             ))}
           </select>
         </div>
@@ -497,20 +529,20 @@ showError(t('failedToUpdateSuperAdminStatus'));
                       </td>
                       <td>{user.email}</td>
                       <td>
-                        <span className="badge bg-secondary">
-                          {user.department}
+                        <span className="text">
+                          {translateDepartment(user.department)}
                         </span>
                       </td>
                       <td>
                         <div className="d-flex flex-wrap gap-1">
                           {user.roles && user.roles.length > 0 ? (
                             user.role_display_names.slice(0, 2).map((roleName, index) => (
-                              <span key={index} className="badge bg-primary">
-                                {roleName}
+                              <span key={index} className="text">
+    {translateDbText(roleName, 'roleDisplayNames')}
                               </span>
                             ))
                           ) : (
-                            <span className="text-muted">No roles</span>
+                            <span className="text-muted">{t('noRoles')}</span>
                           )}
                           {user.role_display_names && user.role_display_names.length > 2 && (
                             <span className="badge bg-secondary">
@@ -600,7 +632,7 @@ showError(t('failedToUpdateSuperAdminStatus'));
                     <div className="d-flex flex-wrap gap-2">
                       {selectedUser.role_display_names.map((roleName, index) => (
                         <div key={index} className="d-flex align-items-center">
-                          <span className="badge bg-primary me-1">{roleName}</span>
+<span className="badge bg-primary me-1">{translateDbText(roleName, 'roleDisplayNames')}</span>
                           {hasPermission('users', 'manage_roles') && (
                             <button
                               className="btn btn-sm btn-outline-danger"
@@ -647,7 +679,7 @@ showError(t('failedToUpdateSuperAdminStatus'));
                           .filter(role => !selectedUser.roles.includes(role.role_name))
                           .map(role => (
                             <option key={role.role_id} value={role.role_id}>
-                              {role.display_name}
+  {translateDbText(role.display_name, 'roleDisplayNames')}
                               {role.is_system_role && ' (System)'}
                             </option>
                           ))}
@@ -823,6 +855,33 @@ showError(t('failedToUpdateSuperAdminStatus'));
                     />
                     <small className={isDark ? 'text-light' : 'text-muted'}>
                      {t('minimumSixCharacters')}
+                    </small>
+                  </div>
+
+                  <div className="mb-3">
+                    <label className={`form-label ${isDark ? 'text-light' : 'text-dark'}`}>
+                      {t('roles')} ({t('optional')})
+                    </label>
+                    <select
+                      multiple
+                      className="form-select"
+                      value={newUser.roles}
+                      onChange={(e) => setNewUser({...newUser, roles: Array.from(e.target.selectedOptions, option => option.value)})}
+                      style={{
+                        backgroundColor: isDark ? '#000000' : '#ffffff',
+                        borderColor: isDark ? '#4a5568' : '#cbd5e0',
+                        color: isDark ? '#ffffff' : '#000000'
+                      }}
+                    >
+                      {roles.map(role => (
+                        <option key={role.role_id} value={role.role_id}>
+  {translateDbText(role.display_name, 'roleDisplayNames')}
+                          {role.is_system_role && ' (System)'}
+                        </option>
+                      ))}
+                    </select>
+                    <small className={isDark ? 'text-light' : 'text-muted'}>
+                      {t('holdCtrlToSelectMultiple')}
                     </small>
                   </div>
                 </div>

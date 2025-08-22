@@ -372,7 +372,7 @@ const { t, translateDbText } = useTranslation();
                       </td>
                       <td>
                         <div className="fw-semibold">
-                          {role.display_name}
+    {translateDbText(role.display_name, 'roleDisplayNames')}
                         </div>
                       </td>
                       <td>
@@ -382,9 +382,9 @@ const { t, translateDbText } = useTranslation();
                       </td>
                       <td>
                         {role.is_system_role ? (
-                          <span className="badge bg-danger text-dark">{t('systemRole', 'System Role')}</span>
+                          <span className="badge bg-danger text-wahite">{t('systemRole', 'System Role')}</span>
                         ) : (
-                          <span className="badge bg-danger">{t('customRole', 'Custom Role')}</span>
+                          <span className="badge bg-info">{t('customRole', 'Custom Role')}</span>
                         )}
                       </td>
                       <td>

@@ -103,9 +103,9 @@ setError(t('failed_to_load_requests'));
 
   const getStatusBadge = (status) => {
     const statusStyles = {
-      'Pending': 'bg-danger text-white',
-      'Informed': 'bg-danger text-white',
-      'Completed': 'bg-danger text-white',
+      'Pending': 'bg-warning text-white',
+      'Informed': 'bg-info text-white',
+      'Completed': 'bg-success text-white',
       'Rejected': 'bg-danger text-white'
     };
     return statusStyles[status] || 'bg-secondary text-white';
@@ -114,9 +114,9 @@ setError(t('failed_to_load_requests'));
   const getPriorityBadge = (priority) => {
     const priorityStyles = {
       'Urgent': 'bg-danger text-white',
-      'High': 'bg-danger text-white',
-      'Medium': 'bg-danger text-white',
-      'Low': 'bg-danger text-white'
+      'High': 'bg-high text-dark',
+      'Medium': 'bg-medium text-white',
+      'Low': 'bg-secondary text-white'
     };
     return priorityStyles[priority] || 'bg-secondary text-white';
   };

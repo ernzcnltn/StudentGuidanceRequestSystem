@@ -111,20 +111,20 @@ const ToastNotification = ({ toast, onClose }) => {
   const getToastClasses = () => {
     const baseClasses = 'toast show align-items-center border-0 mb-2';
     const typeClasses = {
-      success: 'bg-success text-white',
+      success: 'bg-danger text-white',
       error: 'bg-danger text-white',
-      warning: 'bg-warning text-dark',
-      info: 'bg-info text-white'
+      warning: 'bg-danger text-white',
+      info: 'bg-danger text-white'
     };
     return `${baseClasses} ${typeClasses[type] || typeClasses.info}`;
   };
 
   const getIcon = () => {
     const icons = {
-      success: '✅',
-      error: '❌',
-      warning: '⚠️',
-      info: 'ℹ️'
+      success: '',
+      error: '',
+      warning: '',
+      info: ''
     };
     return icons[type] || icons.info;
   };
@@ -160,10 +160,10 @@ const ConfirmationModal = ({
 }) => {
   const getModalIcon = () => {
     const icons = {
-      danger: '🗑️',
-      warning: '⚠️',
-      info: 'ℹ️',
-      success: '✅'
+      danger: '',
+      warning: '',
+      info: '',
+      success: ''
     };
     return icons[type] || icons.warning;
   };
@@ -171,9 +171,9 @@ const ConfirmationModal = ({
   const getButtonClass = () => {
     const classes = {
       danger: 'btn-danger',
-      warning: 'btn-warning',
-      info: 'btn-info',
-      success: 'btn-success'
+      warning: 'btn-danger',
+      info: 'btn-danger',
+      success: 'btn-danger'
     };
     return classes[type] || classes.warning;
   };

@@ -1,16 +1,63 @@
-// frontend/src/components/AdminNotificationCenter.js - UPDATED VERSION
+// AdminNotificationCenter.js - En basit ve çalışan çözüm
+
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAdminAuth } from '../contexts/AdminAuthContext';
 import { useTranslation } from '../hooks/useTranslation';
 import { apiService } from '../services/api';
 
 const AdminNotificationCenter = ({ onNotificationClick }) => {
-  const { admin } = useAdminAuth();
+  const { admin, isSuperAdmin } = useAdminAuth();
   const { t } = useTranslation();
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [isOpen, setIsOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+
+  // Local storage keys
+  const getDismissedKey = () => `dismissed_notifications_${admin?.admin_id}`;
+  const getReadKey = () => `read_notifications_${admin?.admin_id}`;
+
+  // Get dismissed notifications from localStorage
+  const getDismissedNotifications = useCallback(() => {
+    if (!admin) return new Set();
+    try {
+      const dismissed = localStorage.getItem(getDismissedKey());
+      return dismissed ? new Set(JSON.parse(dismissed)) : new Set();
+    } catch (error) {
+      return new Set();
+    }
+  }, [admin]);
+
+  // Get read notifications from localStorage
+  const getReadNotifications = useCallback(() => {
+    if (!admin) return new Set();
+    try {
+      const read = localStorage.getItem(getReadKey());
+      return read ? new Set(JSON.parse(read)) : new Set();
+    } catch (error) {
+      return new Set();
+    }
+  }, [admin]);
+
+  // Save dismissed notifications to localStorage
+  const saveDismissedNotifications = useCallback((dismissedSet) => {
+    if (!admin) return;
+    try {
+      localStorage.setItem(getDismissedKey(), JSON.stringify(Array.from(dismissedSet)));
+    } catch (error) {
+      console.warn('Failed to save dismissed notifications:', error);
+    }
+  }, [admin]);
+
+  // Save read notifications to localStorage
+  const saveReadNotifications = useCallback((readSet) => {
+    if (!admin) return;
+    try {
+      localStorage.setItem(getReadKey(), JSON.stringify(Array.from(readSet)));
+    } catch (error) {
+      console.warn('Failed to save read notifications:', error);
+    }
+  }, [admin]);
 
   const fetchNotifications = useCallback(async () => {
     if (!admin) return;
@@ -20,17 +67,40 @@ const AdminNotificationCenter = ({ onNotificationClick }) => {
       const response = await apiService.getAdminNotifications();
       
       if (response?.data?.success) {
-        const newNotifications = response.data.data;
-        console.log('Notifications:', newNotifications);
-        setNotifications(newNotifications);
-        setUnreadCount(newNotifications.filter(n => !n.is_read).length);
+        const serverNotifications = response.data.data;
+        
+        // Get current dismissed and read notifications
+        const dismissedNotifications = getDismissedNotifications();
+        const readNotifications = getReadNotifications();
+        
+        // Filter and process notifications
+        const processedNotifications = serverNotifications
+          .filter(notification => !dismissedNotifications.has(notification.id))
+          .map(notification => ({
+            ...notification,
+            is_read: readNotifications.has(notification.id)
+          }));
+        
+        setNotifications(processedNotifications);
+        
+        // Calculate unread count
+        const unreadCount = processedNotifications.filter(n => !n.is_read).length;
+        setUnreadCount(unreadCount);
+        
+        console.log('📧 Notifications updated:', {
+          total_from_server: serverNotifications.length,
+          dismissed: dismissedNotifications.size,
+          read: readNotifications.size,
+          visible: processedNotifications.length,
+          unread: unreadCount
+        });
       }
     } catch (error) {
       console.error('Failed to fetch admin notifications:', error);
     } finally {
       setLoading(false);
     }
-  }, [admin]);
+  }, [admin, getDismissedNotifications, getReadNotifications]);
 
   useEffect(() => {
     fetchNotifications();
@@ -40,140 +110,120 @@ const AdminNotificationCenter = ({ onNotificationClick }) => {
     return () => clearInterval(interval);
   }, [fetchNotifications]);
 
-  const markAsRead = async (notificationId) => {
-    try {
-      await apiService.markNotificationAsRead(notificationId);
-      
-      // Update local state immediately
-      setNotifications(prev => 
-        prev.map(n => 
-          n.id === notificationId ? { ...n, is_read: true } : n
-        )
-      );
-      setUnreadCount(prev => Math.max(0, prev - 1));
-    } catch (error) {
-      console.error('Failed to mark notification as read:', error);
-    }
-  };
-
-  // Hepsini okundu işaretle fonksiyonunu kaldırdık
-
-  const handleNotificationClick = async (notification) => {
-    console.log('Notification clicked:', notification);
+  const markAsRead = useCallback((notificationId) => {
+    console.log('📖 Marking notification as read:', notificationId);
     
-    // Mark as read first (but don't trigger logout)
+    // Get current read notifications
+    const readNotifications = getReadNotifications();
+    
+    // Add to read set
+    const newReadSet = new Set(readNotifications);
+    newReadSet.add(notificationId);
+    
+    // Save to localStorage
+    saveReadNotifications(newReadSet);
+    
+    // Update local state
+    setNotifications(prev => 
+      prev.map(n => 
+        n.id === notificationId ? { ...n, is_read: true } : n
+      )
+    );
+    
+    // Update unread count
+    setUnreadCount(prev => Math.max(0, prev - 1));
+    
+    console.log('✅ Notification marked as read and saved');
+  }, [getReadNotifications, saveReadNotifications]);
+
+  const handleNotificationClick = useCallback(async (notification) => {
+    console.log('🔔 Notification clicked:', notification);
+    
+    // Mark as read if not already read
     if (!notification.is_read) {
-      // Sadece local state'i güncelle, API çağrısı yapma
-      setNotifications(prev => 
-        prev.map(n => 
-          n.id === notification.id ? { ...n, is_read: true } : n
-        )
-      );
-      setUnreadCount(prev => Math.max(0, prev - 1));
+      markAsRead(notification.id);
     }
     
     // Close dropdown
     setIsOpen(false);
 
-    if (onNotificationClick && notification.related_request_id) {
+    // Navigate to the request if it has a related_request_id
+    if (notification.related_request_id && onNotificationClick) {
       onNotificationClick(notification.related_request_id, notification.type);
-      return;
+    }
+  }, [markAsRead, onNotificationClick]);
+
+  const deleteNotification = useCallback((notificationId, event) => {
+    event.stopPropagation();
+    
+    console.log('🗑️ Dismissing notification:', notificationId);
+    
+    // Check if notification is unread before dismissing
+    const deletedNotification = notifications.find(n => n.id === notificationId);
+    const wasUnread = deletedNotification && !deletedNotification.is_read;
+    
+    // Get current dismissed notifications
+    const dismissedNotifications = getDismissedNotifications();
+    
+    // Add to dismissed set
+    const newDismissedSet = new Set(dismissedNotifications);
+    newDismissedSet.add(notificationId);
+    
+    // Save to localStorage
+    saveDismissedNotifications(newDismissedSet);
+    
+    // Remove from local state immediately
+    setNotifications(prev => prev.filter(n => n.id !== notificationId));
+    
+    // Update unread count only if the notification was unread
+    if (wasUnread) {
+      setUnreadCount(prev => Math.max(0, prev - 1));
     }
     
-    // Handle navigation based on notification type
-    if (notification.related_request_id) {
-      // Navigate to specific request
-      if (onNotificationClick) {
-        onNotificationClick(notification.related_request_id, notification.type);
-      } else {
-        // Default navigation - scroll to request or switch to requests tab
-        window.location.hash = `request-${notification.related_request_id}`;
-        
-        // If we're on admin dashboard, trigger tab switch
-        const event = new CustomEvent('switchToRequestsTab', {
-          detail: { requestId: notification.related_request_id }
-        });
-        window.dispatchEvent(event);
-      }
-    }
-  };
+    console.log('✅ Notification dismissed successfully');
+  }, [notifications, getDismissedNotifications, saveDismissedNotifications]);
 
-  // Tek tek silme fonksiyonunu düzelt - Safe API çağrısı yap
-  const deleteNotification = async (notificationId, event) => {
-    event.stopPropagation(); // Prevent notification click
+  const deleteAllNotifications = useCallback(() => {
+    console.log('🗑️ Dismissing all notifications');
     
-    try {
-      console.log('Deleting notification:', notificationId);
-      
-      // Safe API çağrısı yap (logout yapmaz)
-      await apiService.deleteNotificationSafe(notificationId);
-      
-      // Local state'den kaldır
-      setNotifications(prev => prev.filter(n => n.id !== notificationId));
-      
-      // Unread count'u güncelle
-      const deletedNotification = notifications.find(n => n.id === notificationId);
-      if (deletedNotification && !deletedNotification.is_read) {
-        setUnreadCount(prev => Math.max(0, prev - 1));
-      }
-      
-      console.log('Notification deleted successfully');
-      
-    } catch (error) {
-      console.error('Failed to delete notification:', error);
-      
-      // Hata olursa sadece local'den kaldır (yeniden yüklendiğinde geri gelmesin)
-      // Bu durumda en azından UI'da kaybolmuş gibi görünür
-      setNotifications(prev => prev.filter(n => n.id !== notificationId));
-      const deletedNotification = notifications.find(n => n.id === notificationId);
-      if (deletedNotification && !deletedNotification.is_read) {
-        setUnreadCount(prev => Math.max(0, prev - 1));
-      }
-    }
-  };
+    // Get current dismissed notifications
+    const dismissedNotifications = getDismissedNotifications();
+    
+    // Add all current notification IDs to dismissed set
+    const newDismissedSet = new Set(dismissedNotifications);
+    notifications.forEach(notification => {
+      newDismissedSet.add(notification.id);
+    });
+    
+    // Save to localStorage
+    saveDismissedNotifications(newDismissedSet);
+    
+    // Clear local state
+    setNotifications([]);
+    setUnreadCount(0);
+    
+    console.log('✅ All notifications dismissed');
+  }, [notifications, getDismissedNotifications, saveDismissedNotifications]);
 
-  // Hepsini sil fonksiyonu - Safe API kullan
-  const deleteAllNotifications = async () => {
-    try {
-      console.log('Deleting all notifications');
-      
-      // Safe API çağrısı yap
-      await apiService.deleteAllNotificationsSafe();
-      
-      // Local state'i temizle
-      setNotifications([]);
-      setUnreadCount(0);
-      
-      console.log('All notifications deleted successfully');
-      
-    } catch (error) {
-      console.error('Failed to delete all notifications:', error);
-      
-      // Hata olursa da local'i temizle
-      setNotifications([]);
-      setUnreadCount(0);
-    }
+  const getNotificationIcon = (type) => {
+    const icons = {
+      'new_request': <i className="bi bi-file-earmark-plus text-primary"></i>,
+      'status_update': <i className="bi bi-arrow-repeat text-info"></i>,
+      'urgent_request': <i className="bi bi-exclamation-triangle text-danger"></i>,
+      'system': <i className="bi bi-gear text-warning"></i>,
+      'department': <i className="bi bi-building text-secondary"></i>,
+      'student_message': <i className="bi bi-chat-dots text-success"></i>,
+      'priority_change': <i className="bi bi-arrow-up text-warning"></i>
+    };
+    return icons[type] || <i className="bi bi-bell text-info"></i>;
   };
-
-const getNotificationIcon = (type) => {
-  const icons = {
-    'new_request': <i className="bi bi-file-earmark-plus text-primary"></i>,
-    'status_update': <i className="bi bi-arrow-repeat text-info"></i>,
-    'urgent_request': <i className="bi bi-exclamation-triangle text-danger"></i>,
-    'system': <i className="bi bi-gear text-warning"></i>,
-    'department': <i className="bi bi-building text-secondary"></i>,
-    'student_message': <i className="bi bi-chat-dots text-success"></i>,
-    'priority_change': <i className="bi bi-arrow-up-circle text-warning"></i>
-  };
-  return icons[type] || <i className="bi bi-bell text-info"></i>;
-};
 
   const getNotificationColor = (type, priority) => {
-    if (priority === 'urgent' || type === 'urgent_request') return 'text-danger';
-    if (type === 'new_request') return 'text-danger';
-    if (type === 'status_update') return 'text-danger';
-    if (type === 'system') return 'text-danger';
-    return 'text-info';
+    if (priority === 'Urgent' || type === 'urgent_request') return 'text-danger';
+    if (type === 'new_request') return 'text-primary';
+    if (type === 'status_update') return 'text-info';
+    if (type === 'system') return 'text-warning';
+    return 'text-dark';
   };
 
   const formatTimeAgo = (timestamp) => {
@@ -181,34 +231,33 @@ const getNotificationIcon = (type) => {
     const notificationTime = new Date(timestamp);
     const diffInSeconds = Math.floor((now - notificationTime) / 1000);
     
-    if (diffInSeconds < 60) return t('justNow', 'Az önce');
-    if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)} ${t('minutesAgo', 'dk önce')}`;
-    if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)} ${t('hoursAgo', 'sa önce')}`;
-    return `${Math.floor(diffInSeconds / 86400)} ${t('daysAgo', 'gün önce')}`;
+    if (diffInSeconds < 60) return t('justNow', 'Just now');
+    if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)} ${t('minutesAgo', 'min ago')}`;
+    if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)} ${t('hoursAgo', 'h ago')}`;
+    return `${Math.floor(diffInSeconds / 86400)} ${t('daysAgo', 'd ago')}`;
   };
 
   if (!admin) return null;
 
   return (
     <div className="dropdown">
-   <button
-  className="btn btn-outline-light position-relative"
-  type="button"
-  onClick={() => setIsOpen(!isOpen)}
-  style={{ border: 'none' }}
->
-  {/* Bootstrap Icons bell kullan */}
-  <i className="bi bi-bell" style={{ fontSize: '1.2rem' }}></i>
-  
-  {unreadCount > 0 && (
-    <span 
-      className="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger"
-      style={{ fontSize: '0.7rem' }}
-    >
-      {unreadCount > 99 ? '99+' : unreadCount}
-    </span>
-  )}
-</button>
+      <button
+        className="btn btn-outline-light position-relative"
+        type="button"
+        onClick={() => setIsOpen(!isOpen)}
+        style={{ border: 'none' }}
+      >
+        <i className="bi bi-bell" style={{ fontSize: '1.2rem' }}></i>
+        
+        {unreadCount > 0 && (
+          <span 
+            className="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger"
+            style={{ fontSize: '0.7rem' }}
+          >
+            {unreadCount > 99 ? '99+' : unreadCount}
+          </span>
+        )}
+      </button>
 
       {isOpen && (
         <div 
@@ -224,27 +273,27 @@ const getNotificationIcon = (type) => {
           }}
         >
           <div className="dropdown-header d-flex justify-content-between align-items-center">
-            <h6 className="mb-0"> {t('adminNotifications', 'Admin Bildirimleri')}</h6>
+            <h6 className="mb-0">
+              <i className="bi bi-bell me-2"></i>
+              {t('adminNotifications', 'Admin Notifications')}
+            </h6>
             <div className="d-flex gap-2">
-              {/* HEPSINI OKUNDU İŞARETLE BUTONU KALDIRILDI */}
-              
-              {/* Hepsini sil butonu ekle */}
               {notifications.length > 0 && (
                 <button 
                   className="btn btn-sm btn-outline-danger"
                   onClick={deleteAllNotifications}
-                  title={t('deleteAll', 'Hepsini sil')}
+                  title={t('deleteAll', 'Delete All')}
                 >
-                  🗑️
+                  <i className="bi bi-trash"></i>
                 </button>
               )}
               
               <button 
                 className="btn btn-sm btn-outline-secondary"
                 onClick={() => setIsOpen(false)}
-                title={t('close', 'Kapat')}
+                title={t('close', 'Close')}
               >
-                ✕
+                <i className="bi bi-x"></i>
               </button>
             </div>
           </div>
@@ -252,12 +301,14 @@ const getNotificationIcon = (type) => {
           {loading ? (
             <div className="text-center p-3">
               <div className="spinner-border spinner-border-sm" role="status"></div>
-              <span className="ms-2">{t('loading', 'Yükleniyor')}...</span>
+              <span className="ms-2">{t('loading', 'Loading')}...</span>
             </div>
           ) : notifications.length === 0 ? (
             <div className="dropdown-item-text text-center py-4 text-muted">
-              <div style={{ fontSize: '2rem' }}></div>
-              <p className="mb-0">{t('noNotifications', 'Bildirim yok')}</p>
+              <div style={{ fontSize: '2rem' }}>
+                <i className="bi bi-inbox"></i>
+              </div>
+              <p className="mb-0">{t('noNotifications', 'No notifications')}</p>
             </div>
           ) : (
             <>
@@ -295,16 +346,16 @@ const getNotificationIcon = (type) => {
                         <div className="d-flex align-items-center gap-1">
                           {!notification.is_read && (
                             <span className="badge bg-primary" style={{ fontSize: '0.6rem' }}>
-                              {t('new', 'Yeni')}
+                              {t('new', 'New')}
                             </span>
                           )}
                           <button
                             className="btn btn-sm btn-outline-danger"
                             style={{ fontSize: '0.7rem', padding: '2px 6px' }}
                             onClick={(e) => deleteNotification(notification.id, e)}
-                            title={t('delete', 'Sil')}
+                            title={t('delete', 'Delete')}
                           >
-                            ✕
+                            <i className="bi bi-x"></i>
                           </button>
                         </div>
                       </div>
@@ -318,7 +369,7 @@ const getNotificationIcon = (type) => {
           <div className="dropdown-divider"></div>
           <div className="dropdown-item-text text-center">
             <small className="text-muted">
-              {notifications.length} {t('totalNotifications', 'toplam bildirim')}
+              {notifications.length} {t('totalNotifications', 'total notifications')}
             </small>
           </div>
         </div>

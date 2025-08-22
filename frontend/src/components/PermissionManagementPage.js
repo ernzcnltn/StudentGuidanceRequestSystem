@@ -322,7 +322,9 @@ const { t, translateDbText } = useTranslation();
           >
             <option value="">{t('allResources', 'All Resources')}</option>
             {getResources().map(resource => (
-              <option key={resource} value={resource}>{resource}</option>
+               <option key={resource} value={resource}>
+      {translateDbText(resource, 'resourceNames')}
+    </option>
             ))}
           </select>
         </div>
@@ -383,7 +385,7 @@ const { t, translateDbText } = useTranslation();
                       >
                         <td>
                           <div className="fw-semibold">
-                            {permission.display_name}
+    {translateDbText(permission.display_name, 'permissionDisplayNames')}
                           </div>
                         </td>
                         <td>
@@ -392,17 +394,17 @@ const { t, translateDbText } = useTranslation();
                           </code>
                         </td>
                         <td>
-                          <span className="badge bg-info">
-                            {permission.resource}
+                          <span className=" ">
+    {translateDbText(permission.resource, 'resourceNames')}
                           </span>
                         </td>
                         <td>
                           {permission.is_system_permission ? (
-                            <span className="badge bg-danger text-dark">
+                            <span className="badge bg-danger text-white">
                               {t('system', 'System')}
                             </span>
                           ) : (
-                            <span className="badge bg-danger">
+                            <span className="badge bg-info">
                               {t('custom', 'Custom')}
                             </span>
                           )}
@@ -526,7 +528,9 @@ const { t, translateDbText } = useTranslation();
                         />
                         <datalist id="resources-list">
                           {getResources().map(resource => (
-                            <option key={resource} value={resource} />
+                            <option key={resource} value={resource}>
+    {translateDbText(resource, 'resourceNames')}
+  </option>
                           ))}
                         </datalist>
                       </div>
@@ -656,7 +660,7 @@ const { t, translateDbText } = useTranslation();
                       <tbody>
                         <tr>
                           <td><strong>{t('displayName', 'Display Name')}:</strong></td>
-                          <td>{selectedPermission.display_name}</td>
+  <td>{translateDbText(selectedPermission.display_name, 'permissionDisplayNames')}</td>
                         </tr>
                         <tr>
                           <td><strong>{t('permissionName', 'Permission Name')}:</strong></td>
@@ -666,7 +670,7 @@ const { t, translateDbText } = useTranslation();
                           <td><strong>{t('resource', 'Resource')}:</strong></td>
                           <td>
                             <span className="badge bg-info">
-                              {selectedPermission.resource}
+    {translateDbText(selectedPermission.resource, 'resourceNames')}
                             </span>
                           </td>
                         </tr>

@@ -10,6 +10,9 @@
   --fiu-dark: #1e293b;           /* Koyu Gri */
   --fiu-white: #ffffff;
   --fiu-black: #000000;
+  --fiu-yellow: #f1dd38;
+  --fiu-darkblue : #0000CD;
+
 }
 
 /* FIU Primary Button Override */
@@ -92,6 +95,17 @@
 
 .badge.bg-primary {
   background-color: var(--fiu-primary) !important;
+}
+
+
+.badge.bg-high {
+  background-color: var(--fiu-yellow) !important;
+}
+
+
+
+.badge.bg-medium {
+  background-color: var(--fiu-darkblue) !important;
 }
 
 /* FIU Stats Cards - Kırmızı Temalı */
@@ -260,7 +274,7 @@ footer {
 }
 
 .badge.bg-danger {
-  animation: badgePulse 2s ease-in-out infinite;
+  
 }
 
 /* Notification center improvements */

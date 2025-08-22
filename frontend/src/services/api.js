@@ -2277,60 +2277,164 @@ getRequestStatusBadge: (status) => {
 },
 
 
-  // ===== NOTIFICATIONS (Fixed & Simplified) =====
-  getStudentNotifications: () => studentApi.get('/notifications/student'),
-  getAdminNotifications: () => adminApi.get('/notifications/admin'),
+ // ===== NOTIFICATIONS (Fixed & Updated for Admin System) =====
+getStudentNotifications: () => {
+  console.log('📧 Fetching student notifications...');
+  return studentApi.get('/notifications/student');
+},
 
-  markNotificationAsRead: (id) => {
-    // Dynamic routing: admin token varsa admin API, yoksa student API
-    const isAdmin = !!localStorage.getItem('admin_token');
-    const api = isAdmin ? adminApi : studentApi;
-    
-    console.log(' Marking notification as read:', { id, isAdmin });
-    return api.post(`/notifications/mark-read/${id}`);
-  },
+getAdminNotifications: () => {
+  console.log('👨‍💼 Fetching admin notifications...');
+  return adminApi.get('/notifications/admin');
+},
 
-  markAllNotificationsAsRead: () => {
-    const isAdmin = !!localStorage.getItem('admin_token');
-    const api = isAdmin ? adminApi : studentApi;
-    
-    console.log('📖 Marking all notifications as read:', { isAdmin });
-    return api.post('/notifications/mark-all-read');
-  },
+markNotificationAsRead: (id) => {
+  // Dynamic routing: admin token varsa admin API, yoksa student API
+  const isAdmin = !!localStorage.getItem('admin_token');
+  const api = isAdmin ? adminApi : studentApi;
+  
+  console.log('✅ Marking notification as read:', { id, isAdmin });
+  return api.post(`/notifications/mark-read/${id}`);
+},
 
-  // Notification delete methods
-  deleteNotification: (notificationId) => {
-    // Admin notification ise admin API kullan, student ise student API kullan
-    const adminToken = localStorage.getItem('admin_token');
-    const studentToken = localStorage.getItem('student_token');
+markAllNotificationsAsRead: () => {
+  const isAdmin = !!localStorage.getItem('admin_token');
+  const api = isAdmin ? adminApi : studentApi;
+  
+  console.log('📖 Marking all notifications as read:', { isAdmin });
+  return api.post('/notifications/mark-all-read');
+},
+
+// Updated notification delete methods
+deleteNotification: (notificationId) => {
+  // Admin notification ise admin API kullan, student ise student API kullan
+  const adminToken = localStorage.getItem('admin_token');
+  const studentToken = localStorage.getItem('student_token');
+  
+  console.log('🗑️ Deleting notification:', { notificationId, hasAdminToken: !!adminToken });
+  
+  if (adminToken) {
+    return adminApi.delete(`/notifications/${notificationId}`);
+  } else if (studentToken) {
+    return studentApi.delete(`/notifications/${notificationId}`);
+  } else {
+    return Promise.reject(new Error('No authentication token found'));
+  }
+},
+
+// New method: Delete all notifications
+deleteAllNotifications: () => {
+  const isAdmin = !!localStorage.getItem('admin_token');
+  const api = isAdmin ? adminApi : studentApi;
+  
+  console.log('🗑️ Deleting all notifications:', { isAdmin });
+  return api.delete('/notifications/all');
+},
+
+deleteMultipleNotifications: (notificationIds) => {
+  const isAdmin = !!localStorage.getItem('admin_token');
+  const api = isAdmin ? adminApi : studentApi;
+  
+  console.log('🗑️ Bulk deleting notifications:', { ids: notificationIds, isAdmin });
+  return api.post('/notifications/bulk-delete', { ids: notificationIds });
+},
+
+getUnreadNotificationCount: () => {
+  console.log('📊 Getting student unread count...');
+  return studentApi.get('/notifications/unread-count');
+},
+
+getAdminUnreadCount: (dismissedNotificationIds = [], readNotificationIds = []) => {
+  console.log('📊 Getting admin unread count:', {
+    dismissed: dismissedNotificationIds.length,
+    read: readNotificationIds.length
+  });
+  
+  // Build query string with dismissed and read IDs
+  const params = new URLSearchParams();
+  if (dismissedNotificationIds.length > 0) {
+    params.append('dismissed', dismissedNotificationIds.join(','));
+  }
+  if (readNotificationIds.length > 0) {
+    params.append('read', readNotificationIds.join(','));
+  }
+  
+  const url = params.toString() 
+    ? `/notifications/admin/unread-count?${params.toString()}`
+    : '/notifications/admin/unread-count';
+  
+  return adminApi.get(url);
+},
+
+// Enhanced notification polling - Admin sistemine uygun
+startNotificationPolling: (callback, interval = 30000) => {
+  let isPolling = false;
+  let pollCount = 0;
+  
+  const pollFunction = async () => {
+    if (isPolling) return;
     
-    if (adminToken) {
-      return adminApi.delete(`/notifications/${notificationId}`);
-    } else if (studentToken) {
-      return studentApi.delete(`/notifications/${notificationId}`);
-    } else {
-      return Promise.reject(new Error('No authentication token found'));
+    try {
+      isPolling = true;
+      pollCount++;
+      
+      const isAdmin = !!localStorage.getItem('admin_token');
+      console.log(`📡 Polling notifications #${pollCount} (${isAdmin ? 'Admin' : 'Student'})...`);
+      
+      const response = isAdmin 
+        ? await apiService.getAdminNotifications()
+        : await apiService.getStudentNotifications();
+      
+      if (response?.data?.success && callback) {
+        callback(response.data.data);
+        console.log(`✅ Notifications updated via polling (${response.data.data.length} notifications)`);
+      }
+    } catch (error) {
+      console.error('❌ Notification polling error:', error);
+      
+      // Admin logout durumunu kontrol et
+      if (error.response?.status === 401) {
+        const isAdmin = !!localStorage.getItem('admin_token');
+        console.log('🚪 Authentication error during polling, stopping...');
+        return () => {}; // Stop polling
+      }
+    } finally {
+      isPolling = false;
     }
-  },
+  };
 
-  deleteMultipleNotifications: (notificationIds) => {
-    const isAdmin = !!localStorage.getItem('admin_token');
-    const api = isAdmin ? adminApi : studentApi;
-    
-    console.log('🗑️ Bulk deleting notifications:', { ids: notificationIds, isAdmin });
-    return api.post('/notifications/bulk-delete', { ids: notificationIds });
-  },
+  // Initial call
+  pollFunction();
+  
+  // Set up interval
+  const intervalId = setInterval(pollFunction, interval);
+  
+  // Return cleanup function
+  return () => {
+    clearInterval(intervalId);
+    isPolling = false;
+    console.log('🔇 Notification polling stopped');
+  };
+},
 
-  getUnreadNotificationCount: () => {
-    console.log('📊 Getting student unread count...');
-    return studentApi.get('/notifications/unread-count');
-  },
-
-  getAdminUnreadCount: () => {
-    console.log('📊 Getting admin unread count...');
-    return adminApi.get('/notifications/admin/unread-count');
-  },
-
+// Debug function to check current user context
+debugNotificationContext: () => {
+  const studentToken = localStorage.getItem('student_token');
+  const adminToken = localStorage.getItem('admin_token');
+  
+  const context = {
+    hasStudentToken: !!studentToken,
+    hasAdminToken: !!adminToken,
+    currentUserType: adminToken ? 'admin' : (studentToken ? 'student' : 'none'),
+    tokens: {
+      student: studentToken ? 'Present' : 'Missing',
+      admin: adminToken ? 'Present' : 'Missing'
+    }
+  };
+  
+  console.log('🔍 Notification context debug:', context);
+  return context;
+},
 
 
   // Admin Response ile dosya yükleme
@@ -2450,20 +2554,24 @@ getRequestStatusBadge: (status) => {
     };
   },
 
-  // Utility functions
-  markNotificationAsReadLocal: (notifications, notificationId) => {
-    return notifications.map(n => 
-      n.id === notificationId ? { ...n, is_read: true } : n
-    );
-  },
+  // Utility functions for local state management
+markNotificationAsReadLocal: (notifications, notificationId) => {
+  return notifications.map(n => 
+    n.id === notificationId ? { ...n, is_read: true } : n
+  );
+},
 
-  removeNotificationLocal: (notifications, notificationId) => {
-    return notifications.filter(n => n.id !== notificationId);
-  },
+removeNotificationLocal: (notifications, notificationId) => {
+  return notifications.filter(n => n.id !== notificationId);
+},
 
-  markAllNotificationsAsReadLocal: (notifications) => {
-    return notifications.map(n => ({ ...n, is_read: true }));
-  },
+markAllNotificationsAsReadLocal: (notifications) => {
+  return notifications.map(n => ({ ...n, is_read: true }));
+},
+
+clearAllNotificationsLocal: () => {
+  return [];
+},
 
   // ===== ANALYTICS =====
   getStudentStats: (studentId) => studentApi.get(`/analytics/student/${studentId}`),
