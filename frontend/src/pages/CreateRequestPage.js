@@ -173,6 +173,25 @@ const CreateRequestPage = () => {
     return '';
   };
 
+  const handleDrop = (e) => {
+    e.preventDefault();
+    const droppedFiles = Array.from(e.dataTransfer.files);
+    // handleFileChange mantığını kullan
+    handleFileChange({ target: { files: droppedFiles } });
+  };
+
+  const handleDragOver = (e) => {
+    e.preventDefault();
+  };
+
+  const handleDragEnter = (e) => {
+    e.preventDefault();
+  };
+
+  const handleDragLeave = (e) => {
+    e.preventDefault();
+  };
+
   useEffect(() => {
     if (workingHoursStatus && !workingHoursStatus.isAllowed && !workingHoursChecked) {
       setShowWorkingHoursModal(true);
@@ -638,6 +657,10 @@ showInfo(t('pleaseWaitMinutes', { minutes: errorData.details.minutes_remaining }
                            transition: 'all 0.3s ease',
                            minHeight: '150px'
                          }}
+                         onDrop={handleDrop}
+                         onDragOver={handleDragOver}
+                         onDragEnter={handleDragEnter}
+                         onDragLeave={handleDragLeave}
                        >
                          <div className="text-muted text-center">
                            <div style={{ fontSize: '2.5rem', marginBottom: '15px' }}>📎</div>
