@@ -18,15 +18,79 @@ export const AdminAuthProvider = ({ children }) => {
   const [roles, setRoles] = useState([]);
   const [permissionMap, setPermissionMap] = useState({});
 
+  // ✅ 1. BAŞLICA DEĞİŞİKLİK - Admin verilerini localStorage'a kaydet
+  const saveAdminToStorage = useCallback((adminData, permissions, roles) => {
+    try {
+      const adminStateToSave = {
+        admin: adminData,
+        permissions: permissions || [],
+        roles: roles || [],
+        timestamp: Date.now()
+      };
+      localStorage.setItem('admin_state', JSON.stringify(adminStateToSave));
+      console.log('✅ Admin state saved to localStorage');
+    } catch (error) {
+      console.error('❌ Failed to save admin state:', error);
+    }
+  }, []);
+
+  // ✅ 2. BAŞLICA DEĞİŞİKLİK - Admin verilerini localStorage'dan yükle
+  const loadAdminFromStorage = useCallback(() => {
+    try {
+      const savedState = localStorage.getItem('admin_state');
+      if (savedState) {
+        const parsedState = JSON.parse(savedState);
+        
+        // 24 saat içinde kaydedilmişse kullan
+        const isRecentlySaved = (Date.now() - parsedState.timestamp) < (24 * 60 * 60 * 1000);
+        
+        if (isRecentlySaved && parsedState.admin) {
+          console.log('✅ Loading admin state from localStorage');
+          
+          setAdmin(parsedState.admin);
+          setPermissions(parsedState.permissions || []);
+          setRoles(parsedState.roles || []);
+          
+          // Permission map'i yeniden oluştur
+          const pMap = (parsedState.permissions || []).reduce((acc, perm) => {
+            if (perm && perm.resource && perm.action) {
+              const key = `${perm.resource}.${perm.action}`;
+              acc[key] = true;
+            }
+            return acc;
+          }, {});
+          setPermissionMap(pMap);
+          
+          return true;
+        } else {
+          console.log('⚠️ Saved admin state is too old, removing...');
+          localStorage.removeItem('admin_state');
+        }
+      }
+      return false;
+    } catch (error) {
+      console.error('❌ Failed to load admin state from localStorage:', error);
+      localStorage.removeItem('admin_state');
+      return false;
+    }
+  }, []);
+
+  // ✅ 3. BAŞLICA DEĞİŞİKLİK - localStorage'ı temizle
+  const clearAdminStorage = useCallback(() => {
+    localStorage.removeItem('admin_state');
+    console.log('🧹 Admin state cleared from localStorage');
+  }, []);
+
   const logout = useCallback(() => {
     setAdmin(null);
     setPermissions([]);
     setRoles([]);
     setPermissionMap({});
     localStorage.removeItem('admin_token');
+    clearAdminStorage(); // ✅ Admin state'ini de temizle
     apiService.removeAdminAuthToken();
     window.location.href = '/login';
-  }, []);
+  }, [clearAdminStorage]);
 
   // İzin kontrolü helper fonksiyonu
   const hasPermission = useCallback((resource, action) => {
@@ -97,6 +161,11 @@ export const AdminAuthProvider = ({ children }) => {
       }, {});
       setPermissionMap(pMap);
 
+      // ✅ RBAC verileri yüklendikten sonra localStorage'a kaydet
+      if (admin) {
+        saveAdminToStorage(admin, userPermissions, userRoles);
+      }
+
       console.log('RBAC Data loaded successfully:', {
         roles: userRoles.length,
         permissions: userPermissions.length,
@@ -109,7 +178,7 @@ export const AdminAuthProvider = ({ children }) => {
       setPermissions([]);
       setPermissionMap({});
     }
-  }, []);
+  }, [admin, saveAdminToStorage]);
 
   const checkAdminAuthStatus = useCallback(async () => {
     try {
@@ -142,21 +211,43 @@ export const AdminAuthProvider = ({ children }) => {
     }
   }, [logout, loadRBACData]);
 
+  // ✅ 4. BAŞLICA DEĞİŞİKLİK - useEffect'i güncelle
   useEffect(() => {
-    const savedToken = localStorage.getItem('admin_token');
-    
-    if (savedToken) {
-      apiService.setAdminAuthToken(savedToken);
+    const initializeAuth = async () => {
+      const savedToken = localStorage.getItem('admin_token');
       
-      if (checkTokenValidity(true)) {
-        checkAdminAuthStatus();
+      if (savedToken) {
+        apiService.setAdminAuthToken(savedToken);
+        
+        if (checkTokenValidity(true)) {
+          // Önce localStorage'dan yükle
+          const loadedFromStorage = loadAdminFromStorage();
+          
+          if (loadedFromStorage) {
+            console.log('✅ Admin state loaded from localStorage');
+            setLoading(false);
+            
+            // Arka planda RBAC verilerini güncelle (opsiyonel)
+            if (admin?.admin_id) {
+              setTimeout(() => {
+                loadRBACData(admin.admin_id);
+              }, 1000);
+            }
+          } else {
+            // localStorage'da veri yoksa server'dan çek
+            console.log('📡 Loading admin state from server');
+            await checkAdminAuthStatus();
+          }
+        } else {
+          logout();
+        }
       } else {
-        logout();
+        setLoading(false);
       }
-    } else {
-      setLoading(false);
-    }
-  }, [checkAdminAuthStatus, logout]);
+    };
+
+    initializeAuth();
+  }, []); // ✅ Dependency array'i boş bırak
 
   // Email ile admin girişi - güncellenmiş fonksiyon
   const login = async (email, password) => {
@@ -177,9 +268,18 @@ export const AdminAuthProvider = ({ children }) => {
         if (adminData.admin_id && (!adminData.roles || !adminData.permissions)) {
           await loadRBACData(adminData.admin_id);
         } else {
-          if (adminData.roles) setRoles(adminData.roles);
+          let finalRoles = [];
+          let finalPermissions = [];
+          
+          if (adminData.roles) {
+            setRoles(adminData.roles);
+            finalRoles = adminData.roles;
+          }
+          
           if (adminData.permissions) {
             setPermissions(adminData.permissions);
+            finalPermissions = adminData.permissions;
+            
             const pMap = adminData.permissions.reduce((acc, perm) => {
               const key = `${perm.resource}.${perm.action}`;
               acc[key] = true;
@@ -187,6 +287,9 @@ export const AdminAuthProvider = ({ children }) => {
             }, {});
             setPermissionMap(pMap);
           }
+          
+          // ✅ Login başarılı olduğunda localStorage'a kaydet
+          saveAdminToStorage(adminData, finalPermissions, finalRoles);
         }
         
         console.log('Admin login successful, admin data:', adminData);

@@ -3,6 +3,22 @@ export const translations = {
   tr: {
 
 
+
+
+
+    adminNotifications: "Admin Bildirimleri",
+  deleteAll: "Tümünü Sil",
+  close: "Kapat",
+  loading: "Yükleniyor",
+  noNotifications: "Bildirim yok",
+  justNow: "Az önce",
+  minutesAgo: "dk önce",
+  hoursAgo: "sa önce",
+  daysAgo: "gün önce",
+  new: "Yeni",
+  delete: "Sil",
+  totalNotifications: "toplam bildirim",
+
     // Permission display names
   permissionDisplayNames: {
     'View All Requests': 'Tüm Talepleri Görüntüle',
@@ -234,7 +250,7 @@ export const translations = {
 
     'guidanceSystem':'Rehberlik Sistemi',
 'loginDescription':'Sisteme erişmek için email ve şifrenizi girin',
-    'enterYourEmail':'E-posta adresnizi girin',
+    'enterYourEmail':'E-posta adresinzi girin',
    "failed_to_load_admin_statistics": "Yönetici istatistikleri yüklenemedi",
     "access_denied_insufficient_permissions": "Erişim reddedildi: İstatistikleri görüntülemek için yetersiz yetki",
     "failed_to_load_unassigned_requests": "Atanmamış talepler yüklenemedi",
@@ -1291,6 +1307,18 @@ adminLogin: 'Akademik Personel Girişi',
 
   en: {
 
+      adminNotifications: "Admin Notifications",
+  deleteAll: "Delete All",
+  close: "Close",
+  loading: "Loading",
+  noNotifications: "No notifications",
+  justNow: "Just now",
+  minutesAgo: "min ago",
+  hoursAgo: "h ago",
+  daysAgo: "d ago",
+  new: "New",
+  delete: "Delete",
+  totalNotifications: "total notifications",
 
 permissionDisplayNames: {
   'View All Requests': 'View All Requests',
@@ -2558,7 +2586,18 @@ sendResponse: 'Send Response',
 
 ar: {
 
-
+ adminNotifications: "إشعارات المدير",
+  deleteAll: "حذف الكل",
+  close: "إغلاق",
+  loading: "جاري التحميل",
+  noNotifications: "لا توجد إشعارات",
+  justNow: "الآن",
+  minutesAgo: "د مضت",
+  hoursAgo: "س مضت",
+  daysAgo: "يوم مضى",
+  new: "جديد",
+  delete: "حذف",
+  totalNotifications: "إجمالي الإشعارات",
 
   permissionDisplayNames: {
   'View All Requests': 'عرض جميع الطلبات',
@@ -3791,7 +3830,18 @@ roleDescriptions: {
 ru: {
 
 
-
+  adminNotifications: "Уведомления администратора",
+  deleteAll: "Удалить все",
+  close: "Закрыть",
+  loading: "Загрузка",
+  noNotifications: "Нет уведомлений",
+  justNow: "Только что",
+  minutesAgo: "мин назад",
+  hoursAgo: "ч назад",
+  daysAgo: "д назад",
+  new: "Новое",
+  delete: "Удалить",
+  totalNotifications: "всего уведомлений",
 
   permissionDisplayNames: {
   'View All Requests': 'Просмотр всех запросов',
@@ -5018,7 +5068,18 @@ requestTypes: {
 
 fr: {
 
-
+ adminNotifications: "Notifications d'administration",
+  deleteAll: "Tout supprimer",
+  close: "Fermer",
+  loading: "Chargement",
+  noNotifications: "Aucune notification",
+  justNow: "À l'instant",
+  minutesAgo: "min passées",
+  hoursAgo: "h passées",
+  daysAgo: "j passés",
+  new: "Nouveau",
+  delete: "Supprimer",
+  totalNotifications: "notifications au total",
 
 permissionDisplayNames: {
   'View All Requests': 'Afficher toutes les demandes',
