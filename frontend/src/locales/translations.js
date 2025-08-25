@@ -4,7 +4,15 @@ export const translations = {
 
 
 
-
+  "confirmDeleteTitle": "Dosyayı Sil",
+  "warning": "Uyarı",
+  "deleteWarningMessage": "dosyası kalıcı olarak silinecektir. Bu işlem geri alınamaz.",
+  "deleteConfirmationText": "Bu akademik takvim dosyasını silmek istediğinizden emin misiniz? Tüm ilgili etkinlikler de silinecektir.",
+  "cancel": "İptal",
+  "delete": "Sil",
+  "deletingUpload": "Dosya siliniyor...",
+  "deleteSuccess": "Dosya başarıyla silindi",
+  "deleteFailed": "Dosya silinirken hata oluştu",
 
     adminNotifications: "Admin Bildirimleri",
   deleteAll: "Tümünü Sil",
@@ -1307,6 +1315,19 @@ adminLogin: 'Akademik Personel Girişi',
 
   en: {
 
+
+
+
+     "confirmDeleteTitle": "Delete File",
+  "warning": "Warning",
+  "deleteWarningMessage": "file will be permanently deleted. This action cannot be undone.",
+  "deleteConfirmationText": "Are you sure you want to delete this academic calendar file? All related events will also be deleted.",
+  "cancel": "Cancel",
+  "delete": "Delete",
+  "deletingUpload": "Deleting file...",
+  "deleteSuccess": "File deleted successfully",
+  "deleteFailed": "Error occurred while deleting file",
+
       adminNotifications: "Admin Notifications",
   deleteAll: "Delete All",
   close: "Close",
@@ -2586,6 +2607,19 @@ sendResponse: 'Send Response',
 
 ar: {
 
+
+
+
+   "confirmDeleteTitle": "حذف الملف",
+  "warning": "تحذير",
+  "deleteWarningMessage": "سيتم حذف الملف نهائياً. لا يمكن التراجع عن هذا الإجراء.",
+  "deleteConfirmationText": "هل أنت متأكد من أنك تريد حذف ملف التقويم الأكاديمي هذا؟ سيتم حذف جميع الأحداث المرتبطة أيضاً.",
+  "cancel": "إلغاء",
+  "delete": "حذف",
+  "deletingUpload": "جارٍ حذف الملف...",
+  "deleteSuccess": "تم حذف الملف بنجاح",
+  "deleteFailed": "حدث خطأ أثناء حذف الملف",
+
  adminNotifications: "إشعارات المدير",
   deleteAll: "حذف الكل",
   close: "إغلاق",
@@ -3830,6 +3864,20 @@ roleDescriptions: {
 ru: {
 
 
+
+
+
+   "confirmDeleteTitle": "Удалить файл",
+  "warning": "Предупреждение",
+  "deleteWarningMessage": "файл будет окончательно удален. Это действие нельзя отменить.",
+  "deleteConfirmationText": "Вы уверены, что хотите удалить этот файл академического календаря? Все связанные события также будут удалены.",
+  "cancel": "Отмена",
+  "delete": "Удалить",
+  "deletingUpload": "Удаление файла...",
+  "deleteSuccess": "Файл успешно удален",
+  "deleteFailed": "Произошла ошибка при удалении файла",
+
+
   adminNotifications: "Уведомления администратора",
   deleteAll: "Удалить все",
   close: "Закрыть",
@@ -5067,6 +5115,20 @@ requestTypes: {
 
 
 fr: {
+
+
+
+
+
+   "confirmDeleteTitle": "Supprimer le fichier",
+  "warning": "Avertissement",
+  "deleteWarningMessage": "fichier sera supprimé définitivement. Cette action ne peut pas être annulée.",
+  "deleteConfirmationText": "Êtes-vous sûr de vouloir supprimer ce fichier de calendrier académique ? Tous les événements associés seront également supprimés.",
+  "cancel": "Annuler",
+  "delete": "Supprimer",
+  "deletingUpload": "Suppression du fichier...",
+  "deleteSuccess": "Fichier supprimé avec succès",
+  "deleteFailed": "Erreur lors de la suppression du fichier",
 
  adminNotifications: "Notifications d'administration",
   deleteAll: "Tout supprimer",

@@ -27,6 +27,13 @@ const AcademicCalendarManager = () => {
   const [currentEvents, setCurrentEvents] = useState([]);
   const [loading, setLoading] = useState(true);
 
+  // Delete confirmation state
+  const [deleteConfirmation, setDeleteConfirmation] = useState({
+    show: false,
+    uploadId: null,
+    fileName: ''
+  });
+
   // Initialize component
   useEffect(() => {
     if (isSuperAdmin()) {
@@ -324,16 +331,20 @@ const fetchCalendarStatus = async () => {
     }
   };
 
-  // Delete calendar upload
+  // Delete calendar upload - Custom modal instead of browser confirm
   const deleteUpload = async (uploadId, fileName) => {
-    if (!window.confirm(t('confirmDelete', '', { fileName }))) {
-      return;
-    }
+    setDeleteConfirmation({
+      show: true,
+      uploadId,
+      fileName
+    });
+  };
 
+  const confirmDelete = async () => {
     try {
       showInfo(t('deletingUpload'));
       
-      const response = await apiService.deleteAcademicCalendarUpload(uploadId);
+      const response = await apiService.deleteAcademicCalendarUpload(deleteConfirmation.uploadId);
       
       if (response.data.success) {
         showSuccess(t('deleteSuccess'));
@@ -343,6 +354,8 @@ const fetchCalendarStatus = async () => {
     } catch (error) {
       console.error('Delete upload error:', error);
       showError(t('deleteFailed'));
+    } finally {
+      setDeleteConfirmation({ show: false, uploadId: null, fileName: '' });
     }
   };
 
@@ -921,6 +934,59 @@ const fetchCalendarStatus = async () => {
                     }}
                   >
                     {t('close')}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {deleteConfirmation.show && (
+        <div className="modal-backdrop fade show" style={{ zIndex: 1040 }}>
+          <div className="modal fade show d-block" style={{ zIndex: 1050 }}>
+            <div className="modal-dialog">
+              <div className="modal-content">
+                <div className="modal-header">
+                  <h5 className="modal-title text-danger">
+                    <i className="fas fa-exclamation-triangle me-2"></i>
+                    {t('confirmDeleteTitle')}
+                  </h5>
+                  <button 
+                    type="button" 
+                    className="btn-close"
+                    onClick={() => setDeleteConfirmation({ show: false, uploadId: null, fileName: '' })}
+                  ></button>
+                </div>
+                <div className="modal-body">
+                  <div className="alert alert-danger">
+                    <h6 className="alert-heading">
+                      <i className="fas fa-exclamation-triangle me-2"></i>
+                      {t('warning')}
+                    </h6>
+                    <p className="mb-0">
+                      <strong>"{deleteConfirmation.fileName}"</strong> {t('deleteWarningMessage')}
+                    </p>
+                  </div>
+                  <p className="mb-0">{t('deleteConfirmationText')}</p>
+                </div>
+                <div className="modal-footer">
+                  <button 
+                    type="button" 
+                    className="btn btn-secondary"
+                    onClick={() => setDeleteConfirmation({ show: false, uploadId: null, fileName: '' })}
+                  >
+                    <i className="fas fa-times me-2"></i>
+                    {t('cancel')}
+                  </button>
+                  <button 
+                    type="button" 
+                    className="btn btn-danger"
+                    onClick={confirmDelete}
+                  >
+                    <i className="fas fa-trash me-2"></i>
+                    {t('delete')}
                   </button>
                 </div>
               </div>
