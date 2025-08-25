@@ -56,9 +56,67 @@ const { t, translateDbText } = useTranslation();
     return departmentTranslations[department] || department;
   };
 
-  // Role translation helper
-  const translateRole = (roleName) => {
-    return translateDbText(roleName, 'roles');
+  // Role filtering helper - departman yöneticileri sadece kendi departman rollerini görsün
+  const filterRolesByDepartment = (roleList) => {
+    return roleList.filter(role => {
+      // Süper Admin rolünü sadece süper adminler görebilsin
+      if (role.role_name === 'super_admin' || role.display_name === 'Süper Yönetici') {
+        return isSuperAdmin();
+      }
+      
+      // Süper adminler tüm rolleri görebilir
+      if (isSuperAdmin()) {
+        return true;
+      }
+      
+      // Departman yöneticileri sadece kendi departmanlarıyla ilgili rolleri görebilir
+      if (isDepartmentAdmin()) {
+        const adminDepartment = admin.department;
+        
+        // VERİTABANINDAKİ GERÇEK ROL İSİMLERİ İLE MAPPING
+        const departmentRoleMapping = {
+          'Accounting': [
+            'accounting_specialist',      // accounting_specialist (veritabanından)
+            'department_staff',           // genel departman personeli
+            'read_only_admin',           // sadece görüntüleme
+            'trainee_admin'              // stajyer
+          ],
+          'Academic': [
+            'academic_coordinator',       // academic_coordinator (veritabanından)  
+            'department_staff',           // genel departman personeli
+            'read_only_admin',           // sadece görüntüleme
+            'trainee_admin'              // stajyer
+          ],
+          'Student Affairs': [
+            'student_affairs_officer',    // student_affairs_officer (veritabanından)
+            'department_staff',           // genel departman personeli
+            'read_only_admin',           // sadece görüntüleme
+            'trainee_admin'              // stajyer
+          ],
+          'Dormitory': [
+            'dormitory_supervisor',       // dormitory_supervisor (veritabanından)
+            'department_staff',           // genel departman personeli
+            'read_only_admin',           // sadece görüntüleme
+            'trainee_admin'              // stajyer
+          ],
+          'Campus Services': [
+            'campus_services_manager',    // campus_services_manager (veritabanından)
+            'department_staff',           // genel departman personeli
+            'read_only_admin',           // sadece görüntüleme
+            'trainee_admin'              // stajyer
+          ]
+        };
+        
+        const allowedRoles = departmentRoleMapping[adminDepartment] || [];
+        
+        // Departman admin rolü her departman yöneticisinin görebileceği roller
+        const universalRoles = ['department_admin'];
+        
+        return allowedRoles.includes(role.role_name) || universalRoles.includes(role.role_name);
+      }
+      
+      return true;
+    });
   };
 
   useEffect(() => {
@@ -566,6 +624,7 @@ showError(t('failedToUpdateSuperAdminStatus'));
                             </button>
                           )}
                           
+                          {/* Sadece süper adminler süper admin butonu görebilir */}
                           {isSuperAdmin() && user.admin_id !== admin.admin_id && (
                             <button 
                               className="btn btn-outline-danger btn-sm"
@@ -675,7 +734,7 @@ showError(t('failedToUpdateSuperAdminStatus'));
                           color: isDark ? '#ffffff' : '#000000'
                         }}
                       >
-                        {roles
+                        {filterRolesByDepartment(roles)
                           .filter(role => !selectedUser.roles.includes(role.role_name))
                           .map(role => (
                             <option key={role.role_id} value={role.role_id}>
@@ -873,7 +932,7 @@ showError(t('failedToUpdateSuperAdminStatus'));
                         color: isDark ? '#ffffff' : '#000000'
                       }}
                     >
-                      {roles.map(role => (
+                      {filterRolesByDepartment(roles).map(role => (
                         <option key={role.role_id} value={role.role_id}>
   {translateDbText(role.display_name, 'roleDisplayNames')}
                           {role.is_system_role && ' (System)'}

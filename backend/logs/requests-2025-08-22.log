@@ -2378,3 +2378,7 @@
 {"timestamp":"2025-08-22T14:48:17.505Z","method":"GET","url":"/api/requests/student/2","ip":"::1","userAgent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36"}
 {"timestamp":"2025-08-22T14:48:17.514Z","method":"GET","url":"/api/request-types","ip":"::1","userAgent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36"}
 {"timestamp":"2025-08-22T14:48:17.531Z","method":"GET","url":"/api/requests/student/2","ip":"::1","userAgent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36"}
+{"timestamp":"2025-08-22T14:51:19.556Z","method":"GET","url":"/api/request-types","ip":"::1","userAgent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36"}
+{"timestamp":"2025-08-22T14:51:19.567Z","method":"GET","url":"/api/request-types","ip":"::1","userAgent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36"}
+{"timestamp":"2025-08-22T14:51:19.576Z","method":"GET","url":"/api/analytics/student/me","ip":"::1","userAgent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36"}
+{"timestamp":"2025-08-22T14:51:19.588Z","method":"GET","url":"/api/analytics/student/me","ip":"::1","userAgent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36"}
