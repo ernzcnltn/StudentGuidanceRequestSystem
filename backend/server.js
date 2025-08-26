@@ -84,6 +84,9 @@ app.use('/api/search', require('./routes/search'));
 // ⭐ NEW ROUTE - Academic Calendar Management
 app.use('/api/academic-calendar', require('./routes/academicCalendar'));
 
+// ⭐ NEW ROUTE - Department Request Limits (24-hour cooldown)
+app.use('/api/department-limits', require('./routes/departmentLimits'));
+
 // Health check endpoint with calendar status
 app.get('/api/health', async (req, res) => {
   const healthStatus = {
