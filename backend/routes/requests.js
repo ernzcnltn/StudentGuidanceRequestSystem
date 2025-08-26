@@ -18,6 +18,11 @@ const {
   validateWorkingHoursAndCalendarWithAdminBypass 
 } = require('../middleware/academicCalendar');
 
+const { 
+  checkDepartmentCooldown, 
+  recordDepartmentRequest 
+} = require('../middleware/departmentCooldown');
+
 
 // Student auth middleware
 const authenticateStudent = async (req, res, next) => {
@@ -309,6 +314,7 @@ router.put('/:id/status', validateIdParam, validateStatusUpdate, async (req, res
 // POST /api/requests - Create new request (Student tarafından)
 router.post('/', 
   authenticateStudent,
+  checkDepartmentCooldown, // Check 24-hour department cooldown
   validateWorkingHoursAndCalendarWithAdminBypass, // Academic calendar + working hours
   validateCreateRequest, // Enhanced validation with calendar
   async (req, res) => {
@@ -384,6 +390,11 @@ router.post('/',
       const requestId = result.insertId;
 
       console.log(`✅ Request created with ID: ${requestId}`);
+
+      // Record department request for cooldown tracking
+      const department = req.departmentInfo?.department || category;
+      const studentIdForDept = req.departmentInfo?.studentId || studentId;
+      await recordDepartmentRequest(studentIdForDept, department);
 
       // AUTO-ASSIGNMENT LOGIC with error handling
       console.log(`🤖 Starting auto-assignment for request ${requestId} to ${category} department`);
