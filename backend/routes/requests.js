@@ -369,6 +369,28 @@ router.post('/',
 
       const category = requestType[0].category;
 
+      // 24-hour per-department cooldown check
+      const [recentSameDept] = await pool.execute(`
+        SELECT gr.request_id, gr.submitted_at
+        FROM guidance_requests gr
+        JOIN request_types rt2 ON gr.type_id = rt2.type_id
+        WHERE gr.student_id = ? 
+          AND rt2.category = ?
+          AND gr.submitted_at >= DATE_SUB(NOW(), INTERVAL 24 HOUR)
+        ORDER BY gr.submitted_at DESC
+        LIMIT 1
+      `, [studentId, category]);
+
+      if (recentSameDept.length > 0) {
+        return res.status(429).json({
+          success: false,
+          error: '24-hour limit per department',
+          details: `You can submit a new request to ${category} after 24 hours from your last request to this department`,
+          last_request_at: recentSameDept[0].submitted_at,
+          department: category
+        });
+      }
+
       // Create the request
       const [result] = await pool.execute(`
         INSERT INTO guidance_requests (
@@ -684,17 +706,25 @@ router.post('/requests', authenticateStudent, async (req, res) => {
 
     const category = requestType[0].category;
 
-    // Check if student has pending requests limit
-    const [pendingCount] = await pool.execute(`
-      SELECT COUNT(*) as pending_requests 
-      FROM guidance_requests 
-      WHERE student_id = ? AND status = 'Pending'
-    `, [studentId]);
+    // 24-hour per-department cooldown check
+    const [recentSameDept] = await pool.execute(`
+      SELECT gr.request_id, gr.submitted_at
+      FROM guidance_requests gr
+      JOIN request_types rt2 ON gr.type_id = rt2.type_id
+      WHERE gr.student_id = ? 
+        AND rt2.category = ?
+        AND gr.submitted_at >= DATE_SUB(NOW(), INTERVAL 24 HOUR)
+      ORDER BY gr.submitted_at DESC
+      LIMIT 1
+    `, [studentId, category]);
 
-    if (pendingCount[0].pending_requests >= 5) {
-      return res.status(400).json({
+    if (recentSameDept.length > 0) {
+      return res.status(429).json({
         success: false,
-        error: 'You have reached the maximum limit of 5 pending requests'
+        error: '24-hour limit per department',
+        details: `You can submit a new request to ${category} after 24 hours from your last request to this department`,
+        last_request_at: recentSameDept[0].submitted_at,
+        department: category
       });
     }
 
