@@ -24,21 +24,22 @@ export const AuthProvider = ({ children }) => {
     window.location.href = '/login';
   }, []);
 
-  const checkAuthStatus = useCallback(async () => {
-    try {
-      const response = await apiService.getProfile();
-      if (response.data.success) {
-        setUser(response.data.data);
-      } else {
-        logout();
-      }
-    } catch (error) {
-      console.error('Student auth check failed:', error);
+ const checkAuthStatus = useCallback(async () => {
+  try {
+    const response = await apiService.getProfile();
+    if (response.data.success) {
+      console.log('Profile data from API:', response.data.data); // Debug için
+      setUser(response.data.data);
+    } else {
       logout();
-    } finally {
-      setLoading(false);
     }
-  }, [logout]);
+  } catch (error) {
+    console.error('Student auth check failed:', error);
+    logout();
+  } finally {
+    setLoading(false);
+  }
+}, [logout]);
 
   useEffect(() => {
     const savedToken = localStorage.getItem('token');

@@ -7,6 +7,7 @@ import ConfirmationModal from '../components/ConfirmationModal';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 
+
 const HomePage = () => {
   const { t, translateRequestType } = useTranslation();
   const { isDark } = useTheme();
@@ -15,7 +16,7 @@ const HomePage = () => {
   const [requestTypes, setRequestTypes] = useState({});
   const [loading, setLoading] = useState(true);
   const { confirmationState, showConfirmation } = useConfirmation();
-  const { logout } = useAuth();
+  const { logout, user } = useAuth();
 
   const handleLogoutClick = async () => {
     console.log('Student logout button clicked!');
@@ -34,6 +35,24 @@ const HomePage = () => {
     }
   };
 
+  // Notification click handler - öğrenciyi ilgili talebe yönlendirir
+  const handleNotificationClick = (requestId, type) => {
+    console.log('Student notification clicked:', { requestId, type });
+    
+    if (requestId) {
+      // Öğrenciyi "My Requests" sayfasına yönlendir ve ilgili talebi vurgula
+      navigate('/my-requests', { 
+        state: { 
+          highlightRequestId: requestId,
+          fromNotification: true 
+        } 
+      });
+    } else {
+      // Eğer requestId yoksa genel talep sayfasına yönlendir
+      navigate('/my-requests');
+    }
+  };
+
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -44,8 +63,8 @@ const HomePage = () => {
         setRequestTypes(typesResponse.data.data);
 
         // Student statistics
-        const statsResponse = await apiService.getMyStats();
-        setStats(statsResponse.data.data);
+       // const statsResponse = await apiService.getMyStats();
+        //setStats(statsResponse.data.data);
 
       } catch (error) {
         console.error('Error fetching data:', error);
@@ -92,13 +111,15 @@ const HomePage = () => {
 
   return (
     <div>
+
+
       {/* Hero Section */}
       <div 
         className="jumbotron p-5 rounded mb-4"
         style={{
           background: isDark 
             ? 'linear-gradient(135deg, #2d3748 0%, #1a202c 100%)'
-            : 'linear-gradient(135deg, #dc2626 0%, #b91c1c 100%)',
+            : 'linear-gradient(135deg, #2d3748  0%, #1a202c 100%)',
           color: '#ffffff'
         }}
       >
@@ -113,7 +134,7 @@ const HomePage = () => {
 
       {/* Request Categories */}
       <div className="row">
-        <div className="col-md-12">
+        <div className="col-md-8">
           <div className="d-flex justify-content-between align-items-center mb-3">
             <h3 className={isDark ? 'text-white' : 'text-dark'}>{t('request_categories')}</h3>
             <small className={isDark ? 'text-gray-400' : 'text-muted'}>
@@ -200,20 +221,15 @@ const HomePage = () => {
         </div>
         
         <div className="col-md-4">
-          
-          <div className="list-group mb-4">
-            
-            
-          </div>
-
           {/* User Stats Card */}
           {stats && (
             <div 
-              className="card"
+              className="card sticky-top"
               style={{
                 backgroundColor: isDark ? '#2d3748' : '#ffffff',
                 borderColor: isDark ? '#4a5568' : '#e2e8f0',
-                color: isDark ? '#ffffff' : '#000000'
+                color: isDark ? '#ffffff' : '#000000',
+                top: '20px'
               }}
             >
               <div 
@@ -249,11 +265,32 @@ const HomePage = () => {
                     <small className={isDark ? 'text-gray-400' : 'text-muted'}>{t('totalRequests')}</small>
                   </div>
                 </div>
+                
+                {/* Quick Actions */}
+                <div className="border-top mt-3 pt-3" style={{
+                  borderColor: isDark ? '#4a5568' : '#e2e8f0'
+                }}>
+                  <h6 className="mb-2">{t('quick_actions', 'Quick Actions')}</h6>
+                  <div className="d-grid gap-2">
+                    <Link 
+                      to="/create-request" 
+                      className="btn btn-outline-danger btn-sm"
+                    >
+                      <i className="bi bi-plus-circle me-2"></i>
+                      {t('new_request', 'New Request')}
+                    </Link>
+                    <Link 
+                      to="/my-requests" 
+                      className="btn btn-outline-primary btn-sm"
+                    >
+                      <i className="bi bi-list-check me-2"></i>
+                      {t('my_requests', 'My Requests')}
+                    </Link>
+                  </div>
+                </div>
               </div>
             </div>
           )}
-
-         
         </div>
       </div>
 
@@ -296,6 +333,11 @@ const HomePage = () => {
           
           .card {
             margin-bottom: 1rem;
+          }
+          
+          .sticky-top {
+            position: relative !important;
+            top: auto !important;
           }
         }
       `}</style>

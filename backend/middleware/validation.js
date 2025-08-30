@@ -11,7 +11,8 @@ const {
 const validateCreateRequest = async (req, res, next) => {
   try {
     const { student_id, type_id, content, priority = 'Medium' } = req.body;
-    
+        const studentId = student_id; // ← BU SATIRי EKLE
+
     console.log('🔍 Validating request creation with academic calendar:', {
       student_id,
       type_id,
@@ -210,13 +211,31 @@ const validateCreateRequest = async (req, res, next) => {
     // ✅ FIXED: 24 saat limit kontrolü - Academic calendar aware with error handling
     console.log('🕐 Checking 24-hour limit for student:', student_id);
     
-    const [recentRequests] = await pool.execute(`
-      SELECT 
-        COUNT(*) as recent_count,
-        MAX(submitted_at) as last_request_time
-      FROM guidance_requests 
-      WHERE student_id = ? AND submitted_at >= NOW() - INTERVAL 24 HOUR
-    `, [student_id]);
+  // Önce request type'ın hangi departmana/kategoriye ait olduğunu bul
+const [requestTypeInfo] = await pool.execute(`
+  SELECT rt.category
+  FROM request_types rt 
+  WHERE rt.type_id = ?
+`, [type_id]);
+
+if (requestTypeInfo.length === 0) {
+  return res.status(400).json({
+    success: false,
+    error: 'Invalid request type'
+  });
+}
+
+const requestCategory = requestTypeInfo[0].category;
+
+// O departmandaki son 24 saatteki request'leri kontrol et  
+const [recentRequests] = await pool.execute(`
+  SELECT 
+    COUNT(*) as recent_count,
+    MAX(gr.submitted_at) as last_request_time
+  FROM guidance_requests gr
+  JOIN request_types rt ON gr.type_id = rt.type_id
+  WHERE gr.student_id = ? AND rt.category = ? AND gr.submitted_at >= NOW() - INTERVAL 24 HOUR
+`, [studentId, requestCategory]);
     
     const recentCount = recentRequests[0].recent_count;
     const lastRequestTime = recentRequests[0].last_request_time;

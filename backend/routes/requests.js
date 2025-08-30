@@ -306,6 +306,46 @@ router.put('/:id/status', validateIdParam, validateStatusUpdate, async (req, res
 });
 
 
+// GET /api/requests/check-limit/:studentId/:typeId
+router.get('/check-limit/:studentId/:typeId', async (req, res) => {
+  try {
+    const { studentId, typeId } = req.params;
+    
+    // Type'ın kategorisini bul
+    const [typeInfo] = await pool.execute(`
+      SELECT category FROM request_types WHERE type_id = ?
+    `, [typeId]);
+    
+    if (typeInfo.length === 0) {
+      return res.status(404).json({ success: false, error: 'Request type not found' });
+    }
+    
+    const category = typeInfo[0].category;
+    
+    // Son 24 saatteki aynı kategorideki request sayısı
+    const [recentCount] = await pool.execute(`
+      SELECT COUNT(*) as count
+      FROM guidance_requests gr
+      JOIN request_types rt ON gr.type_id = rt.type_id  
+      WHERE gr.student_id = ? AND rt.category = ? AND gr.submitted_at >= NOW() - INTERVAL 24 HOUR
+    `, [studentId, category]);
+    
+    res.json({
+      success: true,
+      data: {
+        category: category,
+        recentRequests: recentCount[0].count,
+        canCreate: recentCount[0].count === 0,
+        limit: 1,
+        period: '24 hours'
+      }
+    });
+  } catch (error) {
+    console.error('Check limit error:', error);
+    res.status(500).json({ success: false, error: 'Failed to check limit' });
+  }
+});
+
 // POST /api/requests - Create new request (Student tarafından)
 router.post('/', 
   authenticateStudent,

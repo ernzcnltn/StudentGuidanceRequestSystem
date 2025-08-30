@@ -7,6 +7,8 @@ import { useTheme } from '../contexts/ThemeContext';
 import { useToast } from '../contexts/ToastContext';
 import { useTranslation } from '../hooks/useTranslation';
 import { apiService } from '../services/api';
+import { CircularProgressbar, buildStyles } from 'react-circular-progressbar';
+import 'react-circular-progressbar/dist/styles.css';
 
 const AdminStatisticsPage = () => {
   const { admin, isSuperAdmin, isDepartmentAdmin, department } = useAdminAuth();
@@ -378,38 +380,68 @@ const { t, translateDbText } = useTranslation();
                     </div>
                   </div>
                   
-                  {/* Progress Bars */}
-                  <div className="row mt-4">
-                    <div className="col-md-4">
-                      <div className="d-flex justify-content-between align-items-center mb-1">
-                        <small className={isDark ? 'text-light' : 'text-muted'}>{t('completionRate')}</small>
-                        <small className="text-info"><strong>{departmentSummary.completion_rate}%</strong></small>
-                      </div>
-                      <div className="progress" style={{ height: '8px' }}>
-                        <div className="progress-bar bg-info" style={{ width: `${departmentSummary.completion_rate}%` }}></div>
-                      </div>
-                    </div>
-                    <div className="col-md-4">
-                      <div className="d-flex justify-content-between align-items-center mb-1">
-                        <small className={isDark ? 'text-light' : 'text-muted'}>{t('teamUtilization')}</small>
-                        <small className="text-info"><strong>{departmentSummary.utilization_rate}%</strong></small>
-                      </div>
-                      <div className="progress" style={{ height: '8px' }}>
-                        <div className="progress-bar bg-info" style={{ width: `${departmentSummary.utilization_rate}%` }}></div>
-                      </div>
-                    </div>
-                    <div className="col-md-4">
-                      <div className="d-flex justify-content-between align-items-center mb-1">
-                        <small className={isDark ? 'text-light' : 'text-muted'}>{t('avgPerformance')}</small>
-                        <small className="text-info">
-                          <strong>{departmentSummary.avg_performance}%</strong>
-                        </small>
-                      </div>
-                      <div className="progress" style={{ height: '8px' }}>
-                        <div className="progress-bar bg-info" style={{ width: `${departmentSummary.avg_performance}%` }}></div>
-                      </div>
-                    </div>
-                  </div>
+                 {/* Circular Progress Bars */}
+<div className="row mt-4">
+  <div className="col-md-4 text-center">
+    <div style={{ width: 100, height: 100, margin: '0 auto' }}>
+      <CircularProgressbar
+        value={departmentSummary.completion_rate}
+        text={`${departmentSummary.completion_rate}%`}
+        styles={buildStyles({
+          pathColor:
+            departmentSummary.completion_rate < 50
+              ? 'red'
+              : departmentSummary.completion_rate <= 80
+              ? 'grey'
+              : 'green',
+          textColor: isDark ? '#fff' : '#000',
+          trailColor: '#e9ecef',
+        })}
+      />
+    </div>
+    <small className={isDark ? 'text-light' : 'text-muted'}>{t('completionRate')}</small>
+  </div>
+
+  <div className="col-md-4 text-center">
+    <div style={{ width: 100, height: 100, margin: '0 auto' }}>
+      <CircularProgressbar
+        value={departmentSummary.utilization_rate}
+        text={`${departmentSummary.utilization_rate}%`}
+        styles={buildStyles({
+          pathColor:
+            departmentSummary.utilization_rate < 50
+              ? 'red'
+              : departmentSummary.utilization_rate <= 80
+              ? 'grey'
+              : 'green',
+          textColor: isDark ? '#fff' : '#000',
+          trailColor: '#e9ecef',
+        })}
+      />
+    </div>
+    <small className={isDark ? 'text-light' : 'text-muted'}>{t('teamUtilization')}</small>
+  </div>
+
+  <div className="col-md-4 text-center">
+    <div style={{ width: 100, height: 100, margin: '0 auto' }}>
+      <CircularProgressbar
+        value={departmentSummary.avg_performance}
+        text={`${departmentSummary.avg_performance}%`}
+        styles={buildStyles({
+          pathColor:
+            departmentSummary.avg_performance < 50
+              ? 'red'
+              : departmentSummary.avg_performance <= 80
+              ? 'grey'
+              : 'green',
+          textColor: isDark ? '#fff' : '#000',
+          trailColor: '#e9ecef',
+        })}
+      />
+    </div>
+    <small className={isDark ? 'text-light' : 'text-muted'}>{t('avgPerformance')}</small>
+  </div>
+</div>
                 </div>
               </div>
             </div>

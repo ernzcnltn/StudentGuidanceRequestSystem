@@ -40,12 +40,13 @@ const RequestDetailModal = ({
   const { t, translateRequestType } = useTranslation();
 
   if (!show || !request) return null;
+  
 
   const getStatusBadge = (status) => {
     const statusStyles = {
-      'Pending': 'bg-danger text-white',
-      'Informed': 'bg-danger text-white',
-      'Completed': 'bg-danger text-white',
+      'Pending': 'bg-warning text-white',
+      'Informed': 'bg-info text-white',
+      'Completed': 'bg-success text-white',
       'Rejected': 'bg-danger text-white'
     };
     return statusStyles[status] || 'bg-secondary text-white';
@@ -55,9 +56,9 @@ const RequestDetailModal = ({
   const getPriorityBadge = (priority) => {
     const priorityStyles = {
       'Urgent': 'bg-danger text-white',
-      'High': 'bg-danger text-white', 
-      'Medium': 'bg-danger text-white',
-      'Low': 'bg-danger text-white'
+      'High': 'bg-high text-white', 
+      'Medium': 'bg-medium text-white',
+      'Low': 'bg-secondary text-white'
     };
     return priorityStyles[priority] || 'bg-info text-white';
   };
@@ -817,44 +818,43 @@ showError(t('noPermissionViewRequests'));
   };
 
   // Tab visibility control based on permissions
-  const getVisibleTabs = () => {
-    const tabs = [];
-    
-    if (canViewAnalytics()) {
-      tabs.push({ key: 'dashboard', label: 'Dashboard', icon: 'fas fa-chart-line' });
-    }
-    
-    if (canViewRequests()) {
-      tabs.push({ key: 'requests', label: 'Manage Requests', icon: 'fas fa-tasks' });
-    }
+ const getVisibleTabs = () => {
+  const tabs = [];
+  
+  if (canViewAnalytics()) {
+    tabs.push({ key: 'dashboard', label: 'Dashboard', icon: 'bi bi-graph-up' });
+  }
+  
+  if (canViewRequests()) {
+    tabs.push({ key: 'requests', label: 'Manage Requests', icon: 'bi bi-inbox' });
+  }
 
-    if (canManageSettings()) {
-      tabs.push({ key: 'settings', label: 'Settings', icon: 'fas fa-cog' });
-    }
-    
-    // RBAC Management Tabs (Super Admin only)
-    if (isSuperAdmin()) {
-      tabs.push({ key: 'users', label: 'Users', icon: 'fas fa-users' });
-      tabs.push({ key: 'roles', label: 'Roles', icon: 'fas fa-user-tag' });
-      tabs.push({ key: 'permissions', label: 'Permissions', icon: 'fas fa-shield-alt' });
-    }
-    
-    // Department Admin can see user management for their department
-    if (isDepartmentAdmin() && !isSuperAdmin()) {
-      tabs.push({ key: 'dept-users', label: 'Dept Users', icon: 'fas fa-user-friends' });
-    }
+  if (canManageSettings()) {
+    tabs.push({ key: 'settings', label: 'Settings', icon: 'bi bi-gear' });
+  }
+  
+  // RBAC Management Tabs (Super Admin only)
+  if (isSuperAdmin()) {
+    tabs.push({ key: 'users', label: 'Users', icon: 'bi bi-people' });
+    tabs.push({ key: 'roles', label: 'Roles', icon: 'bi bi-person-badge' });
+    tabs.push({ key: 'permissions', label: 'Permissions', icon: 'bi bi-key' });
+  }
+  
+  // Department Admin can see user management for their department
+  if (isDepartmentAdmin() && !isSuperAdmin()) {
+    tabs.push({ key: 'dept-users', label: 'Dept Users', icon: 'bi bi-people-fill' });
+  }
 
-    if (isSuperAdmin()) {
-      tabs.push({ 
-        key: 'calendar', 
-        label: 'Academic Calendar', 
-        icon: 'fas fa-calendar-alt' 
-      });
-    }
+  if (isSuperAdmin()) {
+    tabs.push({ 
+      key: 'calendar', 
+      label: 'Academic Calendar', 
+      icon: 'bi bi-calendar-check' 
+    });
+  }
 
-    return tabs;
-  };
-
+  return tabs;
+};
   // Pagination helper functions
   const getPaginatedData = (data, page, itemsPerPage) => {
     const startIndex = (page - 1) * itemsPerPage;

@@ -538,7 +538,7 @@ const UnifiedLoginPage = () => {
           transform: 'translateX(-50%)'
         }}
       >
-        © 2024 Final International University
+        © 2025 Final International University
       </div>
     </div>
   );

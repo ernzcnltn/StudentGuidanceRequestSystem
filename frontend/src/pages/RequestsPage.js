@@ -640,313 +640,300 @@ setError(t('failed_to_load_requests'));
   const paginatedRequests = getPaginatedData(filteredRequests, currentPage, itemsPerPage);
 
   return (
-    <div>
-      {/* Header */}
-      <div className="d-flex justify-content-between align-items-center mb-4">
-        <div>
-          <h2 className="mb-1">{t('myRequests')}</h2>
-          <p className={`mb-0 ${isDark ? 'text-light' : 'text-muted'}`}>{t('track_and_manage_requests')}</p>
-        </div>
-        <Link to="/create-request" className="btn btn-danger">
-          
-         {t('createRequest')}
-        </Link>
-      </div>
-
-     
-
-      {/* Filters */}
-      <div className="d-flex justify-content-between align-items-center mb-4">
-        <div className="btn-group" role="group">
-          <button
-            type="button"
-            className={`btn ${filter === 'all' ? 'btn-danger' : 'btn-outline-danger'}`}
-            onClick={() => {
-              setFilter('all');
-              setCurrentPage(1);
-            }}
-          >
-           {t('view_all')} ({requests.length})
-          </button>
-          <button
-            type="button"
-            className={`btn ${filter === 'Pending' ? 'btn-danger' : 'btn-outline-danger'}`}
-            onClick={() => {
-              setFilter('Pending');
-              setCurrentPage(1);
-            }}
-          >
-           {t('pending')} ({requests.filter(r => r.status === 'Pending').length})
-          </button>
-          <button
-            type="button"
-            className={`btn ${filter === 'Informed' ? 'btn-danger' : 'btn-outline-danger'}`}
-            onClick={() => {
-              setFilter('Informed');
-              setCurrentPage(1);
-            }}
-          >
-           {t('informed')}  ({requests.filter(r => r.status === 'Informed').length})
-          </button>
-          <button
-            type="button"
-            className={`btn ${filter === 'Completed' ? 'btn-danger' : 'btn-outline-danger'}`}
-            onClick={() => {
-              setFilter('Completed');
-              setCurrentPage(1);
-            }}
-          >
-           {t('completed')} ({requests.filter(r => r.status === 'Completed').length})
-          </button>
-          <button
-            type="button"
-            className={`btn ${filter === 'Rejected' ? 'btn-danger' : 'btn-outline-danger'}`}
-            onClick={() => {
-              setFilter('Rejected');
-              setCurrentPage(1);
-            }}
-          >
-            {t('rejected')} ({requests.filter(r => r.status === 'Rejected').length})
-          </button>
+    <div style={{ minHeight: 'calc(100vh - 120px)', display: 'flex', flexDirection: 'column' }}>
+      <div style={{ flex: '1' }}>
+        {/* Header */}
+        <div className="d-flex justify-content-between align-items-center mb-4">
+          <div>
+            <h2 className="mb-1">{t('myRequests')}</h2>
+            <p className={`mb-0 ${isDark ? 'text-light' : 'text-muted'}`}>{t('track_and_manage_requests')}</p>
+          </div>
+          <Link to="/create-request" className="btn btn-danger">
+            
+           {t('createRequest')}
+          </Link>
         </div>
 
-        <div className={`text-sm ${isDark ? 'text-light' : 'text-muted'}`}>
+       
+
+        {/* Filters */}
+        <div className="d-flex justify-content-between align-items-center mb-4">
+          <div className="btn-group" role="group">
+            <button
+              type="button"
+              className={`btn ${filter === 'all' ? 'btn-danger' : 'btn-outline-danger'}`}
+              onClick={() => {
+                setFilter('all');
+                setCurrentPage(1);
+              }}
+            >
+             {t('view_all')} ({requests.length})
+            </button>
+            <button
+              type="button"
+              className={`btn ${filter === 'Pending' ? 'btn-danger' : 'btn-outline-danger'}`}
+              onClick={() => {
+                setFilter('Pending');
+                setCurrentPage(1);
+              }}
+            >
+             {t('pending')} ({requests.filter(r => r.status === 'Pending').length})
+            </button>
+            <button
+              type="button"
+              className={`btn ${filter === 'Informed' ? 'btn-danger' : 'btn-outline-danger'}`}
+              onClick={() => {
+                setFilter('Informed');
+                setCurrentPage(1);
+              }}
+            >
+             {t('informed')}  ({requests.filter(r => r.status === 'Informed').length})
+            </button>
+            <button
+              type="button"
+              className={`btn ${filter === 'Completed' ? 'btn-danger' : 'btn-outline-danger'}`}
+              onClick={() => {
+                setFilter('Completed');
+                setCurrentPage(1);
+              }}
+            >
+             {t('completed')} ({requests.filter(r => r.status === 'Completed').length})
+            </button>
+            <button
+              type="button"
+              className={`btn ${filter === 'Rejected' ? 'btn-danger' : 'btn-outline-danger'}`}
+              onClick={() => {
+                setFilter('Rejected');
+                setCurrentPage(1);
+              }}
+            >
+              {t('rejected')} ({requests.filter(r => r.status === 'Rejected').length})
+            </button>
+          </div>
+
+          <div className={`text-sm ${isDark ? 'text-light' : 'text-muted'}`}>
+          </div>
         </div>
-      </div>
 
-      {/* Requests Table */}
-      <div 
-        className="card"
-        style={{
-          backgroundColor: isDark ? '#2d3748' : '#ffffff',
-          borderColor: isDark ? '#718096' : '#e2e8f0'
-        }}
-      >
-        <div className="card-body">
-          {filteredRequests.length === 0 ? (
-            <div className="text-center py-5">
-              <div className="mb-4">
-                <i className="bi bi-inbox display-1 text-muted"></i>
-              </div>
-              <h4 className={isDark ? 'text-light' : 'text-muted'}>
-                {filter === 'all' ? 'No Requests' : `No Requests Found (${filter})`}
-              </h4>
-              <p className={`mb-4 ${isDark ? 'text-light' : 'text-muted'}`}>
-                {filter === 'all' ? 'You haven\'t submitted any requests yet.' : `No ${filter.toLowerCase()} requests found.`}
-              </p>
-              {filter === 'all' && (
-                <Link to="/create-request" className="btn btn-danger">
-                {t('create_your_first_request')}
-                </Link>
-              )}
-            </div>
-          ) : (
-            <>
-              <div className="table-responsive">
-                <table className="table table-hover">
-                  <thead className={isDark ? 'table-dark' : 'table-light'}>
-                    <tr>
-                      
-                      <th>{t('type')}</th>
-                      <th>{t('content')}</th>
-                      <th>{t('priority')}</th>
-                      <th>{t('status')}</th>
-                      <th>{t('submitted')}</th>
-                      
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {paginatedRequests.map((request) => {
-                      const submittedDate = formatDate(request.submitted_at);
-
-                      return (
-                        <tr 
-                          key={request.request_id}
-                          className={isDark ? 'text-light' : ''}
-                          style={{
-                            backgroundColor: isDark ? 'transparent' : '#ffffff',
-                            cursor: 'pointer'
-                          }}
-                          onClick={() => {
-                            setSelectedRequestDetails(request);
-                            setShowDetailsModal(true);
-                          }}
-                        >
-                         
-                          <td>
-                            <div className="fw-semibold">
-                              {translateRequestType(request.type_name)}
-                            </div>
-                          </td>
-                          <td>
-                            <div 
-                              className="text-truncate" 
-                              style={{ maxWidth: '200px' }}
-                              title={request.content}
-                            >
-                              {request.content}
-                            </div>
-                          </td>
-                          <td>
-                            <span className={`badge ${getPriorityBadge(request.priority)}`}>
-                              {t(request.priority.toLowerCase())}
-                            </span>
-                          </td>
-                          <td>
-                            <span className={`badge ${getStatusBadge(request.status)}`}>
-                              {t(request.status.toLowerCase())}
-                            </span>
-                          </td>
-                          <td>
-                            <div>
-                              <div className="fw-semibold">{submittedDate.date}</div>
-                              <small className={isDark ? 'text-light' : 'text-muted'}>
-                                {submittedDate.time}
-                              </small>
-                            </div>
-                          </td>
-                          <td>
-                            <div className="btn-group btn-group-sm" role="group">
-                             
-
-                              
-
-                              
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-              
-              {/* Pagination */}
-              <PaginationComponent 
-                currentPage={currentPage}
-                totalPages={totalPages}
-                onPageChange={setCurrentPage}
-              />
-            </>
-          )}
-        </div>
-      </div>
-
-     
-
-      {/* Request Details Modal */}
-      {showDetailsModal && selectedRequestDetails && (
-        <RequestDetailsModal
-          request={selectedRequestDetails}
-          onClose={() => {
-            setShowDetailsModal(false);
-            setSelectedRequestDetails(null);
+        {/* Requests Table */}
+        <div 
+          className="card"
+          style={{
+            backgroundColor: isDark ? '#2d3748' : '#ffffff',
+            borderColor: isDark ? '#718096' : '#e2e8f0'
           }}
-        />
-      )}
-
-      {/* Attachment Viewer Modal */}
-      {showAttachments && selectedRequestId && (
-        <AttachmentViewer
-          requestId={selectedRequestId}
-          onClose={() => {
-            setShowAttachments(false);
-            setSelectedRequestId(null);
-          }}
-        />
-      )}
-
-      {/* Student Response Viewer Modal */}
-      {showResponsesModal && selectedRequestForResponses && (
-        <StudentResponseViewer
-          requestId={selectedRequestForResponses.id}
-          requestTitle={selectedRequestForResponses.title}
-          onClose={() => {
-            setShowResponsesModal(false);
-            setSelectedRequestForResponses(null);
-          }}
-        />
-      )}
-
-      {/* Rejection Details Modal */}
-      {showRejectionDetailsModal && selectedRequestForRejectionDetails && (
-        <>
-          <div
-            className="modal-backdrop fade show"
-            style={{ zIndex: 1040 }}
-            onClick={() => setShowRejectionDetailsModal(false)}
-          ></div>
-
-          <div
-            className="modal fade show d-block"
-            tabIndex="-1"
-            style={{ zIndex: 1050 }}
-          >
-            <div className="modal-dialog modal-lg modal-dialog-scrollable">
-              <div 
-                className="modal-content"
-                style={{
-                  backgroundColor: isDark ? '#2d3748' : '#ffffff',
-                  borderColor: isDark ? '#718096' : '#e2e8f0',
-                  color: isDark ? '#ffffff' : '#000000'
-                }}
-              >
-                <div 
-                  className="modal-header"
-                  style={{
-                    backgroundColor: isDark ? '#4a5568' : '#f7fafc',
-                    borderColor: isDark ? '#718096' : '#e2e8f0'
-                  }}
-                >
-                  <h5 className="modal-title text-danger">
-                   {t('rejection_details')}
-                  </h5>
-                  <button
-                    type="button"
-                    className="btn-close"
-                    onClick={() => setShowRejectionDetailsModal(false)}
-                    style={{
-                      filter: isDark ? 'invert(1)' : 'none'
-                    }}
-                  ></button>
+        >
+          <div className="card-body">
+            {filteredRequests.length === 0 ? (
+              <div className="text-center py-5">
+                <div className="mb-4">
+                  <i className="bi bi-inbox display-1 text-muted"></i>
                 </div>
-                
-                <div className="modal-body">
-                  {loadingRejectionDetails ? (
-                    <div className="text-center py-4">
-                      <div className="spinner-border text-danger" role="status"></div>
-                      <p className="mt-3">{t('loading')}</p>
-                    </div>
-                  ) : (
-                    <div 
-                      className="card border-danger"
-                      style={{
-                        backgroundColor: isDark ? '#4a5568' : '#ffffff',
-                        borderColor: '#dc3545'
-                      }}
-                    >
-                      <div className="card-header bg-danger text-white">
-                        <h6 className="mb-0">
-                          {t('why_was_this_request_rejected')}
-                        </h6>
-                      </div>
-                      <div className="card-body">
-                        <div className="mb-3">
-                          <label className="form-label fw-bold">{t('rejection_reason')}</label>
-                          <div 
-                            className="p-3 rounded border"
+                <h4 className={isDark ? 'text-light' : 'text-muted'}>
+                  {filter === 'all' ? 'No Requests' : `No Requests Found (${filter})`}
+                </h4>
+                <p className={`mb-4 ${isDark ? 'text-light' : 'text-muted'}`}>
+                  {filter === 'all' ? 'You haven\'t submitted any requests yet.' : `No ${filter.toLowerCase()} requests found.`}
+                </p>
+                {filter === 'all' && (
+                  <Link to="/create-request" className="btn btn-danger">
+                  {t('create_your_first_request')}
+                  </Link>
+                )}
+              </div>
+            ) : (
+              <>
+                <div className="table-responsive">
+                  <table className="table table-hover">
+                    <thead className={isDark ? 'table-dark' : 'table-light'}>
+                      <tr>
+                        
+                        <th>{t('type')}</th>
+                        <th>{t('content')}</th>
+                        <th>{t('priority')}</th>
+                        <th>{t('status')}</th>
+                        <th>{t('submitted')}</th>
+                        
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {paginatedRequests.map((request) => {
+                        const submittedDate = formatDate(request.submitted_at);
+
+                        return (
+                          <tr 
+                            key={request.request_id}
+                            className={isDark ? 'text-light' : ''}
                             style={{
-                              backgroundColor: isDark ? '#2d3748' : '#f8f9fa',
-                              borderColor: isDark ? '#718096' : '#e2e8f0'
+                              backgroundColor: isDark ? 'transparent' : '#ffffff',
+                              cursor: 'pointer'
+                            }}
+                            onClick={() => {
+                              setSelectedRequestDetails(request);
+                              setShowDetailsModal(true);
                             }}
                           >
-                            {selectedRequestForRejectionDetails.reason || t('no_reason_provided')}
-                          </div>
-                        </div>
+                           
+                            <td>
+                              <div className="fw-semibold">
+                                {translateRequestType(request.type_name)}
+                              </div>
+                            </td>
+                            <td>
+                              <div 
+                                className="text-truncate" 
+                                style={{ maxWidth: '200px' }}
+                                title={request.content}
+                              >
+                                {request.content}
+                              </div>
+                            </td>
+                            <td>
+                              <span className={`badge ${getPriorityBadge(request.priority)}`}>
+                                {t(request.priority.toLowerCase())}
+                              </span>
+                            </td>
+                            <td>
+                              <span className={`badge ${getStatusBadge(request.status)}`}>
+                                {t(request.status.toLowerCase())}
+                              </span>
+                            </td>
+                            <td>
+                              <div>
+                                <div className="fw-semibold">{submittedDate.date}</div>
+                                <small className={isDark ? 'text-light' : 'text-muted'}>
+                                  {submittedDate.time}
+                                </small>
+                              </div>
+                            </td>
+                            <td>
+                              <div className="btn-group btn-group-sm" role="group">
+                               
 
-                        {selectedRequestForRejectionDetails.additional_info && (
+                                
+
+                                
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+                
+                {/* Pagination */}
+                <PaginationComponent 
+                  currentPage={currentPage}
+                  totalPages={totalPages}
+                  onPageChange={setCurrentPage}
+                />
+              </>
+            )}
+          </div>
+        </div>
+
+       
+
+        {/* Request Details Modal */}
+        {showDetailsModal && selectedRequestDetails && (
+          <RequestDetailsModal
+            request={selectedRequestDetails}
+            onClose={() => {
+              setShowDetailsModal(false);
+              setSelectedRequestDetails(null);
+            }}
+          />
+        )}
+
+        {/* Attachment Viewer Modal */}
+        {showAttachments && selectedRequestId && (
+          <AttachmentViewer
+            requestId={selectedRequestId}
+            onClose={() => {
+              setShowAttachments(false);
+              setSelectedRequestId(null);
+            }}
+          />
+        )}
+
+        {/* Student Response Viewer Modal */}
+        {showResponsesModal && selectedRequestForResponses && (
+          <StudentResponseViewer
+            requestId={selectedRequestForResponses.id}
+            requestTitle={selectedRequestForResponses.title}
+            onClose={() => {
+              setShowResponsesModal(false);
+              setSelectedRequestForResponses(null);
+            }}
+          />
+        )}
+
+        {/* Rejection Details Modal */}
+        {showRejectionDetailsModal && selectedRequestForRejectionDetails && (
+          <>
+            <div
+              className="modal-backdrop fade show"
+              style={{ zIndex: 1040 }}
+              onClick={() => setShowRejectionDetailsModal(false)}
+            ></div>
+
+            <div
+              className="modal fade show d-block"
+              tabIndex="-1"
+              style={{ zIndex: 1050 }}
+            >
+              <div className="modal-dialog modal-lg modal-dialog-scrollable">
+                <div 
+                  className="modal-content"
+                  style={{
+                    backgroundColor: isDark ? '#2d3748' : '#ffffff',
+                    borderColor: isDark ? '#718096' : '#e2e8f0',
+                    color: isDark ? '#ffffff' : '#000000'
+                  }}
+                >
+                  <div 
+                    className="modal-header"
+                    style={{
+                      backgroundColor: isDark ? '#4a5568' : '#f7fafc',
+                      borderColor: isDark ? '#718096' : '#e2e8f0'
+                    }}
+                  >
+                    <h5 className="modal-title text-danger">
+                     {t('rejection_details')}
+                    </h5>
+                    <button
+                      type="button"
+                      className="btn-close"
+                      onClick={() => setShowRejectionDetailsModal(false)}
+                      style={{
+                        filter: isDark ? 'invert(1)' : 'none'
+                      }}
+                    ></button>
+                  </div>
+                  
+                  <div className="modal-body">
+                    {loadingRejectionDetails ? (
+                      <div className="text-center py-4">
+                        <div className="spinner-border text-danger" role="status"></div>
+                        <p className="mt-3">{t('loading')}</p>
+                      </div>
+                    ) : (
+                      <div 
+                        className="card border-danger"
+                        style={{
+                          backgroundColor: isDark ? '#4a5568' : '#ffffff',
+                          borderColor: '#dc3545'
+                        }}
+                      >
+                        <div className="card-header bg-danger text-white">
+                          <h6 className="mb-0">
+                            {t('why_was_this_request_rejected')}
+                          </h6>
+                        </div>
+                        <div className="card-body">
                           <div className="mb-3">
-                            <label className="form-label fw-bold">{t('additional_information')}</label>
+                            <label className="form-label fw-bold">{t('rejection_reason')}</label>
                             <div 
                               className="p-3 rounded border"
                               style={{
@@ -954,82 +941,97 @@ setError(t('failed_to_load_requests'));
                                 borderColor: isDark ? '#718096' : '#e2e8f0'
                               }}
                             >
-                              {selectedRequestForRejectionDetails.additional_info}
+                              {selectedRequestForRejectionDetails.reason || t('no_reason_provided')}
                             </div>
                           </div>
-                        )}
 
-                        <div className="row">
-                          <div className="col-md-6">
-                            <label className="form-label fw-bold">{t('rejected_date')}</label>
-                            <p className={isDark ? 'text-light' : 'text-muted'}>
-                              {selectedRequestForRejectionDetails.rejected_at 
-                                ? new Date(selectedRequestForRejectionDetails.rejected_at).toLocaleString()
-                                : t('unknown')
-                              }
-                            </p>
-                          </div>
-                          <div className="col-md-6">
-                            <label className="form-label fw-bold">{t('rejected_by')}</label>
-                            <p className={isDark ? 'text-light' : 'text-muted'}>
-                              {selectedRequestForRejectionDetails.admin_name || 'Unknown Admin'}
-                            </p>
+                          {selectedRequestForRejectionDetails.additional_info && (
+                            <div className="mb-3">
+                              <label className="form-label fw-bold">{t('additional_information')}</label>
+                              <div 
+                                className="p-3 rounded border"
+                                style={{
+                                  backgroundColor: isDark ? '#2d3748' : '#f8f9fa',
+                                  borderColor: isDark ? '#718096' : '#e2e8f0'
+                                }}
+                              >
+                                {selectedRequestForRejectionDetails.additional_info}
+                              </div>
+                            </div>
+                          )}
+
+                          <div className="row">
+                            <div className="col-md-6">
+                              <label className="form-label fw-bold">{t('rejected_date')}</label>
+                              <p className={isDark ? 'text-light' : 'text-muted'}>
+                                {selectedRequestForRejectionDetails.rejected_at 
+                                  ? new Date(selectedRequestForRejectionDetails.rejected_at).toLocaleString()
+                                  : t('unknown')
+                                }
+                              </p>
+                            </div>
+                            <div className="col-md-6">
+                              <label className="form-label fw-bold">{t('rejected_by')}</label>
+                              <p className={isDark ? 'text-light' : 'text-muted'}>
+                                {selectedRequestForRejectionDetails.admin_name || 'Unknown Admin'}
+                              </p>
+                            </div>
                           </div>
                         </div>
                       </div>
-                    </div>
-                  )}
+                    )}
 
+                    <div 
+                      className="alert alert-info mt-3"
+                      style={{
+                        backgroundColor: isDark ? 'rgba(59, 130, 246, 0.1)' : 'rgba(59, 130, 246, 0.1)',
+                        borderColor: '#3b82f6',
+                        color: isDark ? '#ffffff' : '#000000'
+                      }}
+                    >
+                      <h6 className="alert-heading">
+                        {t('what_can_you_do_next')}
+                      </h6>
+                      <ul className="mb-0">
+                       <li>{t('review_rejection_reason')}</li>
+                     
+                        <li>{t('submit_new_request_corrections')}</li>
+                        <li>{t('contact_student_support')}</li>
+                      </ul>
+                    </div>
+                  </div>
+                  
                   <div 
-                    className="alert alert-info mt-3"
+                    className="modal-footer"
                     style={{
-                      backgroundColor: isDark ? 'rgba(59, 130, 246, 0.1)' : 'rgba(59, 130, 246, 0.1)',
-                      borderColor: '#3b82f6',
-                      color: isDark ? '#ffffff' : '#000000'
+                      backgroundColor: isDark ? '#4a5568' : '#f7fafc',
+                      borderColor: isDark ? '#718096' : '#e2e8f0'
                     }}
                   >
-                    <h6 className="alert-heading">
-                      {t('what_can_you_do_next')}
-                    </h6>
-                    <ul className="mb-0">
-                     <li>{t('review_rejection_reason')}</li>
-                   
-                      <li>{t('submit_new_request_corrections')}</li>
-                      <li>{t('contact_student_support')}</li>
-                    </ul>
+                    <div className={`small me-auto ${isDark ? 'text-light' : 'text-muted'}`}>
+                     {t('request')} #{selectedRequestForRejectionDetails.requestId}
+                    </div>
+                    <button
+                      type="button"
+                      className="btn btn-secondary"
+                      onClick={() => setShowRejectionDetailsModal(false)}
+                    >
+                        {t('close')}
+                    </button>
+                    <Link 
+                      to="/create-request" 
+                      className="btn btn-danger"
+                      onClick={() => setShowRejectionDetailsModal(false)}
+                    >
+                     {t('submit_new_request')}
+                    </Link>
                   </div>
-                </div>
-                
-                <div 
-                  className="modal-footer"
-                  style={{
-                    backgroundColor: isDark ? '#4a5568' : '#f7fafc',
-                    borderColor: isDark ? '#718096' : '#e2e8f0'
-                  }}
-                >
-                  <div className={`small me-auto ${isDark ? 'text-light' : 'text-muted'}`}>
-                   {t('request')} #{selectedRequestForRejectionDetails.requestId}
-                  </div>
-                  <button
-                    type="button"
-                    className="btn btn-secondary"
-                    onClick={() => setShowRejectionDetailsModal(false)}
-                  >
-                      {t('close')}
-                  </button>
-                  <Link 
-                    to="/create-request" 
-                    className="btn btn-danger"
-                    onClick={() => setShowRejectionDetailsModal(false)}
-                  >
-                   {t('submit_new_request')}
-                  </Link>
                 </div>
               </div>
             </div>
-          </div>
-        </>
-      )}
+          </>
+        )}
+      </div>
 
       {/* Custom CSS for better table styling */}
       <style jsx>{`

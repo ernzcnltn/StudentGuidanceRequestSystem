@@ -117,6 +117,11 @@ app.get('/api/health', async (req, res) => {
   res.json(healthStatus);
 });
 
+
+
+
+
+
 // Enhanced test endpoint with calendar testing
 app.get('/api/test', async (req, res) => {
   const services = {

@@ -4,6 +4,43 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { pool } = require('../config/database');
 const { authenticateToken } = require('../middleware/auth');
+const fs = require('fs');
+
+
+const path = require('path');
+
+// GET /api/auth/profile-photo/:filename - Profil fotoğrafı serve etme
+// GET /api/auth/profile-photo/:filename - Profil fotoğrafı serve etme
+router.get('/profile-photo/:filename', (req, res) => {
+  const filename = req.params.filename;
+  const filepath = path.join(__dirname, '..', 'uploads', 'profiles', filename);
+  
+  console.log('📸 Profile photo requested:', filename);
+  
+  if (!fs.existsSync(filepath)) {
+    console.log('❌ File not found:', filepath);
+    return res.status(404).json({
+      success: false,
+      error: 'Profile photo not found'
+    });
+  }
+  
+  res.sendFile(filepath, (err) => {
+    if (err) {
+      console.error('❌ Error serving profile photo:', err);
+      res.status(500).json({
+        success: false,
+        error: 'Error serving profile photo'
+      });
+    } else {
+      console.log('✅ Profile photo served successfully');
+    }
+  });
+});
+
+
+
+
 
 // POST /api/auth/login - Email ile öğrenci giriş (ESKİ VERSİYON)
 router.post('/login', async (req, res) => {
@@ -90,8 +127,7 @@ router.post('/login-email', async (req, res) => {
 
     // Öğrenciyi email ile bul
     const [students] = await pool.execute(
-      'SELECT * FROM students WHERE email = ?',
-      [email]
+'SELECT student_id, student_number, name, email, program, profile_photo, password FROM students WHERE email = ?',      [email]
     );
 
     if (students.length === 0) {
@@ -149,6 +185,8 @@ router.post('/login-email', async (req, res) => {
     });
   }
 });
+
+
 
 // POST /api/auth/register - Registration with welcome email
 router.post('/register', async (req, res) => {
@@ -208,9 +246,25 @@ router.post('/register', async (req, res) => {
 // GET /api/auth/me - Kullanıcı profili
 router.get('/me', authenticateToken, async (req, res) => {
   try {
+    // Database'den kullanıcıyı profile_photo ile birlikte çek
+    const [students] = await pool.execute(
+      'SELECT student_id, student_number, name, email, program, profile_photo FROM students WHERE student_id = ?',
+      [req.user.student_id]
+    );
+
+    if (students.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: 'Student not found'
+      });
+    }
+
+    console.log('Student profile data:', students[0]); // Debug için
+    console.log('Profile photo path:', students[0].profile_photo); // Debug için
+
     res.json({
       success: true,
-      data: req.user
+      data: students[0]
     });
   } catch (error) {
     console.error('Profile error:', error);

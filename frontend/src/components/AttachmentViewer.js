@@ -106,8 +106,8 @@ const AttachmentViewer = ({ requestId, onClose }) => {
   const getFileIcon = (fileType) => {
     if (fileType.includes('pdf')) return '';
     if (fileType.includes('image')) return '';
-    if (fileType.includes('word') || fileType.includes('document')) return '📝';
-    if (fileType.includes('csv') || fileType.includes('excel')) return '📊';
+    if (fileType.includes('word') || fileType.includes('document')) return '';
+    if (fileType.includes('csv') || fileType.includes('excel')) return '';
     return '';
   };
 

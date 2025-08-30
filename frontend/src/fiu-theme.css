@@ -10,7 +10,7 @@
   --fiu-dark: #1e293b;           /* Koyu Gri */
   --fiu-white: #ffffff;
   --fiu-black: #000000;
-  --fiu-yellow: #c7cd11;
+  --fiu-yellow: #dcd224;
   --fiu-darkblue : #1b73d2;
 
 }
@@ -535,6 +535,9 @@ a:hover {
   background-color: transparent;
   z-index: 1055 !important; /* Arka plandan daha önde */
 }
+
+
+
 
 }
 

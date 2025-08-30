@@ -59,22 +59,30 @@ const CreateRequestPage = () => {
 
 
   // ⭐ UPDATED: Check student's recent requests for 24-hour limit
-  useEffect(() => {
-    const checkRecentRequests = async () => {
-      if (!user?.student_id) return;
+useEffect(() => {
+  const checkRecentRequests = async () => {
+    if (!user?.student_id || !formData.type_id) return;
+    
+    try {
+      // Seçili request type'ın departmanını bul ve o departmana göre kontrol et
+      const typeResponse = await apiService.getRequestType(formData.type_id);
+      if (!typeResponse.data.success) return;
       
-      try {
-        console.log('🔍 Checking recent requests for 24-hour limit...');
+      const requestCategory = typeResponse.data.data.category;
+      
+      const response = await apiService.getStudentRequests(user.student_id);
+      
+      if (response.data.success) {
+        const requests = response.data.data;
         
-        const response = await apiService.getStudentRequests(user.student_id);
+        // Sadece aynı kategori/departmandaki request'leri filtrele
+        const categoryRequests = requests.filter(req => req.category === requestCategory);
         
-        if (response.data.success) {
-          const requests = response.data.data;
-          
-          const last24Hours = new Date(Date.now() - 24 * 60 * 60 * 1000);
-          const recentRequests = requests.filter(req => 
-            new Date(req.submitted_at) > last24Hours
-          );
+        const last24Hours = new Date(Date.now() - 24 * 60 * 60 * 1000);
+        const recentRequests = categoryRequests.filter(req => 
+          new Date(req.submitted_at) > last24Hours
+        );
+        
           
           console.log('📊 Recent requests check:', {
             totalRequests: requests.length,
@@ -117,10 +125,10 @@ const CreateRequestPage = () => {
             }
           }
         }
-      } catch (error) {
-        console.error('❌ Error checking recent requests:', error);
-      }
-    };
+       } catch (error) {
+      console.error('Error checking recent requests:', error);
+    }
+  };
 
     checkRecentRequests();
   }, [user?.student_id, showSuccess]);
@@ -548,7 +556,7 @@ showInfo(t('pleaseWaitMinutes', { minutes: errorData.details.minutes_remaining }
                     {selectedType.description_en || t('noDescriptionAvailable')}
                     {selectedType.is_document_required && (
                       <div className="mt-2">
-                        <strong className="text-warning">
+                        <strong className="text-danger">
                            {t('documentUploadRequired')}
                         </strong>
                       </div>

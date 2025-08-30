@@ -72,6 +72,9 @@ const initializeTokens = () => {
   }
 };
 
+
+
+
 // Sayfa yüklendiğinde token'ları initialize et
 initializeTokens();
 
@@ -1742,6 +1745,9 @@ export const apiService = {
 
 ...adminStatisticsMethods,
 
+
+
+
  // YENİ email metodları - EKLEYİN
   loginWithEmail: (email, password) => {
     console.log('🎓 Student email login:', { email: email?.substring(0, 10) + '...' });
@@ -2305,6 +2311,20 @@ markAllNotificationsAsRead: () => {
   return api.post('/notifications/mark-all-read');
 },
 
+
+
+getStudentRequestsByCategory: (studentId, category) => {
+  return studentApi.get(`/requests/student/${studentId}/category/${category}`);
+},
+
+
+getStudentRequestsByCategory: (studentId, category) => {
+  return studentApi.get(`/requests/student/${studentId}/category/${category}`);
+},
+
+
+
+
 // Updated notification delete methods
 deleteNotification: (notificationId) => {
   // Admin notification ise admin API kullan, student ise student API kullan
@@ -2594,6 +2614,17 @@ clearAllNotificationsLocal: () => {
   getStudentProfile: () => studentApi.get('/auth/me'),
   updateStudentProfile: (profileData) => studentApi.put('/auth/profile', profileData),
   changeStudentPassword: (passwordData) => studentApi.put('/auth/change-password', passwordData),
+
+getProfilePhotoUrl: (profilePhotoPath) => {
+  if (!profilePhotoPath || profilePhotoPath.trim() === '') return null;
+  
+  const filename = profilePhotoPath.replace('profiles/', '');
+  
+  // Tam URL yerine relative URL kullan
+  return `/api/auth/profile-photo/${filename}`;
+},
+
+
 
   // ===== ADVANCED FEATURES =====
   bulkUpdateRequests: (updateData) => adminApi.post('/admin-auth/requests/bulk-update', updateData),

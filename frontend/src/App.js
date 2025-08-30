@@ -18,6 +18,7 @@ import DarkModeToggle from './components/DarkModeToggle';
 import FIULogo from './components/FIULogo';
 import ConfirmationModal from './components/ConfirmationModal';
 import LanguageDropdown from './components/LanguageDropdown';
+import StudentNotificationCenter from './components/StudentNotificationCenter';
 import { useConfirmation } from './hooks/useConfirmation';
 // Pages
 import HomePage from './pages/HomePage';
@@ -147,8 +148,9 @@ const AdminRoutes = () => {
 
 // Student Routes
 const StudentRoutes = () => {
-  const { loading } = useAuth();
+  const { loading, isAuthenticated } = useAuth();
 
+  // Loading durumunu kontrol et
   if (loading) {
     return (
       <div style={{ 
@@ -170,11 +172,12 @@ const StudentRoutes = () => {
     );
   }
 
-  return (
-    <ProtectedRoute>
-      <MainApp />
-    </ProtectedRoute>
-  );
+  // Authentication kontrolü
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace />;
+  }
+
+  return <MainApp />;
 };
 
 // Navbar'da kullanılacak Language Dropdown
@@ -182,10 +185,11 @@ const SimpleLanguageSelector = () => {
   return <LanguageDropdown variant="navbar" />;
 };
 
-// Sidebar Component
+// Enhanced Sidebar Component with User Profile
 const Sidebar = ({ isOpen, toggleSidebar }) => {
   const { t } = useTranslation();
   const { isDark } = useTheme();
+  const { user } = useAuth();
   const location = useLocation();
 
   const menuItems = [
@@ -194,6 +198,74 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
     { path: '/create-request', label: t('createRequest'), icon: 'bi-plus-circle' }
   ];
 
+ // Basitleştirilmiş ve çalışan profil avatar fonksiyonu
+const renderProfileAvatar = () => {
+  console.log('User data:', user);
+  console.log('Profile photo value:', user?.profile_photo);
+  
+  // Kullanıcı yoksa varsayılan
+  if (!user) {
+    return (
+      <div style={{
+        width: '45px', height: '45px', borderRadius: '50%',
+        background: '#6c757d', display: 'flex', alignItems: 'center', 
+        justifyContent: 'center', color: 'white', fontSize: '1.2rem'
+      }}>
+        ?
+      </div>
+    );
+  }
+
+  // Profil fotoğrafı varsa göster
+  if (user.profile_photo && user.profile_photo.trim() !== '') {
+const photoUrl = apiService.getProfilePhotoUrl(user.profile_photo);
+    console.log('Photo URL:', photoUrl);
+    
+    return (
+      <img 
+        src={photoUrl}
+        alt="Profil"
+        style={{
+          width: '45px',
+          height: '45px',
+          objectFit: 'cover',
+          borderRadius: '50%',
+          border: '2px solid #e9ecef'
+        }}
+        onError={(e) => {
+          console.log('Image load failed:', photoUrl);
+          // Hata durumunda initials göster
+          e.target.outerHTML = `<div style="width: 45px; height: 45px; border-radius: 50%; background: linear-gradient(135deg, #dc2626, #b91c1c); display: flex; align-items: center; justify-content: center; color: white; font-size: 1.2rem; font-weight: bold; border: 2px solid #e9ecef;">${getInitials()}</div>`;
+        }}
+        onLoad={() => {
+          console.log('Image loaded successfully:', photoUrl);
+        }}
+      />
+    );
+  }
+
+  // Profil fotoğrafı yoksa initials
+  return (
+    <div style={{
+      width: '45px', height: '45px', borderRadius: '50%',
+      background: 'linear-gradient(135deg, #dc2626, #b91c1c)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      color: 'white', fontSize: '1.2rem', fontWeight: 'bold',
+      border: '2px solid #e9ecef'
+    }}>
+      {getInitials()}
+    </div>
+  );
+
+  function getInitials() {
+    if (!user?.name) return 'ST';
+    const parts = user.name.split(' ');
+    if (parts.length >= 2) {
+      return (parts[0][0] + parts[1][0]).toUpperCase();
+    }
+    return user.name.substring(0, 2).toUpperCase();
+  }
+};
   return (
     <>
       {/* Overlay */}
@@ -219,14 +291,16 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
         style={{
           position: 'fixed',
           top: 0,
-          left: isOpen ? 0 : '-280px',
-          width: '280px',
+          left: isOpen ? 0 : '-320px',
+          width: '320px',
           height: '100vh',
-          backgroundColor: isDark ? '#2d3748' : '#ffffff',
+          backgroundColor: isDark ? '#1a202c' : '#ffffff',
           borderRight: `1px solid ${isDark ? '#4a5568' : '#e2e8f0'}`,
           transition: 'left 0.3s ease-in-out',
           zIndex: 1050,
-          boxShadow: isOpen ? '0 0 20px rgba(0,0,0,0.1)' : 'none'
+          boxShadow: isOpen ? '0 0 20px rgba(0,0,0,0.2)' : 'none',
+          display: 'flex',
+          flexDirection: 'column'
         }}
       >
         {/* Sidebar Header */}
@@ -234,7 +308,7 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
           className="sidebar-header p-3 border-bottom"
           style={{
             borderColor: isDark ? '#4a5568' : '#e2e8f0',
-            backgroundColor: isDark ? '#4a5568' : '#f8f9fa'
+            backgroundColor: isDark ? '#2d3748' : '#f8f9fa'
           }}
         >
           <div className="d-flex align-items-center justify-content-between">
@@ -254,8 +328,59 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
           </div>
         </div>
 
+        {/* User Profile Section - DÜZENLENMİŞ */}
+        <div 
+          className="user-profile-section p-4 border-bottom"
+          style={{
+            borderColor: isDark ? '#4a5568' : '#e2e8f0',
+            backgroundColor: isDark ? '#2d3748' : '#ffffff'
+          }}
+        >
+          <div className="d-flex align-items-center">
+            {/* Profile Avatar Container */}
+            <div className="profile-avatar-container position-relative me-3">
+              {renderProfileAvatar()}
+              
+              {/* Varsayılan avatar (fotoğraf yüklenemezse gösterilir) */}
+              <div 
+                className="default-fallback-avatar"
+                style={{
+                  display: 'none', // Başlangıçta gizli
+                  width: '45px',
+                  height: '45px',
+                  borderRadius: '50%',
+                  background: 'linear-gradient(135deg, #6c757d, #495057)',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: 'white',
+                  fontSize: '1.2rem',
+                  fontWeight: 'bold',
+                  border: '2px solid #e9ecef'
+                }}
+              >
+                <i className="bi bi-person"></i>
+              </div>
+            </div>
+
+            {/* User Info */}
+            <div className="user-info flex-grow-1">
+              <h6 className={`mb-1 fw-bold ${isDark ? 'text-white' : 'text-dark'}`}>
+                {user?.name || 'Kullanıcı'}
+              </h6>
+              <p className={`mb-1 small ${isDark ? 'text-gray-300' : 'text-muted'}`}>
+                <i className="bi bi-person-badge me-1"></i>
+                {user?.student_number || 'N/A'}
+              </p>
+              <p className={`mb-0 small ${isDark ? 'text-gray-400' : 'text-muted'}`}>
+                <i className="bi bi-envelope me-1"></i>
+                {user?.email || 'E-posta yok'}
+              </p>
+            </div>
+          </div>
+        </div>
+
         {/* Sidebar Menu */}
-        <div className="sidebar-menu p-3">
+        <div className="sidebar-menu p-3 flex-grow-1">
           <ul className="list-unstyled mb-0">
             {menuItems.map((item) => (
               <li key={item.path} className="mb-2">
@@ -282,6 +407,7 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
         </div>
       </div>
 
+      {/* CSS Styles */}
       <style jsx>{`
         .sidebar-item:hover {
           background-color: ${isDark ? '#4a5568' : '#f8f9fa'} !important;
@@ -294,6 +420,19 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
         
         .sidebar-item.active:hover {
           background-color: #b91c1c !important;
+          transform: translateX(5px);
+        }
+        
+        .profile-avatar-container:hover {
+          transform: scale(1.05);
+          transition: transform 0.2s ease-in-out;
+        }
+        
+        @media (max-width: 768px) {
+          .sidebar {
+            width: 280px !important;
+            left: ${isOpen ? '0' : '-280px'} !important;
+          }
         }
       `}</style>
     </>
@@ -325,6 +464,19 @@ const MainApp = () => {
     if (confirmed) {
       console.log('Navbar logout confirmed');
       logout();
+    }
+  };
+
+  // Notification click handler
+  const handleNotificationClick = (requestId, type) => {
+    console.log('Student notification clicked:', { requestId, type });
+    
+    if (requestId) {
+      // Navigate to requests page and highlight the specific request
+      window.location.href = `/requests#request-${requestId}`;
+    } else {
+      // Navigate to general requests page
+      window.location.href = '/requests';
     }
   };
 
@@ -365,14 +517,17 @@ const MainApp = () => {
             </Link>
           </div>
           
-          {/* User Info, Language Dropdown ve Logout */}
+          {/* User Info, Notifications, Language Dropdown ve Logout */}
           <div className="d-flex align-items-center gap-3">
             <span className="text-white d-none d-md-inline">
-              {t('welcome')}, <strong>{user?.name}</strong>
+              {t('welcome')}, <strong>{user?.first_name || user?.name}</strong>
             </span>
             
             {/* Language Dropdown */}
             <SimpleLanguageSelector />
+            
+            {/* Student Notification Center */}
+            <StudentNotificationCenter onNotificationClick={handleNotificationClick} />
             
             <button 
               className="btn btn-outline-light btn-sm" 
