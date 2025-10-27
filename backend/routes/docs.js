@@ -52,7 +52,7 @@ router.get('/', (req, res) => {
             type_id: "number",
             content: "string (max 300 chars)"
           },
-          notes: "One request per 24 hours per student"
+          notes: "One request per 24 hours per student per department"
         },
         "PUT /api/requests/:id/status": {
           description: "Update request status (admin only)",
