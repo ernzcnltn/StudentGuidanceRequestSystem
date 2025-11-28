@@ -656,64 +656,89 @@ setError(t('failed_to_load_requests'));
 
        
 
-        {/* Filters */}
-        <div className="d-flex justify-content-between align-items-center mb-4">
-          <div className="btn-group" role="group">
-            <button
-              type="button"
-              className={`btn ${filter === 'all' ? 'btn-danger' : 'btn-outline-danger'}`}
-              onClick={() => {
-                setFilter('all');
-                setCurrentPage(1);
-              }}
-            >
-             {t('view_all')} ({requests.length})
-            </button>
-            <button
-              type="button"
-              className={`btn ${filter === 'Pending' ? 'btn-danger' : 'btn-outline-danger'}`}
-              onClick={() => {
-                setFilter('Pending');
-                setCurrentPage(1);
-              }}
-            >
-             {t('pending')} ({requests.filter(r => r.status === 'Pending').length})
-            </button>
-            <button
-              type="button"
-              className={`btn ${filter === 'Informed' ? 'btn-danger' : 'btn-outline-danger'}`}
-              onClick={() => {
-                setFilter('Informed');
-                setCurrentPage(1);
-              }}
-            >
-             {t('informed')}  ({requests.filter(r => r.status === 'Informed').length})
-            </button>
-            <button
-              type="button"
-              className={`btn ${filter === 'Completed' ? 'btn-danger' : 'btn-outline-danger'}`}
-              onClick={() => {
-                setFilter('Completed');
-                setCurrentPage(1);
-              }}
-            >
-             {t('completed')} ({requests.filter(r => r.status === 'Completed').length})
-            </button>
-            <button
-              type="button"
-              className={`btn ${filter === 'Rejected' ? 'btn-danger' : 'btn-outline-danger'}`}
-              onClick={() => {
-                setFilter('Rejected');
-                setCurrentPage(1);
-              }}
-            >
-              {t('rejected')} ({requests.filter(r => r.status === 'Rejected').length})
-            </button>
-          </div>
+       {/* Filters */}
+<div className="d-flex justify-content-between align-items-center mb-4">
+  <div className="btn-group" role="group">
+    <button
+      type="button"
+      className={`btn ${filter === 'all' ? 'btn-danger' : 'btn-outline-danger'}`}
+      onClick={() => {
+        setFilter('all');
+        setCurrentPage(1);
+      }}
+      style={{
+        backgroundColor: filter === 'all' ? '#dc2626' : 'transparent',
+        borderColor: '#dc2626',
+        color: filter === 'all' ? '#ffffff' : '#dc2626'
+      }}
+    >
+      {t('view_all')} ({requests.length})
+    </button>
+    <button
+      type="button"
+      className={`btn ${filter === 'Pending' ? 'btn-danger' : 'btn-outline-danger'}`}
+      onClick={() => {
+        setFilter('Pending');
+        setCurrentPage(1);
+      }}
+      style={{
+        backgroundColor: filter === 'Pending' ? '#dc2626' : 'transparent',
+        borderColor: '#dc2626',
+        color: filter === 'Pending' ? '#ffffff' : '#dc2626'
+      }}
+    >
+      {t('pending')} ({requests.filter(r => r.status === 'Pending').length})
+    </button>
+    <button
+      type="button"
+      className={`btn ${filter === 'Informed' ? 'btn-danger' : 'btn-outline-danger'}`}
+      onClick={() => {
+        setFilter('Informed');
+        setCurrentPage(1);
+      }}
+      style={{
+        backgroundColor: filter === 'Informed' ? '#dc2626' : 'transparent',
+        borderColor: '#dc2626',
+        color: filter === 'Informed' ? '#ffffff' : '#dc2626'
+      }}
+    >
+      {t('informed')} ({requests.filter(r => r.status === 'Informed').length})
+    </button>
+    <button
+      type="button"
+      className={`btn ${filter === 'Completed' ? 'btn-danger' : 'btn-outline-danger'}`}
+      onClick={() => {
+        setFilter('Completed');
+        setCurrentPage(1);
+      }}
+      style={{
+        backgroundColor: filter === 'Completed' ? '#dc2626' : 'transparent',
+        borderColor: '#dc2626',
+        color: filter === 'Completed' ? '#ffffff' : '#dc2626'
+      }}
+    >
+      {t('completed')} ({requests.filter(r => r.status === 'Completed').length})
+    </button>
+    <button
+      type="button"
+      className={`btn ${filter === 'Rejected' ? 'btn-danger' : 'btn-outline-danger'}`}
+      onClick={() => {
+        setFilter('Rejected');
+        setCurrentPage(1);
+      }}
+      style={{
+        backgroundColor: filter === 'Rejected' ? '#dc2626' : 'transparent',
+        borderColor: '#dc2626',
+        color: filter === 'Rejected' ? '#ffffff' : '#dc2626'
+      }}
+    >
+      {t('rejected')} ({requests.filter(r => r.status === 'Rejected').length})
+    </button>
+  </div>
 
-          <div className={`text-sm ${isDark ? 'text-light' : 'text-muted'}`}>
-          </div>
-        </div>
+  <div className={`text-sm ${isDark ? 'text-light' : 'text-muted'}`}>
+  </div>
+</div>
 
         {/* Requests Table */}
         <div 

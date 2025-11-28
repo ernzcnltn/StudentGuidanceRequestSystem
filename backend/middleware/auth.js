@@ -141,8 +141,7 @@ const optionalAuth = async (req, res, next) => {
     if (token) {
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
       const [users] = await pool.execute(
-        'SELECT student_id, student_number, name, email FROM students WHERE student_id = ?',
-        [decoded.student_id]
+'SELECT student_id, student_number, name, email, program, faculty FROM students WHERE student_id = ?',        [decoded.student_id]
       );
 
       if (users.length > 0) {

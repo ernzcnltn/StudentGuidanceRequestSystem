@@ -1734,7 +1734,7 @@ const adminStatisticsMethods = {
 
 
 // API functions
-export const apiService = {
+ const apiService = {
   // ===== EXISTING METHODS (PRESERVED) =====
 
   ...unifiedAuthMethods,
@@ -2790,13 +2790,83 @@ getProfilePhotoUrl: (profilePhotoPath) => {
   autoAssignSingleRequest: (requestId) => {
     console.log(' Auto-assigning single request:', requestId);
     return adminApi.post(`/admin-auth/requests/${requestId}/auto-assign`);
-  }
+  },
 
+
+// ===== EXAM REQUESTS (Makeup & Resit) =====
+  getFaculties: () => studentApi.get('/faculties'),
+  getFaculty: (facultyId) => studentApi.get(`/faculties/${facultyId}`),
+  createExamRequest: (examRequestData) => studentApi.post('/exam-requests', examRequestData),
+  getMyExamRequests: () => studentApi.get('/exam-requests/my'),
+  getExamRequest: (examRequestId) => studentApi.get(`/exam-requests/${examRequestId}`),
+  uploadExamRequestFile: (examRequestId, formData) => {
+    return studentApi.post(`/exam-requests/${examRequestId}/upload`, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+  },
+  getExamRequestAttachments: (examRequestId) => studentApi.get(`/exam-requests/${examRequestId}/attachments`),
+
+  // ===== SECRETARY EXAM REQUESTS ===== 👈 YENİ
+  getSecretaryExamRequests: () => adminApi.get('/secretary/exam-requests'),
+  getSecretaryExamRequestDetail: (requestId) => adminApi.get(`/secretary/exam-requests/${requestId}`),
+  approveExamRequest: (requestId, data) => adminApi.put(`/secretary/exam-requests/${requestId}/approve`, data),
+  rejectExamRequest: (requestId, data) => adminApi.put(`/secretary/exam-requests/${requestId}/reject`, data),
+  getSecretaryStatistics: () => adminApi.get('/secretary/statistics'),
+getSecretaryExamRequestAttachments: (requestId) => adminApi.get(`/secretary/exam-requests/${requestId}/attachments`),
+
+  // ===== COURSES MANAGEMENT (ADMIN) =====
+  uploadCourses: (formData) => {
+    return axios.post(`${BASE_URL}/courses/upload`, formData, {
+      headers: {
+        'Authorization': `Bearer ${localStorage.getItem('admin_token')}`,
+        'Content-Type': 'multipart/form-data'
+      }
+    });
+  },
+
+  exportCourses: () => {
+    return axios.get(`${BASE_URL}/courses/export`, {
+      headers: {
+        'Authorization': `Bearer ${localStorage.getItem('admin_token')}`
+      },
+      responseType: 'blob'
+    });
+  },
+
+  getAdminCourses: (filters = {}) => {
+    return axios.get(`${BASE_URL}/courses`, {
+      params: filters,
+      headers: {
+        'Authorization': `Bearer ${localStorage.getItem('admin_token')}`
+      }
+    });
+  },
+
+  downloadCoursesTemplate: () => {
+    return axios.get(`${BASE_URL}/courses/template`, {
+      headers: {
+        'Authorization': `Bearer ${localStorage.getItem('admin_token')}`
+      },
+      responseType: 'blob'
+    });
+  },
+
+  // ===== COURSE SEARCH (STUDENT) =====
+searchCourses: (query) => {
+  return axios.get(`${BASE_URL}/students/courses/search`, {
+    params: { q: query },
+    headers: {
+      'Authorization': `Bearer ${localStorage.getItem('student_token')}`  // ✅ 'student_token' olmalı!
+    }
+  });
+}
 
 };
 
 
-
+export { apiService }; 
 
 
 
@@ -2940,8 +3010,15 @@ export const rateLimiter = {
     recentCalls.push(now);
     this.calls.set(endpoint, recentCalls);
     return true;
-  }
+  },
+
+
+
+
+
+  
 };
+
 
 
 

@@ -27,8 +27,10 @@ import CreateRequestPage from './pages/CreateRequestPage';
 import RegisterPage from './pages/RegisterPage';
 import UnifiedLoginPage from './pages/UnifiedLoginPage';
 import AdminDashboardPage from './pages/AdminDashboardPage';
+import ExamRequestPage from './pages/ExamRequestPage';
+import SecretaryExamRequestsPage from './pages/SecretaryExamRequestsPage.js'; // 👈 YENİ
 
-function App() {
+function App() { 
   const [apiStatus, setApiStatus] = useState('checking');
 
   useEffect(() => {
@@ -140,6 +142,8 @@ const AdminRoutes = () => {
     <ProtectedAdminRoute>
       <Routes>
         <Route path="/dashboard" element={<AdminDashboardPage />} />
+                <Route path="/secretary/exam-requests" element={<SecretaryExamRequestsPage />} /> {/* 👈 YENİ */}
+
         <Route path="/" element={<Navigate to="/admin/dashboard" replace />} />
       </Routes>
     </ProtectedAdminRoute>
@@ -195,7 +199,9 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
   const menuItems = [
     { path: '/', label: t('home'), icon: 'bi-house-door' },
     { path: '/requests', label: t('myRequests'), icon: 'bi-file-earmark-text' },
-    { path: '/create-request', label: t('createRequest'), icon: 'bi-plus-circle' }
+    { path: '/create-request', label: t('createRequest'), icon: 'bi-plus-circle' },
+    { path: '/exam-request', label: 'Exam Request', icon: 'bi-calendar-check' }  // 👈 YENİ
+
   ];
 
  // Basitleştirilmiş ve çalışan profil avatar fonksiyonu
@@ -547,6 +553,7 @@ const MainApp = () => {
           <Route path="/" element={<HomePage />} />
           <Route path="/requests" element={<RequestsPage />} />
           <Route path="/create-request" element={<CreateRequestPage />} />
+       <Route path="/exam-request" element={<ExamRequestPage />} />
         </Routes>
       </main>
 

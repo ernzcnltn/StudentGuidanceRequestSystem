@@ -413,6 +413,8 @@ const commonPermissions = {
 
 module.exports = {
   authenticateAdmin,
+    authenticateAdminToken: authenticateAdmin, // 👈 ALIAS EKLE
+
   requireDepartment,
   requirePermission,
   requireAnyPermission,

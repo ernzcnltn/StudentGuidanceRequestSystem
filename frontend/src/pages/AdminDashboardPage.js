@@ -20,6 +20,8 @@ import 'bootstrap/dist/js/bootstrap.bundle.min.js';
 import { useToast } from '../contexts/ToastContext';
 import { useConfirmation } from '../hooks/useConfirmation';
 import ConfirmationModal from '../components/ConfirmationModal';
+import SecretaryExamRequestsPage from './SecretaryExamRequestsPage';
+import CoursesManagementPage from '../components/CoursesManagementPage';
 
 // Request Detail Modal Component
 
@@ -650,7 +652,21 @@ showError(t('noRequestSelectedForRejection'));
     }
   };
 
+// Secretary için direkt exam-requests tab'ını aç
+useEffect(() => {
+  if (admin?.role === 'secretary') {
+    setActiveTab('exam-requests');
+  }
+}, [admin]); // admin değiştiğinde çalışsın
+
+
   useEffect(() => {
+
+    // 👇 Secretary için dashboard data çekme
+  if (admin?.role === 'secretary') {
+    return; // Secretary için hiçbir şey yapma
+  }
+
     if (activeTab === 'dashboard') {
       fetchDashboardData();
     } else if (activeTab === 'requests') {
@@ -821,6 +837,17 @@ showError(t('noPermissionViewRequests'));
  const getVisibleTabs = () => {
   const tabs = [];
   
+      // 👇 YENİ: Secretary için Exam Requests tab'ı
+    if (admin?.role === 'secretary') {
+      tabs.push({ 
+        key: 'exam-requests', 
+        label: 'Exam Requests', 
+        icon: 'bi bi-clipboard2-check' 
+      });
+      return tabs; // Secretary sadece exam requests görsün
+    }
+
+
   if (canViewAnalytics()) {
     tabs.push({ key: 'dashboard', label: 'Dashboard', icon: 'bi bi-graph-up' });
   }
@@ -831,6 +858,14 @@ showError(t('noPermissionViewRequests'));
 
   if (canManageSettings()) {
     tabs.push({ key: 'settings', label: 'Settings', icon: 'bi bi-gear' });
+  }
+
+   if (isSuperAdmin()) {
+    tabs.push({ 
+      key: 'courses', 
+      label: 'Courses', 
+      icon: 'bi bi-book' 
+    });
   }
   
   // RBAC Management Tabs (Super Admin only)
@@ -928,7 +963,24 @@ showError(t('noPermissionViewRequests'));
     );
   };
 
-  const renderDashboard = () => (
+ const renderDashboard = () => {  // 👈 PARANTEZ YERİNE SÜSLÜ PARANTEZ
+
+  if (admin?.role === 'secretary') {
+    return (
+      <div className="container mt-4">
+        <div className="alert alert-info text-center py-5">
+          <i className="bi bi-clipboard2-check" style={{ fontSize: '4rem', color: '#0d6efd' }}></i>
+          <h4 className="mt-3">Welcome {admin.full_name}!</h4>
+          <p className="text-muted mb-0">
+            As a secretary, you can manage exam requests from the Exam Requests menu.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // 👇 NORMAL DASHBOARD
+  return (
     <div>
       <div className="row mb-4">
         <div className="col-12">
@@ -966,6 +1018,7 @@ showError(t('noPermissionViewRequests'));
       <AdminStatisticsPage />
     </div>
   );
+};
 
   const renderRequests = () => {
     const totalPages = getTotalPages(requests.length, itemsPerPage);
@@ -1401,7 +1454,10 @@ showError(t('noPermissionViewRequests'));
   };
 
   const renderTabContent = () => {
+
     switch (activeTab) {
+      case 'exam-requests': // 👈 YENİ
+        return <SecretaryExamRequestsPage />; // 👈 YENİ
       case 'dashboard':
         return renderDashboard();
       case 'requests':
@@ -1415,6 +1471,8 @@ showError(t('noPermissionViewRequests'));
         return renderRoleManagement();
       case 'permissions':
         return renderPermissionManagement();
+      case 'courses': // 👈 YENİ
+      return <CoursesManagementPage />;
       case 'calendar':
         return <AcademicCalendarManager />;
       default:

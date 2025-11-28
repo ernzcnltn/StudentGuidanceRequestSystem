@@ -2,6 +2,67 @@
 const rbacService = require('../services/rbacService');
 
 /**
+ * Shorthand middleware for permission checking (single permission string)
+ * @param {string} permissionString - Permission in format "resource.action" or "permission_name"
+ * @returns {Function} Middleware function
+ */
+const hasPermission = (permissionString) => {
+  return async (req, res, next) => {
+    try {
+      const userId = req.admin?.admin_id;
+      
+      if (!userId) {
+        return res.status(401).json({
+          success: false,
+          error: 'Authentication required'
+        });
+      }
+
+      // Check if user is super admin (bypass permission check)
+      if (req.admin?.is_super_admin) {
+        return next();
+      }
+
+      // Split permission string into resource and action
+      const parts = permissionString.split('.');
+      if (parts.length !== 2) {
+        return res.status(400).json({
+          success: false,
+          error: `Invalid permission format: ${permissionString}. Expected format: resource.action`
+        });
+      }
+
+      const [resource, action] = parts;
+      const hasAccess = await rbacService.hasPermission(userId, resource, action);
+      
+      if (!hasAccess) {
+        return res.status(403).json({
+          success: false,
+          error: `Access denied. Required permission: ${permissionString}`,
+          required_permission: { resource, action }
+        });
+      }
+
+      req.permission_used = {
+        resource,
+        action,
+        user_id: userId,
+        timestamp: new Date().toISOString()
+      };
+
+      next();
+    } catch (error) {
+      console.error('Permission check error:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Permission check failed'
+      });
+    }
+  };
+};
+
+
+/**
  * Check if user has specific permission
  * @param {string} resource - Resource name (e.g., 'requests', 'users')
  * @param {string} action - Action name (e.g., 'view', 'create', 'update')
@@ -652,6 +713,7 @@ const createPermissionCombinations = {
 };
 
 module.exports = {
+  hasPermission,  
   checkPermission,
   checkMultiplePermissions,
   checkAnyPermission,

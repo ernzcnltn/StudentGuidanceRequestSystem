@@ -5,6 +5,11 @@ const cors = require('cors');
 const path = require('path');
 const cookieParser = require('cookie-parser');
 const authRoutes = require('./routes/auth');
+const examRequestsRoutes = require('./routes/examRequests'); // 👈 YENİ EKLEME
+const secretaryExamRequestsRoutes = require('./routes/SecretaryExamRequests'); // 👈 YENİ EKLE
+const coursesRoutes = require('./routes/courses');
+
+
 require('dotenv').config();
 
 // Import services
@@ -75,6 +80,8 @@ app.use('/api/request-types', require('./routes/requestTypes'));
 app.use('/api/requests', require('./routes/requests'));
 app.use('/api/students', require('./routes/students'));
 app.use('/api/docs', require('./routes/docs'));
+app.use('/api', examRequestsRoutes);
+app.use('/api/secretary', secretaryExamRequestsRoutes);
 
 // ✅ EXISTING ROUTES
 app.use('/api/notifications', require('./routes/notifications'));
@@ -83,6 +90,9 @@ app.use('/api/search', require('./routes/search'));
 
 // ⭐ NEW ROUTE - Academic Calendar Management
 app.use('/api/academic-calendar', require('./routes/academicCalendar'));
+
+
+app.use('/api/courses', coursesRoutes);
 
 // Health check endpoint with calendar status
 app.get('/api/health', async (req, res) => {

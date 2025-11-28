@@ -125,9 +125,10 @@ router.post('/login-email', async (req, res) => {
       });
     }
 
-    // Öğrenciyi email ile bul
+    // Öğrenciyi email ile bul - FACULTY EKLENDİ
     const [students] = await pool.execute(
-'SELECT student_id, student_number, name, email, program, profile_photo, password FROM students WHERE email = ?',      [email]
+      'SELECT student_id, student_number, name, email, program, faculty, profile_photo, password FROM students WHERE email = ?',
+      [email]
     );
 
     if (students.length === 0) {
@@ -248,7 +249,7 @@ router.get('/me', authenticateToken, async (req, res) => {
   try {
     // Database'den kullanıcıyı profile_photo ile birlikte çek
     const [students] = await pool.execute(
-      'SELECT student_id, student_number, name, email, program, profile_photo FROM students WHERE student_id = ?',
+      'SELECT student_id, student_number, name, email, program, faculty, profile_photo FROM students WHERE student_id = ?',
       [req.user.student_id]
     );
 
