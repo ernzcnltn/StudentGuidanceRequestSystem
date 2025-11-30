@@ -578,56 +578,69 @@ const CreateRequestTab = ({
 
       <div className="card-body">
         <form onSubmit={handleSubmit}>
-          {/* Exam Type */}
-          <div className="mb-4">
-            <label className="form-label fw-bold">
-              <i className="bi bi-clipboard-check me-2"></i>
-              Exam Type *
-            </label>
-            <div className="row">
-              <div className="col-md-6 mb-2">
-                <div className="form-check card p-3" style={{ cursor: 'pointer' }}>
-                  <input
-                    className="form-check-input"
-                    type="radio"
-                    name="exam_type"
-                    id="makeup"
-                    value="makeup"
-                    checked={formData.exam_type === 'makeup'}
-                    onChange={handleInputChange}
-                    disabled={!studentFaculty}
-                  />
-                  <label className="form-check-label w-100" htmlFor="makeup" style={{ cursor: 'pointer' }}>
-                    <strong>Make-up Exam</strong>
-                    <p className="mb-0 small text-muted">
-                      For students who missed the regular exam due to valid reasons
-                    </p>
-                  </label>
-                </div>
-              </div>
-              <div className="col-md-6 mb-2">
-                <div className="form-check card p-3" style={{ cursor: 'pointer' }}>
-                  <input
-                    className="form-check-input"
-                    type="radio"
-                    name="exam_type"
-                    id="resit"
-                    value="resit"
-                    checked={formData.exam_type === 'resit'}
-                    onChange={handleInputChange}
-                    disabled={!studentFaculty}
-                  />
-                  <label className="form-check-label w-100" htmlFor="resit" style={{ cursor: 'pointer' }}>
-                    <strong>Resit Exam</strong>
-                    <p className="mb-0 small text-muted">
-                      For students who failed the course and need to retake the exam
-                    </p>
-                  </label>
-                </div>
-              </div>
-            </div>
-          </div>
-
+{/* Exam Type */}
+<div className="mb-4">
+  <label className="form-label fw-bold">
+    <i className="bi bi-clipboard-check me-2"></i>
+    Exam Type *
+  </label>
+  <div className="row">
+    <div className="col-md-6 mb-2">
+      <div 
+        className="card p-3" 
+        style={{ cursor: 'pointer' }}
+        onClick={() => !studentFaculty ? null : handleInputChange({ target: { name: 'exam_type', value: 'makeup' } })}
+      >
+        <div className="d-flex align-items-start">
+          <input
+            className="form-check-input me-3 flex-shrink-0"
+            type="radio"
+            name="exam_type"
+            id="makeup"
+            value="makeup"
+            checked={formData.exam_type === 'makeup'}
+            onChange={handleInputChange}
+            disabled={!studentFaculty}
+            style={{ cursor: 'pointer', marginTop: '2px' }}
+          />
+          <label className="w-100" htmlFor="makeup" style={{ cursor: 'pointer' }}>
+            <strong>Make-up Exam</strong>
+            <p className="mb-0 small text-muted">
+              For students who missed the regular exam due to valid reasons
+            </p>
+          </label>
+        </div>
+      </div>
+    </div>
+    <div className="col-md-6 mb-2">
+      <div 
+        className="card p-3" 
+        style={{ cursor: 'pointer' }}
+        onClick={() => !studentFaculty ? null : handleInputChange({ target: { name: 'exam_type', value: 'resit' } })}
+      >
+        <div className="d-flex align-items-start">
+          <input
+            className="form-check-input me-3 flex-shrink-0"
+            type="radio"
+            name="exam_type"
+            id="resit"
+            value="resit"
+            checked={formData.exam_type === 'resit'}
+            onChange={handleInputChange}
+            disabled={!studentFaculty}
+            style={{ cursor: 'pointer', marginTop: '2px' }}
+          />
+          <label className="w-100" htmlFor="resit" style={{ cursor: 'pointer' }}>
+            <strong>Resit Exam</strong>
+            <p className="mb-0 small text-muted">
+              For students who failed the course and need to retake the exam
+            </p>
+          </label>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
           {/* Course Information */}
         <div className="row">
   <div className="col-md-6 mb-3">
