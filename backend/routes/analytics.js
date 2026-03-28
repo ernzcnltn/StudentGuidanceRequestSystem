@@ -189,80 +189,179 @@ router.get('/admin/dashboard', authenticateAdmin, async (req, res) => {
   }
 });
 
-// GET /api/analytics/admin/performance - Performance metrics
-router.get('/admin/performance', authenticateAdmin, async (req, res) => {
+// GET /api/analytics/admin/performance - Performance metrics (ADMINS + SECRETARIES)
+router.get('/admin-auth/statistics/admins', authenticateAdmin, async (req, res) => {
   try {
-    const department = req.admin.department;
+    const { period = '30', department = 'all' } = req.query;
+    const periodDays = parseInt(period);
     
-    // Get response time metrics
-    const [responseMetrics] = await pool.execute(`
-      SELECT 
-        AVG(TIMESTAMPDIFF(HOUR, gr.submitted_at, ar.created_at)) as avg_first_response_hours,
-        MIN(TIMESTAMPDIFF(HOUR, gr.submitted_at, ar.created_at)) as min_response_hours,
-        MAX(TIMESTAMPDIFF(HOUR, gr.submitted_at, ar.created_at)) as max_response_hours
-      FROM guidance_requests gr
-      JOIN request_types rt ON gr.type_id = rt.type_id
-      JOIN admin_responses ar ON gr.request_id = ar.request_id
-      WHERE rt.category = ?
-        AND ar.created_at = (
-          SELECT MIN(ar2.created_at) 
-          FROM admin_responses ar2 
-          WHERE ar2.request_id = gr.request_id
-        )
-        AND gr.submitted_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)
-    `, [department]);
+    console.log('📊 Fetching combined admin+secretary performance:', { period: periodDays, department });
     
-    // Get resolution rate by priority
-    const [resolutionByPriority] = await pool.execute(`
+    // ===== NORMAL ADMİNLERİN PERFORMANSI (guidance_requests) =====
+    let adminQuery = `
       SELECT 
-        gr.priority,
-        COUNT(*) as total_requests,
+        au.admin_id,
+        au.username,
+        au.full_name,
+        au.department,
+        au.is_active,
+        'admin' as user_type,
+        COUNT(DISTINCT gr.request_id) as total_requests,
         SUM(CASE WHEN gr.status = 'Completed' THEN 1 ELSE 0 END) as completed_requests,
-        ROUND((SUM(CASE WHEN gr.status = 'Completed' THEN 1 ELSE 0 END) / COUNT(*)) * 100, 2) as completion_rate
-      FROM guidance_requests gr
-      JOIN request_types rt ON gr.type_id = rt.type_id
-      WHERE rt.category = ?
-        AND gr.submitted_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)
-      GROUP BY gr.priority
-      ORDER BY FIELD(gr.priority, 'Urgent', 'High', 'Medium', 'Low')
-    `, [department]);
+        SUM(CASE WHEN gr.status = 'Pending' THEN 1 ELSE 0 END) as pending_requests,
+        COALESCE(AVG(
+          CASE 
+            WHEN gr.status = 'Completed' AND gr.resolved_at IS NOT NULL
+            THEN TIMESTAMPDIFF(HOUR, gr.submitted_at, gr.resolved_at)
+          END
+        ), 0) as avg_response_time_hours,
+        CASE 
+          WHEN COUNT(DISTINCT gr.request_id) > 0 
+          THEN ROUND((SUM(CASE WHEN gr.status = 'Completed' THEN 1 ELSE 0 END) / COUNT(DISTINCT gr.request_id)) * 100, 0)
+          ELSE 0 
+        END as performance_score,
+        CASE 
+          WHEN COUNT(DISTINCT gr.request_id) > 0 THEN 1 
+          ELSE 0 
+        END as has_assignments
+      FROM admin_users au
+      LEFT JOIN guidance_requests gr ON au.admin_id = gr.assigned_admin_id 
+        AND gr.submitted_at >= DATE_SUB(CURDATE(), INTERVAL ? DAY)
+      WHERE au.role = 'admin' 
+        AND au.is_active = 1
+    `;
     
-    // Get admin workload
-    const [adminWorkload] = await pool.execute(`
+    let adminParams = [periodDays];
+    
+    // Department filter for normal admins
+    if (department !== 'all') {
+      adminQuery += ` AND au.department = ?`;
+      adminParams.push(department);
+    }
+    
+    adminQuery += `
+      GROUP BY au.admin_id, au.username, au.full_name, au.department, au.is_active
+    `;
+    
+    // ===== SEKRETERLERİN PERFORMANSI (exam_requests) =====
+    let secretaryQuery = `
       SELECT 
-        COALESCE(au.name, 'Unknown Admin') as admin_name,
-        COUNT(ar.response_id) as response_count,
-        COUNT(DISTINCT ar.request_id) as unique_requests_handled
-      FROM admin_responses ar
-      LEFT JOIN admin_users au ON ar.admin_id = au.admin_id
-      JOIN guidance_requests gr ON ar.request_id = gr.request_id
-      JOIN request_types rt ON gr.type_id = rt.type_id
-      WHERE rt.category = ?
-        AND ar.created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)
-      GROUP BY ar.admin_id, au.name
-      ORDER BY response_count DESC
-    `, [department]);
+        au.admin_id,
+        au.username,
+        au.full_name,
+        au.department,
+        au.is_active,
+        'secretary' as user_type,
+        COUNT(DISTINCT er.exam_request_id) as total_requests,
+        SUM(CASE WHEN er.status = 'Approved' THEN 1 ELSE 0 END) as completed_requests,
+        SUM(CASE WHEN er.status = 'Pending' THEN 1 ELSE 0 END) as pending_requests,
+        COALESCE(AVG(
+          CASE 
+            WHEN er.status IN ('Approved', 'Rejected') AND er.processed_at IS NOT NULL
+            THEN TIMESTAMPDIFF(HOUR, er.submitted_at, er.processed_at)
+          END
+        ), 0) as avg_response_time_hours,
+        CASE 
+          WHEN COUNT(DISTINCT er.exam_request_id) > 0 
+          THEN ROUND((SUM(CASE WHEN er.status IN ('Approved', 'Rejected') THEN 1 ELSE 0 END) / COUNT(DISTINCT er.exam_request_id)) * 100, 0)
+          ELSE 0 
+        END as performance_score,
+        CASE 
+          WHEN COUNT(DISTINCT er.exam_request_id) > 0 THEN 1 
+          ELSE 0 
+        END as has_assignments
+      FROM admin_users au
+      LEFT JOIN exam_requests er ON au.admin_id = er.processed_by 
+        AND er.submitted_at >= DATE_SUB(CURDATE(), INTERVAL ? DAY)
+      WHERE au.role = 'secretary' 
+        AND au.is_active = 1
+    `;
+    
+    let secretaryParams = [periodDays];
+    
+    // Department filter for secretaries
+    if (department !== 'all') {
+      secretaryQuery += ` AND au.department = ?`;
+      secretaryParams.push(department);
+    }
+    
+    secretaryQuery += `
+      GROUP BY au.admin_id, au.username, au.full_name, au.department, au.is_active
+    `;
+    
+    // Execute both queries
+    const [adminResults] = await pool.execute(adminQuery, adminParams);
+    const [secretaryResults] = await pool.execute(secretaryQuery, secretaryParams);
+    
+    console.log('📊 Query results:', {
+      admins: adminResults.length,
+      secretaries: secretaryResults.length
+    });
+    
+    // Combine results
+    const allUsers = [...adminResults, ...secretaryResults];
+    
+    // Calculate overview statistics
+    const totalUsers = allUsers.length;
+    const totalRequests = allUsers.reduce((sum, user) => sum + parseInt(user.total_requests || 0), 0);
+    const totalCompleted = allUsers.reduce((sum, user) => sum + parseInt(user.completed_requests || 0), 0);
+    const totalPending = allUsers.reduce((sum, user) => sum + parseInt(user.pending_requests || 0), 0);
+    
+    const completionRate = totalRequests > 0 
+      ? Math.round((totalCompleted / totalRequests) * 100) 
+      : 0;
+      
+    const utilizationRate = totalUsers > 0
+      ? Math.round((allUsers.filter(u => parseInt(u.has_assignments) > 0).length / totalUsers) * 100)
+      : 0;
+    
+    console.log('✅ Combined statistics calculated:', {
+      totalUsers,
+      totalRequests,
+      completionRate,
+      utilizationRate
+    });
     
     res.json({
       success: true,
       data: {
-        response_metrics: responseMetrics[0] || {
-          avg_first_response_hours: null,
-          min_response_hours: null,
-          max_response_hours: null
+        overview: {
+          total_users: totalUsers,
+          total_requests: totalRequests,
+          total_completed: totalCompleted,
+          total_pending: totalPending,
+          completion_rate: completionRate,
+          utilization_rate: utilizationRate
         },
-        resolution_by_priority: resolutionByPriority,
-        admin_workload: adminWorkload
+        detailed_admins: allUsers.map(user => ({
+          admin_id: user.admin_id,
+          username: user.username,
+          full_name: user.full_name,
+          department: user.department,
+          user_type: user.user_type,
+          performance_score: parseInt(user.performance_score || 0),
+          total_requests: parseInt(user.total_requests || 0),
+          completed_requests: parseInt(user.completed_requests || 0),
+          pending_requests: parseInt(user.pending_requests || 0),
+          avg_response_time_hours: parseFloat(user.avg_response_time_hours || 0).toFixed(2),
+          has_assignments: parseInt(user.has_assignments) > 0,
+          is_active: user.is_active
+        }))
       }
     });
+    
   } catch (error) {
-    console.error('Error fetching performance analytics:', error);
+    console.error('❌ Error fetching performance analytics:', error);
     res.status(500).json({
       success: false,
-      error: 'Failed to fetch performance analytics'
+      error: 'Failed to fetch performance analytics',
+      message: error.message
     });
   }
 });
+
+
+
 
 // GET /api/analytics/admin/export - Export analytics data
 router.get('/admin/export', authenticateAdmin, async (req, res) => {

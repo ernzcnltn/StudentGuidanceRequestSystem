@@ -4,6 +4,7 @@ const router = express.Router();
 const { pool } = require('../config/database');
 const { authenticateToken: auth } = require('../middleware/auth');
 const { upload } = require('../middleware/upload');
+const emailService = require('../services/emailService');
 
 // ===== GET ALL FACULTIES =====
 router.get('/faculties', auth, async (req, res) => {
@@ -190,6 +191,46 @@ router.post('/exam-requests', auth, async (req, res) => {
     const examRequestId = result.insertId;
 
     console.log(` Exam request created: #${examRequestId}`);
+
+// 👇 YENİ: EMAIL NOTIFICATION TO SECRETARY
+try {
+  // Get secretary email from faculty
+  const [facultyInfo] = await pool.execute(
+    'SELECT faculty_name, faculty_name_tr, secretary_email FROM faculties WHERE faculty_id = ?',
+    [faculty_id]
+  );
+
+  // Get student info
+  const [studentInfo] = await pool.execute(
+    'SELECT name, email FROM students WHERE student_id = ?',
+    [studentId]
+  );
+
+  if (facultyInfo.length > 0 && facultyInfo[0].secretary_email && studentInfo.length > 0) {
+    const facultyName = facultyInfo[0].faculty_name_tr || facultyInfo[0].faculty_name;
+    const studentName = studentInfo[0].name;
+
+    // Send email to secretary
+    await emailService.sendNewExamRequestNotification(
+      facultyInfo[0].secretary_email,
+      'Secretary', // You can improve this by getting actual secretary name
+      examRequestId,
+      studentName,
+      exam_type,
+      course_code,
+      course_name,
+      facultyName
+    );
+
+    console.log(`📧 Exam request notification sent to secretary: ${facultyInfo[0].secretary_email}`);
+  } else {
+    console.log('⚠️ Secretary email not found or student info missing - notification not sent');
+  }
+} catch (emailError) {
+  console.error('⚠️ Email notification failed (non-critical):', emailError.message);
+  // Don't block the request creation if email fails
+}
+
 
     // Get the created request details
     const [examRequest] = await pool.execute(

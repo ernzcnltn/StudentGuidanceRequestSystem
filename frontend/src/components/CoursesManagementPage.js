@@ -2,10 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { apiService } from '../services/api';
 import { useToast } from '../contexts/ToastContext';
 import { useTheme } from '../contexts/ThemeContext';
+import { useTranslation } from '../hooks/useTranslation';
 
 const CoursesManagementPage = () => {
   const { showSuccess, showError, showInfo } = useToast();
   const { isDark } = useTheme();
+  const { t  } = useTranslation();
 
   const [courses, setCourses] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -26,7 +28,7 @@ const CoursesManagementPage = () => {
       }
     } catch (error) {
       console.error('Error loading courses:', error);
-      showError('Failed to load courses');
+      showError(t('failedToLoadCourses'));
     } finally {
       setLoading(false);
     }
@@ -41,7 +43,7 @@ const CoursesManagementPage = () => {
         'text/csv'
       ];
       if (!validTypes.includes(file.type)) {
-        showError('Please select a valid Excel or CSV file');
+        showError(t('pleaseSelectValidExcelOrCSV'));
         return;
       }
       setSelectedFile(file);
@@ -50,7 +52,7 @@ const CoursesManagementPage = () => {
 
   const handleUpload = async () => {
     if (!selectedFile) {
-      showError('Please select a file');
+      showError(t('pleaseSelectFile'));
       return;
     }
 
@@ -65,7 +67,7 @@ const CoursesManagementPage = () => {
       
       if (response.data.success) {
         showSuccess(
-          `Courses uploaded! Added: ${response.data.stats.added}, Updated: ${response.data.stats.updated}`
+          `${t('coursesUploaded')} ${t('added')}: ${response.data.stats.added}, ${t('updated')}: ${response.data.stats.updated}`
         );
         setSelectedFile(null);
         document.getElementById('fileInput').value = '';
@@ -73,7 +75,7 @@ const CoursesManagementPage = () => {
       }
     } catch (error) {
       console.error('Error uploading courses:', error);
-      showError(error.response?.data?.error || 'Failed to upload courses');
+      showError(error.response?.data?.error || t('failedToUploadCourses'));
     } finally {
       setUploading(false);
     }
@@ -91,10 +93,10 @@ const CoursesManagementPage = () => {
       link.click();
       link.remove();
       
-      showSuccess('Courses exported successfully');
+      showSuccess(t('coursesExportedSuccessfully'));
     } catch (error) {
       console.error('Error exporting courses:', error);
-      showError('Failed to export courses');
+      showError(t('failedToExportCourses'));
     }
   };
 
@@ -110,10 +112,10 @@ const CoursesManagementPage = () => {
       link.click();
       link.remove();
       
-      showInfo('Template downloaded');
+      showInfo(t('templateDownloaded'));
     } catch (error) {
       console.error('Error downloading template:', error);
-      showError('Failed to download template');
+      showError(t('failedToDownloadTemplate'));
     }
   };
 
@@ -124,10 +126,10 @@ const CoursesManagementPage = () => {
         <div className="col-12">
           <h2>
             <i className="bi bi-book me-2"></i>
-            Courses Management
+            {t('coursesManagement')}
           </h2>
           <p className="text-muted">
-            Upload and manage all courses across departments
+            {t('uploadAndManageAllCourses')}
           </p>
         </div>
       </div>
@@ -139,14 +141,14 @@ const CoursesManagementPage = () => {
         <div className="card-header">
           <h5 className="mb-0">
             <i className="bi bi-upload me-2"></i>
-            Upload Courses
+            {t('uploadCourses')}
           </h5>
         </div>
         <div className="card-body">
           <div className="row">
             <div className="col-md-6">
               <div className="mb-3">
-                <label className="form-label fw-bold">Upload Mode</label>
+                <label className="form-label fw-bold">{t('uploadMode')}</label>
                 <select 
                   className="form-select"
                   value={uploadMode}
@@ -156,18 +158,18 @@ const CoursesManagementPage = () => {
                     color: isDark ? '#ffffff' : '#000000'
                   }}
                 >
-                  <option value="add">Add New / Update Existing</option>
-                  <option value="replace">Replace All Courses</option>
+                  <option value="add">{t('addNewUpdateExisting')}</option>
+                  <option value="replace">{t('replaceAllCourses')}</option>
                 </select>
                 <small className="text-muted">
                   {uploadMode === 'add' 
-                    ? 'Adds new courses and updates existing ones' 
-                    : '⚠️ WARNING: This will deactivate all existing courses'}
+                    ? t('addsNewCoursesUpdatesExisting')
+                    : t('warningDeactivatesAllExistingCourses')}
                 </small>
               </div>
 
               <div className="mb-3">
-                <label className="form-label fw-bold">Select Excel/CSV File</label>
+                <label className="form-label fw-bold">{t('selectExcelCSVFile')}</label>
                 <input
                   type="file"
                   id="fileInput"
@@ -196,12 +198,12 @@ const CoursesManagementPage = () => {
                   {uploading ? (
                     <>
                       <span className="spinner-border spinner-border-sm me-2"></span>
-                      Uploading...
+                      {t('uploading')}...
                     </>
                   ) : (
                     <>
                       <i className="bi bi-upload me-2"></i>
-                      Upload Courses
+                      {t('uploadCourses')}
                     </>
                   )}
                 </button>
@@ -211,23 +213,23 @@ const CoursesManagementPage = () => {
                   onClick={downloadTemplate}
                 >
                   <i className="bi bi-download me-2"></i>
-                  Download Template
+                  {t('downloadTemplate')}
                 </button>
               </div>
             </div>
 
             <div className="col-md-6">
               <div className="alert alert-info">
-                <h6><i className="bi bi-info-circle me-2"></i>Excel Format</h6>
-                <p className="mb-2">Your Excel file must have these columns:</p>
+                <h6><i className="bi bi-info-circle me-2"></i>{t('excelFormat')}</h6>
+                <p className="mb-2">{t('excelFileMustHaveColumns')}:</p>
                 <ul className="mb-0">
-                  <li><strong>course_code</strong> (required)</li>
-                  <li><strong>course_name</strong> (required)</li>
-                  <li><strong>instructor_name</strong> (required)</li>
-                  <li><strong>faculty</strong> (required)</li>
-                  <li><strong>department</strong> (optional)</li>
-                  <li><strong>semester</strong> (optional)</li>
-                  <li><strong>credits</strong> (optional)</li>
+                  <li><strong>course_code</strong> ({t('required')})</li>
+                  <li><strong>course_name</strong> ({t('required')})</li>
+                  <li><strong>instructor_name</strong> ({t('required')})</li>
+                  <li><strong>faculty</strong> ({t('required')})</li>
+                  <li><strong>department</strong> ({t('optional')})</li>
+                  <li><strong>semester</strong> ({t('optional')})</li>
+                  <li><strong>credits</strong> ({t('optional')})</li>
                 </ul>
               </div>
             </div>
@@ -240,33 +242,33 @@ const CoursesManagementPage = () => {
         backgroundColor: isDark ? '#2d3748' : '#ffffff'
       }}>
         <div className="card-header d-flex justify-content-between align-items-center">
-          <h5 className="mb-0">All Courses ({courses.length})</h5>
+          <h5 className="mb-0">{t('allCourses')} ({courses.length})</h5>
           <button
             className="btn btn-outline-success btn-sm"
             onClick={handleExport}
           >
             <i className="bi bi-download me-2"></i>
-            Export to Excel
+            {t('exportToExcel')}
           </button>
         </div>
         <div className="card-body">
           {loading ? (
             <div className="text-center py-5">
               <div className="spinner-border text-danger"></div>
-              <p className="mt-2">Loading courses...</p>
+              <p className="mt-2">{t('loadingCourses')}...</p>
             </div>
           ) : (
             <div className="table-responsive">
               <table className="table table-hover">
                 <thead style={{ backgroundColor: isDark ? '#4a5568' : '#f8f9fa' }}>
                   <tr>
-                    <th>Code</th>
-                    <th>Name</th>
-                    <th>Instructor</th>
-                    <th>Faculty</th>
-                    <th>Department</th>
-                    <th>Semester</th>
-                    <th>Status</th>
+                    <th>{t('code')}</th>
+                    <th>{t('name')}</th>
+                    <th>{t('instructor')}</th>
+                    <th>{t('faculty')}</th>
+                    <th>{t('department')}</th>
+                    <th>{t('semester')}</th>
+                    <th>{t('status')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -275,12 +277,12 @@ const CoursesManagementPage = () => {
                       <td><strong>{course.course_code}</strong></td>
                       <td>{course.course_name}</td>
                       <td>{course.instructor_name}</td>
-                      <td>{course.faculty}</td>
-                      <td>{course.department || '-'}</td>
+                      <td>{t(course.faculty)}</td>
+                      <td>{t(course.department || '-')}</td>
                       <td>{course.semester || '-'}</td>
                       <td>
                         <span className={`badge ${course.is_active ? 'bg-success' : 'bg-secondary'}`}>
-                          {course.is_active ? 'Active' : 'Inactive'}
+                          {course.is_active ? t('active') : t('inactive')}
                         </span>
                       </td>
                     </tr>

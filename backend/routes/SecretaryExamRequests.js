@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { pool } = require('../config/database');
 const { authenticateAdmin } = require('../middleware/adminAuth');
+const emailService = require('../services/emailService');
 
 // Middleware: Sadece secretary'ler erişebilir
 const requireSecretary = (req, res, next) => {
@@ -182,6 +183,10 @@ router.put('/exam-requests/:requestId/approve',
       const secretaryId = req.admin.admin_id;
       const secretaryDepartment = req.admin.department;
 
+
+      
+
+
       console.log('✅ Approving exam request:', {
         requestId,
         secretaryId,
@@ -236,6 +241,49 @@ router.put('/exam-requests/:requestId/approve',
       );
 
       console.log('✅ Exam request approved successfully');
+
+
+// 👇 YENİ: EMAIL NOTIFICATION TO STUDENT
+try {
+  // Get student and request details
+  const [requestDetails] = await pool.execute(
+    `SELECT 
+      s.email as student_email,
+      s.name as student_name,
+      er.course_code,
+      er.course_name,
+      er.exam_type
+    FROM exam_requests er
+    JOIN students s ON er.student_id = s.student_id
+    WHERE er.exam_request_id = ?`,
+    [requestId]
+  );
+
+  if (requestDetails.length > 0) {
+    const details = requestDetails[0];
+    
+    await emailService.sendExamRequestApprovalNotification(
+      details.student_email,
+      details.student_name,
+      requestId,
+      details.course_code,
+      details.course_name,
+      details.exam_type,
+      secretary_notes || null
+    );
+
+    console.log(`📧 Approval notification sent to student: ${details.student_email}`);
+  }
+} catch (emailError) {
+  console.error('⚠️ Email notification failed (non-critical):', emailError.message);
+}
+
+
+
+
+
+
+
 
       res.json({
         success: true,
@@ -325,6 +373,47 @@ router.put('/exam-requests/:requestId/reject',
       );
 
       console.log('✅ Exam request rejected successfully');
+
+
+// 👇 YENİ: EMAIL NOTIFICATION TO STUDENT
+try {
+  // Get student and request details
+  const [requestDetails] = await pool.execute(
+    `SELECT 
+      s.email as student_email,
+      s.name as student_name,
+      er.course_code,
+      er.course_name,
+      er.exam_type
+    FROM exam_requests er
+    JOIN students s ON er.student_id = s.student_id
+    WHERE er.exam_request_id = ?`,
+    [requestId]
+  );
+
+  if (requestDetails.length > 0) {
+    const details = requestDetails[0];
+    
+    await emailService.sendExamRequestRejectionNotification(
+      details.student_email,
+      details.student_name,
+      requestId,
+      details.course_code,
+      details.course_name,
+      details.exam_type,
+      rejection_reason,
+      secretary_notes || null
+    );
+
+    console.log(`📧 Rejection notification sent to student: ${details.student_email}`);
+  }
+} catch (emailError) {
+  console.error('⚠️ Email notification failed (non-critical):', emailError.message);
+}
+
+
+
+
 
       res.json({
         success: true,

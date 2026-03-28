@@ -173,13 +173,13 @@ useEffect(() => {
     return null;
   };
 
-  const getFileIcon = (fileType) => {
-    if (fileType.includes('pdf')) return '';
-    if (fileType.includes('image')) return '';
-    if (fileType.includes('word') || fileType.includes('document')) return '📝';
-    if (fileType.includes('csv') || fileType.includes('excel')) return '📊';
-    return '';
-  };
+ const getFileIcon = (fileType) => {
+  if (fileType.includes('pdf')) return 'bi bi-file-earmark-pdf-fill';
+  if (fileType.includes('image')) return 'bi bi-file-earmark-image-fill';
+  if (fileType.includes('word') || fileType.includes('document')) return 'bi bi-file-earmark-word-fill';
+  if (fileType.includes('csv') || fileType.includes('excel')) return 'bi bi-file-earmark-spreadsheet-fill';
+  return 'bi bi-file-earmark-fill';
+};
 
   const handleDrop = (e) => {
     e.preventDefault();
@@ -248,7 +248,12 @@ useEffect(() => {
     const totalFiles = files.length + selectedFiles.length;
     
     if (totalFiles > 3) {
-      showError(`Maximum 3 files allowed. You have ${files.length} files, trying to add ${selectedFiles.length} more.`);
+
+
+showError(t('maximumFilesAllowed', '', { 
+  current: files.length, 
+  adding: selectedFiles.length 
+}));
       e.target.value = '';
       return;
     }
@@ -274,22 +279,26 @@ useEffect(() => {
       ];
       const maxSize = 2 * 1024 * 1024; // 2MB
       
-      if (!validTypes.includes(file.type)) {
-        errors.push(`${file.name}: ${t('invalidFileType')}`);
-        return;
-      }
+    if (!validTypes.includes(file.type)) {
+      errors.push(t('invalidFileTypeError', '', { name: file.name }));
+      return;
+    }
 
-      if (file.size > maxSize) {
-        errors.push(`${file.name}: ${t('fileTooLarge')}`);
-        return;
-      }
+if (file.size > maxSize) {
+      errors.push(`${file.name}: ${t('fileTooLarge')}`);
+      return;
+    }
       
       validFiles.push(file);
     });
     
-    if (errors.length > 0) {
-      showError(`${t('fileValidationFailed')}: ${errors.join(', ')}`);
-      e.target.value = '';
+   
+  if (errors.length > 0) {
+    showError(t('fileValidationFailedWithErrors', '', { 
+      errors: errors.join(', ') 
+    }));
+    e.target.value = '';
+
       return;
     }
     
@@ -297,9 +306,13 @@ useEffect(() => {
     setError(null);
     e.target.value = '';
     
-    if (validFiles.length > 0) {
-      showSuccess(`${validFiles.length} ${t('fileSelectedSuccessfully')}. Total: ${files.length + validFiles.length} files.`);
-    }
+    
+  if (validFiles.length > 0) {
+    showSuccess(t('filesSelectedSuccessfully', '', { 
+      count: validFiles.length, 
+      total: files.length + validFiles.length 
+    }));
+  }
   };
 
   const removeFile = (index) => {
@@ -341,11 +354,14 @@ useEffect(() => {
       return;
     }
 
-    const oversizedFiles = files.filter(file => file.size > 2 * 1024 * 1024);
-    if (oversizedFiles.length > 0) {
-showError(t('filesTooLarge', { files: oversizedFiles.map(f => f.name).join(', ') }));
-      return;
-    }
+    
+const oversizedFiles = files.filter(file => file.size > 2 * 1024 * 1024);
+if (oversizedFiles.length > 0) {
+  showError(t('filesTooLarge', '', { 
+    files: oversizedFiles.map(f => f.name).join(', ') 
+  }));
+  return;
+}
 
     setSubmitting(true);
     setLoading(true);
@@ -363,19 +379,24 @@ showError(t('filesTooLarge', { files: oversizedFiles.map(f => f.name).join(', ')
         showInfo(t('uploadingFiles'));
         
         const fileFormData = new FormData();
-        files.forEach(file => {
-          fileFormData.append('files', file);
-        });
+    files.forEach(file => {
+      fileFormData.append('files', file);
+    });
+
         
         try {
-          await apiService.uploadFiles(requestId, fileFormData);
-          showSuccess(`✅ ${t('requestCreatedSuccessfully')} #${requestId} ${t('requestCreatedWithFiles')} ${files.length} ${t('files')}!`);
-        } catch (uploadError) {
-          showError(t('filesCouldNotBeUploaded'));
-        }
-      } else {
-        showSuccess(`✅ ${t('requestCreatedSuccessfully')} #${requestId}!`);
-      }
+      await apiService.uploadFiles(requestId, fileFormData);
+      showSuccess(t('requestCreatedWithFilesComplete', '', { 
+        id: requestId, 
+        count: files.length 
+      }));
+    } catch (uploadError) {
+      showError(t('filesCouldNotBeUploaded'));
+    }
+  } else {
+    showSuccess(t('requestCreatedSuccessfully', '', { id: requestId }));
+  }
+  
       
       setFormData({
         student_id: user?.student_id || 1,
@@ -396,7 +417,7 @@ showError(t('filesTooLarge', { files: oversizedFiles.map(f => f.name).join(', ')
       });
       setCanSubmitRequestNow(false);
       
-      showInfo(' Remember: You can submit your next request after 24 hours during working hours.');
+showInfo(t('rememberNextRequestIn24Hours'));
       
       setTimeout(() => {
         navigate('/requests');
@@ -410,47 +431,61 @@ showError(t('filesTooLarge', { files: oversizedFiles.map(f => f.name).join(', ')
         const errorData = error.response.data;
         
         if (errorData.errorCode === 'ACADEMIC_HOLIDAY') {
-showError(t('academicHoliday') + ': ' + errorData.error);
-          if (errorData.guidance?.next_available_date) {
-showInfo(t('nextAvailable') + ': ' + errorData.guidance.next_available_date);
-          }
-        } else if (errorData.errorCode === 'OUTSIDE_WORKING_HOURS') {
-showError(t('outsideWorkingHoursLong'));
-          if (errorData.guidance?.nextOpening) {
-            showInfo(` ${errorData.guidance.nextOpening}`);
-          }
-          setShowWorkingHoursModal(true);
-        } else {
-          showError(` ${errorData.error}`);
-        }
-        return;
+      showError(t('academicHolidayError', '', { message: errorData.error }));
+      if (errorData.guidance?.next_available_date) {
+        showInfo(t('nextAvailableDate', '', { 
+          date: errorData.guidance.next_available_date 
+        }));
       }
+    } else if (errorData.errorCode === 'OUTSIDE_WORKING_HOURS') {
+      showError(t('outsideWorkingHoursLong'));
+      if (errorData.guidance?.nextOpening) {
+        showInfo(t('nextOpeningTime', '', { 
+          time: errorData.guidance.nextOpening 
+        }));
+      }
+      setShowWorkingHoursModal(true);
+    } else {
+      showError(errorData.error);
+    }
+    return;
+  }
       
       if (error.response?.status === 429) {
         const errorData = error.response.data;
         
-        if (errorData.errorCode === 'DAILY_LIMIT_EXCEEDED') {
-showError(t('dailyLimitExceeded') + ': ' + errorData.error);
-          if (errorData.details) {
-            setLastRequestInfo({
-              lastRequestTime: new Date(errorData.details.last_request_time),
-              nextAllowedTime: new Date(errorData.details.actual_next_available_time || errorData.details.next_allowed_time),
-              hoursRemaining: errorData.details.hours_remaining
-            });
-            setCanSubmitRequestNow(false);
-showInfo(t('nextRequestAvailable') + ': ' + new Date(errorData.details.actual_next_available_time || errorData.details.next_allowed_time).toLocaleString('tr-TR'));
-          }
-        } else if (errorData.errorCode === 'HOURLY_RATE_LIMIT_EXCEEDED') {
-showError(t('rateLimitExceeded') + ': ' + errorData.error);
-          if (errorData.details) {
-showInfo(t('pleaseWaitMinutes', { minutes: errorData.details.minutes_remaining }));
-          }
-        }
-        return;
+        
+    if (errorData.errorCode === 'DAILY_LIMIT_EXCEEDED') {
+      showError(t('dailyLimitExceededError', '', { message: errorData.error }));
+      if (errorData.details) {
+        const nextTime = new Date(
+          errorData.details.actual_next_available_time || 
+          errorData.details.next_allowed_time
+        );
+        setLastRequestInfo({
+          lastRequestTime: new Date(errorData.details.last_request_time),
+          nextAllowedTime: nextTime,
+          hoursRemaining: errorData.details.hours_remaining
+        });
+        setCanSubmitRequestNow(false);
+        showInfo(t('nextRequestAvailableAt', '', { 
+          time: nextTime.toLocaleString('tr-TR') 
+        }));
+      }
+    } else if (errorData.errorCode === 'HOURLY_RATE_LIMIT_EXCEEDED') {
+      showError(t('rateLimitExceededError', '', { message: errorData.error }));
+      if (errorData.details) {
+        showInfo(t('pleaseWaitMinutes', '', { 
+          minutes: errorData.details.minutes_remaining 
+        }));
+      }
+    }
+    return;
       }
 
       const errorMessage = error.response?.data?.error || t('requestFailed');
-      showError(`❌ ${errorMessage}`);
+
+showError(errorMessage);      
       setError(errorMessage);
     } finally {
       setLoading(false);
@@ -546,24 +581,7 @@ showInfo(t('pleaseWaitMinutes', { minutes: errorData.details.minutes_remaining }
                 </select>
               </div>
 
-              {/* Type Detail */}
-              {selectedType && (
-                <div className="mb-3">
-                  <label className="form-label">
-                    <strong>{t('typeDetail')}</strong>
-                  </label>
-                  <div className="alert alert-info">
-                    {selectedType.description_en || t('noDescriptionAvailable')}
-                    {selectedType.is_document_required && (
-                      <div className="mt-2">
-                        <strong className="text-danger">
-                           {t('documentUploadRequired')}
-                        </strong>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
+              
 
               {/* Priority Selection */}
               <div className="mb-3">
@@ -731,8 +749,7 @@ showInfo(t('pleaseWaitMinutes', { minutes: errorData.details.minutes_remaining }
                                        className="rounded-circle bg-primary text-white d-flex align-items-center justify-content-center"
                                        style={{ width: '45px', height: '45px', fontSize: '1.2rem' }}
                                      >
-                                       {getFileIcon(file.type)}
-                                     </div>
+<i className={getFileIcon(file.type)}></i>                                      </div>
                                    </div>
                                    <div className="flex-grow-1">
                                      <h6 className="card-title mb-1" style={{ fontSize: '0.9rem' }}>

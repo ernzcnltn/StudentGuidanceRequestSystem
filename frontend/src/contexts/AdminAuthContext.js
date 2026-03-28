@@ -27,7 +27,7 @@ export const AdminAuthProvider = ({ children }) => {
         roles: roles || [],
         timestamp: Date.now()
       };
-      localStorage.setItem('admin_state', JSON.stringify(adminStateToSave));
+sessionStorage.setItem('admin_state', JSON.stringify(adminStateToSave));
       console.log('✅ Admin state saved to localStorage');
     } catch (error) {
       console.error('❌ Failed to save admin state:', error);
@@ -37,7 +37,7 @@ export const AdminAuthProvider = ({ children }) => {
   // ✅ 2. BAŞLICA DEĞİŞİKLİK - Admin verilerini localStorage'dan yükle
   const loadAdminFromStorage = useCallback(() => {
     try {
-      const savedState = localStorage.getItem('admin_state');
+const savedState = sessionStorage.getItem('admin_state');
       if (savedState) {
         const parsedState = JSON.parse(savedState);
         
@@ -64,20 +64,20 @@ export const AdminAuthProvider = ({ children }) => {
           return true;
         } else {
           console.log('⚠️ Saved admin state is too old, removing...');
-          localStorage.removeItem('admin_state');
+sessionStorage.removeItem('admin_state');
         }
       }
       return false;
     } catch (error) {
       console.error('❌ Failed to load admin state from localStorage:', error);
-      localStorage.removeItem('admin_state');
+sessionStorage.removeItem('admin_state');
       return false;
     }
   }, []);
 
   // ✅ 3. BAŞLICA DEĞİŞİKLİK - localStorage'ı temizle
   const clearAdminStorage = useCallback(() => {
-    localStorage.removeItem('admin_state');
+sessionStorage.removeItem('admin_state');
     console.log('🧹 Admin state cleared from localStorage');
   }, []);
 
@@ -86,7 +86,7 @@ export const AdminAuthProvider = ({ children }) => {
     setPermissions([]);
     setRoles([]);
     setPermissionMap({});
-    localStorage.removeItem('admin_token');
+sessionStorage.removeItem('admin_token');
     clearAdminStorage(); // ✅ Admin state'ini de temizle
     apiService.removeAdminAuthToken();
     window.location.href = '/login';
@@ -212,49 +212,49 @@ export const AdminAuthProvider = ({ children }) => {
   }, [logout, loadRBACData]);
 
   // ✅ 4. BAŞLICA DEĞİŞİKLİK - useEffect'i güncelle
-  useEffect(() => {
-    const initializeAuth = async () => {
-      const savedToken = localStorage.getItem('admin_token');
+useEffect(() => {
+  const initializeAuth = async () => {
+    const savedToken = sessionStorage.getItem('admin_token');
+    
+    if (savedToken) {
+      apiService.setAdminAuthToken(savedToken);
       
-      if (savedToken) {
-        apiService.setAdminAuthToken(savedToken);
+      if (checkTokenValidity(true)) {
+        const loadedFromStorage = loadAdminFromStorage();
         
-        if (checkTokenValidity(true)) {
-          // Önce localStorage'dan yükle
-          const loadedFromStorage = loadAdminFromStorage();
+        if (loadedFromStorage) {
+          setLoading(false);
           
-          if (loadedFromStorage) {
-            console.log('✅ Admin state loaded from localStorage');
-            setLoading(false);
-            
-            // Arka planda RBAC verilerini güncelle (opsiyonel)
-            if (admin?.admin_id) {
+          // ⭐ admin state'den değil, doğrudan storage'dan oku
+          try {
+            const savedState = JSON.parse(sessionStorage.getItem('admin_state'));
+            if (savedState?.admin?.admin_id) {
               setTimeout(() => {
-                loadRBACData(admin.admin_id);
+                loadRBACData(savedState.admin.admin_id);
               }, 1000);
             }
-          } else {
-            // localStorage'da veri yoksa server'dan çek
-            console.log('📡 Loading admin state from server');
-            await checkAdminAuthStatus();
-          }
+          } catch (e) {}
+          
         } else {
-          logout();
+          await checkAdminAuthStatus();
         }
       } else {
-        setLoading(false);
+        logout();
       }
-    };
+    } else {
+      setLoading(false);
+    }
+  };
 
-    initializeAuth();
-  }, []); // ✅ Dependency array'i boş bırak
+  initializeAuth();
+}, []);
 
   // Email ile admin girişi - güncellenmiş fonksiyon
-  const login = async (email, password) => {
-    try {
-      console.log('Admin login attempt with email:', { email });
-      
-      const response = await apiService.adminLoginWithEmail(email, password);
+  const login = async (email, password, captchaToken = null) => {
+  try {
+    console.log('Admin login attempt with email:', { email, hasCaptcha: !!captchaToken });
+    
+    const response = await apiService.adminLoginWithEmail(email, password, captchaToken);
       
       console.log('Admin login response:', response.data);
       
@@ -262,7 +262,7 @@ export const AdminAuthProvider = ({ children }) => {
         const { token, admin: adminData } = response.data.data;
         
         setAdmin(adminData);
-        localStorage.setItem('admin_token', token);
+sessionStorage.setItem('admin_token', token);
         apiService.setAdminAuthToken(token);
 
         if (adminData.admin_id && (!adminData.roles || !adminData.permissions)) {

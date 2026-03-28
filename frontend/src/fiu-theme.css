@@ -157,11 +157,13 @@ footer {
 .btn-outline-danger {
   color: var(--fiu-primary) !important;
   border-color: var(--fiu-primary) !important;
+  background-color: transparent !important;
 }
 
 .btn-outline-danger:hover {
   background-color: var(--fiu-primary) !important;
   border-color: var(--fiu-primary) !important;
+  color: var(--fiu-white) !important; /* 🆕 EKLE */
 }
 
 /* FIU Dark Mode için */

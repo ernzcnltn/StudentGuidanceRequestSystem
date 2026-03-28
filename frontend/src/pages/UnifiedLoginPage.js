@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useAdminAuth } from '../contexts/AdminAuthContext';
@@ -6,6 +6,8 @@ import DarkModeToggle from '../components/DarkModeToggle';
 import { useTranslation } from '../hooks/useTranslation';
 import { useLanguage } from '../contexts/LanguageContext';
 import FIULogo from '../components/FIULogo';
+import ReCAPTCHA from 'react-google-recaptcha';
+import { apiService } from '../services/api';
 
 const UnifiedLoginPage = () => {
   const navigate = useNavigate();
@@ -22,7 +24,21 @@ const UnifiedLoginPage = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [showPassword, setShowPassword] = useState(false);
+  const [loginAttempts, setLoginAttempts] = useState(0);
+  const [captchaRequired, setCaptchaRequired] = useState(true);
+  const [captchaToken, setCaptchaToken] = useState(null);
+  
+  // Magic Link State
+  const [showMagicLink, setShowMagicLink] = useState(false);
+  const [magicLinkEmail, setMagicLinkEmail] = useState('');
+  const [magicLinkLoading, setMagicLinkLoading] = useState(false);
+  const [magicLinkSuccess, setMagicLinkSuccess] = useState(false);
 
+
+ // Language Dropdown State  ← BURAYA EKLE
+  const [isLangDropdownOpen, setIsLangDropdownOpen] = useState(false);
+  const langDropdownRef = useRef(null);
+  
   const handleChange = (e) => {
     setFormData({
       ...formData,
@@ -30,65 +46,199 @@ const UnifiedLoginPage = () => {
     });
   };
 
-  const handleSubmit = async (e) => {
+  // Captcha değişikliği
+  const handleCaptchaChange = (token) => {
+    console.log('✅ Captcha verified:', !!token);
+    setCaptchaToken(token);
+  };
+
+// Language Dropdown - Click outside to close  ← BURAYA EKLE
+ // Language Dropdown - Click outside to close
+useEffect(() => {
+  if (!isLangDropdownOpen) return;
+
+  const handleClickOutside = (event) => {
+    if (langDropdownRef.current && !langDropdownRef.current.contains(event.target)) {
+      setIsLangDropdownOpen(false);
+    }
+  };
+
+  const timer = setTimeout(() => {
+    document.addEventListener('mousedown', handleClickOutside);
+  }, 0);
+
+  return () => {
+    clearTimeout(timer);
+    document.removeEventListener('mousedown', handleClickOutside);
+  };
+}, [isLangDropdownOpen]);
+
+  // Magic Link Request Handler
+  const handleMagicLinkRequest = async (e) => {
     e.preventDefault();
-    setLoading(true);
-    setError(null);
-
-    const { email, password } = formData;
-
-    if (!email || !password) {
-      setError(t('emailPasswordRequired', 'Email and password are required'));
-      setLoading(false);
+    
+    if (!magicLinkEmail || !magicLinkEmail.includes('@')) {
+    setError(t('enterValidEmail', 'Please enter a valid email address'));
       return;
     }
 
+    setMagicLinkLoading(true);
+    setError(null);
+
     try {
-      // Önce admin girişi dene
-      const adminResult = await adminLogin(email, password);
+      const response = await apiService.requestMagicLink(magicLinkEmail);
       
-      if (adminResult.success) {
-        navigate('/admin/dashboard');
-        return;
+      if (response.data.success) {
+        setMagicLinkSuccess(true);
+        console.log('✅ Magic link request successful');
       }
-
-      // Admin girişi başarısızsa öğrenci girişi dene
-      const studentResult = await studentLogin(email, password);
-      
-      if (studentResult.success) {
-        navigate('/');
-        return;
-      }
-
-      // Her ikisi de başarısızsa hata göster
-      setError(t('invalidEmailPassword', 'Invalid email or password'));
-      
     } catch (error) {
-      console.error('Login error:', error);
-      setError(t('loginFailed', 'Login failed. Please try again.'));
+      console.error('Magic link request error:', error);
+      
+      // Rate limit hatası özel mesaj
+      if (error.response?.status === 429) {
+      setError(t('tooManyRequests', 'Too many requests. Please try again after 15 minutes.'));
+      } else {
+      setError(error.response?.data?.error || t('magicLinkFailed', 'Failed to send magic link. Please try again.'));
+      }
     } finally {
-      setLoading(false);
+      setMagicLinkLoading(false);
     }
   };
 
- 
+const handleSubmit = async (e) => {
+  e.preventDefault();
+  setLoading(true);
+  setError(null);
 
-  const LoginLanguageSelector = () => {
-    return (
-      <div className="d-flex justify-content-center gap-2 mb-3">
-        {Object.entries(languages).map(([code, lang]) => (
-          <button
-            key={code}
-            className={`lang-btn ${currentLanguage === code ? 'active' : ''}`}
-            onClick={() => changeLanguage(code)}
-            title={lang.name}
-          >
-            {lang.flag}
-          </button>
-        ))}
-      </div>
-    );
-  };
+  const { email, password } = formData;
+
+  if (!email || !password) {
+    setError(t('emailPasswordRequired', 'Email and password are required'));
+    setLoading(false);
+    return;
+  }
+
+  // Captcha kontrolü
+  if (!captchaToken) {
+  setError(t('captchaRequired', 'Please complete the captcha verification'));
+    setLoading(false);
+    return;
+  }
+
+  console.log('🔐 Login attempt:', { email, hasCaptchaToken: !!captchaToken });
+
+  try {
+    // ✅ ADIM 1: Email hangi tipe ait belirle
+    console.log('🔍 Checking email type...');
+    const emailCheckResponse = await apiService.checkEmailType(email);
+    const userType = emailCheckResponse.data.userType;
+
+    console.log('📧 Email type:', userType);
+
+    // Email sistemde yoksa
+    if (!userType) {
+  setError(t('noAccountFound', 'No account found with this email address'));
+      setLoading(false);
+      setCaptchaToken(null);
+      return;
+    }
+
+    // ✅ ADIM 2: Sadece doğru tipe login isteği at
+    let loginResult;
+
+    if (userType === 'admin') {
+      console.log('🔐 Attempting admin login...');
+      loginResult = await adminLogin(email, password, captchaToken);
+      
+      if (loginResult.success) {
+        console.log('✅ Admin login successful');
+        setCaptchaToken(null);
+        
+        // 🆕 Department-based redirect
+        const adminData = loginResult.user || loginResult.admin;
+        const targetDept = adminData?.is_super_admin && !adminData?.department
+          ? 'all'
+          : adminData?.department?.toLowerCase() || 'academic';
+        
+        console.log('✅ Redirecting to:', `/admin/dashboard/${targetDept}`);
+        navigate(`/admin/dashboard/${targetDept}`);
+        return;
+      }
+    
+    } else if (userType === 'student') {
+      console.log('🔐 Attempting student login...');
+      loginResult = await studentLogin(email, password, captchaToken);
+      
+      if (loginResult.success) {
+        console.log('✅ Student login successful');
+        setCaptchaToken(null);
+        navigate('/');
+        return;
+      }
+    }
+
+    // Login başarısız
+    console.log('❌ Login failed');
+    setError(t('invalidEmailPassword', 'Invalid email or password'));
+    
+  } catch (error) {
+    console.error('❌ Login error:', error);
+    
+    const errorMessage = error.response?.data?.error || t('loginFailed', 'Login failed. Please try again.');
+    setError(errorMessage);
+    
+  } finally {
+    setLoading(false);
+    // Her durumda captcha token'ı sıfırla (yeni captcha gerekli)
+    setCaptchaToken(null);
+  }
+};
+
+
+const LoginLanguageSelector = () => {
+  const currentLang = languages[currentLanguage];
+  const isRTL = document.documentElement.getAttribute('dir') === 'rtl';
+
+  return (
+    <div ref={langDropdownRef} className="language-dropdown-wrapper mb-3">
+      {/* Dropdown Button */}
+      <button
+        type="button"
+        className="language-dropdown-button"
+        onClick={() => setIsLangDropdownOpen(!isLangDropdownOpen)}
+      >
+        <span className="selected-lang-name">{currentLang.name}</span>
+        <i className={`bi bi-chevron-${isLangDropdownOpen ? 'up' : 'down'}`}></i>
+      </button>
+
+      {/* Dropdown Menu */}
+      {isLangDropdownOpen && (
+        <div className="language-dropdown-menu" style={{ 
+          left: isRTL ? 'auto' : '0',
+          right: isRTL ? '0' : 'auto'
+        }}>
+          {Object.entries(languages).map(([code, lang]) => (
+            <button
+              key={code}
+              type="button"
+              className={`language-dropdown-item ${currentLanguage === code ? 'active' : ''}`}
+              onClick={() => {
+                changeLanguage(code);
+                setIsLangDropdownOpen(false);
+              }}
+            >
+              <span className="lang-name">{lang.name}</span>
+              {currentLanguage === code && (
+                <i className="bi bi-check-lg ms-auto"></i>
+              )}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
 
   return (
     <div className="glassmorphism-login-container">
@@ -110,7 +260,6 @@ const UnifiedLoginPage = () => {
           overflow: hidden;
         }
         
-        /* Gradient overlay to match original colors */
         .glassmorphism-login-container::before {
           content: '';
           position: absolute;
@@ -178,11 +327,6 @@ const UnifiedLoginPage = () => {
             opacity: 1;
             transform: translateY(0);
           }
-        }
-        
-        @keyframes pulse {
-          0%, 100% { transform: scale(1); }
-          50% { transform: scale(1.05); }
         }
         
         .glass-morphism {
@@ -303,32 +447,6 @@ const UnifiedLoginPage = () => {
           color: white;
         }
         
-        .test-accounts {
-          background: rgba(255, 255, 255, 0.08);
-          border: 1px solid rgba(255, 255, 255, 0.15);
-          border-radius: 15px;
-          backdrop-filter: blur(15px);
-          box-shadow: 
-            0 4px 12px rgba(0, 0, 0, 0.1),
-            inset 0 1px 0 rgba(255, 255, 255, 0.1);
-        }
-        
-        .test-account-btn {
-          background: rgba(255, 255, 255, 0.1);
-          border: 1px solid rgba(255, 255, 255, 0.2);
-          color: white;
-          border-radius: 8px;
-          padding: 0.5rem 1rem;
-          font-size: 0.8rem;
-          transition: all 0.3s ease;
-          cursor: pointer;
-        }
-        
-        .test-account-btn:hover {
-          background: rgba(255, 255, 255, 0.2);
-          transform: translateY(-2px);
-        }
-        
         .lang-btn {
           background: rgba(255, 255, 255, 0.1);
           border: 1px solid rgba(255, 255, 255, 0.2);
@@ -355,6 +473,87 @@ const UnifiedLoginPage = () => {
           box-shadow: 0 0 10px rgba(220, 38, 38, 0.5);
         }
         
+     /* Language Dropdown Styles */
+.language-dropdown-wrapper {
+  position: relative;
+  width: 100%;
+}
+
+.language-dropdown-button {
+  width: 100%;
+  background: rgba(255, 255, 255, 0.15);
+  border: 1.5px solid rgba(255, 255, 255, 0.3);
+  border-radius: 12px;
+  color: white;
+  padding: 12px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  backdrop-filter: blur(15px);
+}
+
+.language-dropdown-button:hover {
+  background: rgba(255, 255, 255, 0.2);
+  border-color: rgba(255, 255, 255, 0.4);
+}
+
+.selected-lang-name {
+  flex: 1;
+  text-align: left;
+  font-weight: 500;
+  font-size: 1rem;
+}
+
+.language-dropdown-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  width: 100%;
+  background: rgba(30, 30, 50, 0.95);
+  border: 1.5px solid rgba(255, 255, 255, 0.3);
+  border-radius: 12px;
+  backdrop-filter: blur(20px);
+  z-index: 1000;
+  overflow: hidden;
+  animation: fadeInUp 0.2s ease-out;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+}
+
+.language-dropdown-item {
+  width: 100%;
+  background: transparent;
+  border: none;
+  color: white;
+  padding: 14px 20px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 0.95rem;
+  text-align: left;
+}
+
+.language-dropdown-item:hover {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.language-dropdown-item.active {
+  background: rgba(220, 38, 38, 0.5);
+  font-weight: 600;
+}
+
+.lang-name {
+  flex: 1;
+  text-align: left;
+}
+
+.language-dropdown-item i.bi-check-lg {
+  color: white;
+  font-size: 1.1rem;
+  font-weight: bold;
+}
         .alert-custom {
           background: rgba(220, 53, 69, 0.2) !important;
           border: 1px solid rgba(220, 53, 69, 0.3) !important;
@@ -369,33 +568,98 @@ const UnifiedLoginPage = () => {
           border-radius: 50%;
           border-top-color: white;
           animation: spin 1s ease-in-out infinite;
+          display: inline-block;
         }
         
         @keyframes spin {
           to { transform: rotate(360deg); }
         }
         
-        .dark-mode-toggle {
-          position: absolute;
-          top: 20px;
-          left: 20px;
-          z-index: 10;
-          background: rgba(255, 255, 255, 0.1);
+        /* Captcha Styles - İYİLEŞTİRİLMİŞ */
+        .captcha-wrapper {
+          background: rgba(255, 255, 255, 0.08);
           border: 1px solid rgba(255, 255, 255, 0.2);
-          color: white;
-          border-radius: 50%;
-          width: 45px;
-          height: 45px;
+          border-radius: 12px;
+          padding: 20px;
+          backdrop-filter: blur(10px);
           display: flex;
-          align-items: center;
           justify-content: center;
-          transition: all 0.3s ease;
-          cursor: pointer;
+          align-items: center;
+          margin: 20px 0;
         }
         
-        .dark-mode-toggle:hover {
+        .captcha-container {
+          transform: scale(1);
+          transform-origin: center;
+          display: flex;
+          justify-content: center;
+        }
+        
+        /* Captcha iframe override */
+        .captcha-container iframe {
+          border-radius: 8px !important;
+          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2) !important;
+        }
+
+        /* Magic Link Styles */
+        .magic-link-toggle {
+          text-align: center;
+          margin: 15px 0;
+        }
+
+        .magic-link-btn {
+          background: none;
+          border: none;
+          color: rgba(255, 255, 255, 0.8);
+          font-size: 14px;
+          cursor: pointer;
+          transition: all 0.3s ease;
+          text-decoration: underline;
+        }
+
+        .magic-link-btn:hover {
+          color: white;
+        }
+
+        .magic-link-form {
+          animation: fadeInUp 0.5s ease-out;
+        }
+
+        .success-message {
+          background: rgba(34, 197, 94, 0.2);
+          border: 1px solid rgba(34, 197, 94, 0.4);
+          border-radius: 12px;
+          padding: 20px;
+          text-align: center;
+          backdrop-filter: blur(10px);
+        }
+
+        .success-message h4 {
+          color: #4ade80;
+          margin-bottom: 10px;
+          font-size: 18px;
+        }
+
+        .success-message p {
+          color: rgba(255, 255, 255, 0.9);
+          margin: 0;
+          font-size: 14px;
+        }
+
+        .back-to-login {
+          background: rgba(255, 255, 255, 0.1);
+          border: 1px solid rgba(255, 255, 255, 0.3);
+          color: white;
+          padding: 10px 20px;
+          border-radius: 8px;
+          cursor: pointer;
+          transition: all 0.3s ease;
+          margin-top: 15px;
+          font-size: 14px;
+        }
+
+        .back-to-login:hover {
           background: rgba(255, 255, 255, 0.2);
-          transform: rotate(180deg);
         }
         
         @media (max-width: 768px) {
@@ -409,6 +673,20 @@ const UnifiedLoginPage = () => {
             height: 60px;
             font-size: 1.5rem;
           }
+          
+          .captcha-wrapper {
+            padding: 15px;
+          }
+          
+          .captcha-container {
+            transform: scale(0.9);
+          }
+        }
+        
+        @media (max-width: 400px) {
+          .captcha-container {
+            transform: scale(0.85);
+          }
         }
       `}</style>
 
@@ -418,7 +696,8 @@ const UnifiedLoginPage = () => {
       <div className="floating-shape shape-3"></div>
       
       {/* Dark Mode Toggle */}
-      <DarkModeToggle />
+     
+     {/* <DarkModeToggle />}
       
       {/* Main Content */}
       <div className="container-fluid h-100 d-flex align-items-center justify-content-center min-vh-100 p-3">
@@ -439,10 +718,13 @@ const UnifiedLoginPage = () => {
           {/* Welcome Message */}
           <div className="text-center mb-4">
             <h4 className="text-white mb-2" style={{ fontWeight: '600' }}>
-              {t('login', 'Giriş')}
+  {showMagicLink ? t('magicLinkLogin', 'Magic Link Login') : t('login', 'Giriş')}
             </h4>
             <p className="text-white-50 small">
-              {t('loginDescription', 'Sisteme erişmek için email ve şifrenizi girin')}
+              {showMagicLink 
+    ? t('magicLinkDescription', 'Enter your email to receive a login link')
+    : t('loginDescription', 'Sisteme erişmek için email ve şifrenizi girin')
+              }
             </p>
           </div>
 
@@ -457,74 +739,185 @@ const UnifiedLoginPage = () => {
             </div>
           )}
 
-          {/* Login Form */}
-          <form onSubmit={handleSubmit}>
-            {/* Email Input */}
-            <div className="mb-3">
-              <label className="form-label text-white fw-semibold">
-                {t('email', 'E-posta')}
-              </label>
-              <input
-                type="email"
-                name="email"
-                className="form-control form-control-lg input-field"
-                placeholder={t('enterYourEmail', 'E-posta adresinizi girin')}
-                value={formData.email}
-                onChange={handleChange}
-                required
-              />
-            </div>
+          {/* Magic Link Success Message */}
+         {magicLinkSuccess && (
+  <div className="success-message mb-4">
+    <h4>✓ {t('emailSent', 'Email Sent!')}</h4>
+    <p>{t('checkYourInbox', 'Check your inbox for the login link.')}</p>
+    <p className="mt-2" style={{ fontSize: '13px', opacity: 0.8 }}>
+      {t('linkWillExpire', 'The link will expire in 15 minutes.')}
+    </p>
+  </div>
+)}
 
-            {/* Password Input */}
-            <div className="mb-4">
-              <label className="form-label text-white fw-semibold">
-                {t('password', 'Şifre')}
-              </label>
-              <div className="position-relative">
+          {/* Show Magic Link Form OR Regular Login Form */}
+          {showMagicLink && !magicLinkSuccess ? (
+            // MAGIC LINK FORM
+            <form onSubmit={handleMagicLinkRequest} className="magic-link-form">
+              <div className="mb-4">
+                <label className="form-label text-white fw-semibold">
+                  {t('email', 'E-posta')}
+                </label>
                 <input
-                  type={showPassword ? "text" : "password"}
-                  name="password"
-                  className="form-control form-control-lg input-field pe-5"
-                  placeholder={t('enterYourPassword', 'Şifrenizi girin')}
-                  value={formData.password}
-                  onChange={handleChange}
+                  type="email"
+                  className="form-control form-control-lg input-field"
+                  placeholder={t('enterYourEmail', 'E-posta adresinizi girin')}
+                  value={magicLinkEmail}
+                  onChange={(e) => setMagicLinkEmail(e.target.value)}
                   required
                 />
+              </div>
+
+              <div className="d-grid mb-3">
                 <button
-                  type="button"
-                  className="password-toggle"
-                  onClick={() => setShowPassword(!showPassword)}
+                  type="submit"
+                  className="btn btn-gradient text-white fw-semibold"
+                  disabled={magicLinkLoading}
                 >
-                  <i className={`bi ${showPassword ? 'bi-eye-slash' : 'bi-eye'}`}></i>
+                  {magicLinkLoading ? (
+                    <>
+                      <span className="loading-spinner me-2"></span>
+      {t('sending', 'Sending')}...
+                    </>
+                  ) : (
+                    <>
+                      <i className="bi bi-envelope me-2"></i>
+      {t('sendMagicLink', 'Send Magic Link')}
+                    </>
+                  )}
                 </button>
               </div>
-            </div>
 
-            {/* Login Button */}
-            <div className="d-grid mb-4">
               <button
-                type="submit"
-                className="btn btn-gradient text-white fw-semibold"
-                disabled={loading}
+                type="button"
+                className="back-to-login w-100"
+                onClick={() => {
+                  setShowMagicLink(false);
+                  setMagicLinkSuccess(false);
+                  setError(null);
+                }}
               >
-                {loading ? (
-                  <>
-                    <div className="loading-spinner me-2"></div>
-                    {t('signingIn', 'Signing In')}...
-                  </>
-                ) : (
-                  <>
-                    <i className="bi bi-box-arrow-in-right me-2"></i>
-                    {t('signin', 'Sign In')}
-                  </>
-                )}
+  {t('backToPasswordLogin', '← Back to Password Login')}
               </button>
-            </div>
+            </form>
+          ) : !magicLinkSuccess ? (
+            // REGULAR LOGIN FORM
+            <form onSubmit={handleSubmit}>
+              {/* Email Input */}
+              <div className="mb-3">
+                <label className="form-label text-white fw-semibold">
+                  {t('email', 'E-posta')}
+                </label>
+                <input
+                  type="email"
+                  name="email"
+                  className="form-control form-control-lg input-field"
+                  placeholder={t('enterYourEmail', 'E-posta adresinizi girin')}
+                  value={formData.email}
+                  onChange={handleChange}
+                  maxLength={100}
+                  required
+                />
+                <small className="text-white-50">
+                  {formData.email.length}/100 {t('characters', 'characters')}
+                </small>
+              </div>
 
-           
-          </form>
+              {/* Password Input */}
+              <div className="mb-4">
+                <label className="form-label text-white fw-semibold">
+                  {t('password', 'Şifre')}
+                </label>
+                <div className="position-relative">
+                  <input
+                    type={showPassword ? "text" : "password"}
+                    name="password"
+                    className="form-control form-control-lg input-field pe-5"
+                    placeholder={t('enterYourPassword', 'Şifrenizi girin')}
+                    value={formData.password}
+                    onChange={handleChange}
+                    maxLength={50}
+                    required
+                  />
+                  <button
+                    type="button"
+                    className="password-toggle"
+                    onClick={() => setShowPassword(!showPassword)}
+                  >
+                    <i className={`bi ${showPassword ? 'bi-eye-slash' : 'bi-eye'}`}></i>
+                  </button>
+                </div>
+                <small className="text-white-50">
+                  {formData.password.length}/50 {t('characters', 'characters')}
+                </small>
+              </div>
 
-          
+              {/* Captcha */}
+              {captchaRequired && (
+                <div className="mb-4">
+                  <div className="captcha-wrapper">
+                    <div className="captcha-container">
+                      <ReCAPTCHA
+                        sitekey={process.env.REACT_APP_RECAPTCHA_SITE_KEY}
+                        onChange={handleCaptchaChange}
+                        theme="dark"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+            
+
+              {/* Login Button */}
+              <div className="d-grid mb-3">
+                <button
+                  type="submit"
+                  className="btn btn-gradient text-white fw-semibold"
+                  disabled={loading}
+                >
+                  {loading ? (
+                    <>
+                      <span className="loading-spinner me-2"></span>
+                      {t('signingIn', 'Signing In')}...
+                    </>
+                  ) : (
+                    <>
+                      <i className="bi bi-box-arrow-in-right me-2"></i>
+                      {t('signin', 'Sign In')}
+                    </>
+                  )}
+                </button>
+              </div>
+
+              {/* Magic Link Toggle */}
+              <div className="magic-link-toggle">
+                <button
+                  type="button"
+                  className="magic-link-btn"
+                  onClick={() => {
+                    setShowMagicLink(true);
+                    setError(null);
+                  }}
+                >
+  {t('orSignInWithMagicLink', ' Or sign in with Magic Link (No password needed)')}
+                </button>
+              </div>
+            </form>
+          ) : (
+            // MAGIC LINK SUCCESS - BACK BUTTON
+            <button
+              className="back-to-login w-100"
+              onClick={() => {
+                setShowMagicLink(false);
+                setMagicLinkSuccess(false);
+                setMagicLinkEmail('');
+                setError(null);
+              }}
+            >
+  {t('backToLogin', '← Back to Login')}
+            </button>
+          )}
         </div>
       </div>
 

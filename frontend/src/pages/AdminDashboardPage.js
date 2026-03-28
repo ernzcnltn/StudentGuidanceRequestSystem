@@ -1,5 +1,6 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useAdminAuth } from '../contexts/AdminAuthContext';
+import { useParams, Navigate, useNavigate } from 'react-router-dom'; // useNavigate eklendi
 import { useTheme } from '../contexts/ThemeContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useTranslation } from '../hooks/useTranslation';
@@ -17,11 +18,15 @@ import PermissionManagementPage from '../components/PermissionManagementPage';
 import RBACDashboard from '../components/RBACDashboard';
 import AcademicCalendarManager from '../components/AcademicCalendarManager';
 import 'bootstrap/dist/js/bootstrap.bundle.min.js';
+import './admin-responsive.css'; // 👈 YENİ - SADECE BU SATIR EKLENDİ
+
 import { useToast } from '../contexts/ToastContext';
 import { useConfirmation } from '../hooks/useConfirmation';
 import ConfirmationModal from '../components/ConfirmationModal';
 import SecretaryExamRequestsPage from './SecretaryExamRequestsPage';
 import CoursesManagementPage from '../components/CoursesManagementPage';
+import DeanExamRequestsPage from './DeanExamRequestsPage'; 
+import InstituteRequestsPage from './InstituteRequestsPage';
 
 // Request Detail Modal Component
 
@@ -40,9 +45,40 @@ const RequestDetailModal = ({
 }) => {
   const { isDark } = useTheme();
   const { t, translateRequestType } = useTranslation();
+  const { showError } = useToast();
+
+
+  // 🆕 FIFO DURUMU İÇİN STATE
+  const [fifoStatus, setFifoStatus] = useState(null);
+  const [checkingFifo, setCheckingFifo] = useState(false);
+
+  // 🆕 FIFO DURUMUNU KONTROL ET
+  useEffect(() => {
+    if (show && request && request.status === 'Pending') {
+      checkFifoEligibility();
+    }
+  }, [show, request?.request_id]);
+
+  const checkFifoEligibility = async () => {
+    try {
+      setCheckingFifo(true);
+      const response = await apiService.checkFifoStatus(request.request_id);
+      
+      if (response.data.success) {
+        setFifoStatus(response.data.data);
+      }
+    } catch (error) {
+      console.error('Failed to check FIFO status:', error);
+    } finally {
+      setCheckingFifo(false);
+    }
+  };
 
   if (!show || !request) return null;
   
+  const isBlocked = fifoStatus && !fifoStatus.canRespond && fifoStatus.reason === 'FIFO_VIOLATION';
+
+
 
   const getStatusBadge = (status) => {
     const statusStyles = {
@@ -94,6 +130,12 @@ const RequestDetailModal = ({
               <h5 className="modal-title">
                 <i className="fas fa-file-alt me-2 text-danger"></i>
                 {t('requestDetails')} 
+                {/* 🆕 ORDER BADGE */}
+                {request.response_order && (
+                  <span className="badge bg-info ms-2">
+                    {t('queuePosition')}: #{request.response_order}
+                  </span>
+                )}
               </h5>
               <button
                 type="button"
@@ -107,6 +149,53 @@ const RequestDetailModal = ({
 
             {/* Modal Body */}
             <div className="modal-body">
+
+              {/* 🆕 FIFO WARNING ALERT */}
+              {isBlocked && (
+                <div className="alert alert-warning border-warning" role="alert">
+                  <div className="d-flex align-items-start">
+                    <i className="bi bi-exclamation-triangle-fill me-3" style={{ fontSize: '2rem' }}></i>
+                    <div className="flex-grow-1">
+                      <h5 className="alert-heading mb-2">
+                        <i className="bi bi-clock-history me-2"></i>
+                        {t('fifoBlocked')}
+                      </h5>
+                      <p className="mb-2">{t('earlierRequestsPending')}</p>
+                      
+                      {fifoStatus.blocking_request && (
+                        <div className="card bg-light border-warning mt-3">
+                          <div className="card-body p-3">
+                            <h6 className="card-title text-warning mb-2">
+                              <i className="bi bi-arrow-right-circle me-2"></i>
+                              {t('blockingRequest')}
+                            </h6>
+                            <div className="row g-2 small">
+                              <div className="col-6">
+                                <strong>{t('requestId')}:</strong> #{fifoStatus.blocking_request.request_id}
+                              </div>
+                              <div className="col-6">
+                                <strong>{t('requestOrder')}:</strong> #{fifoStatus.blocking_request.order}
+                              </div>
+                              <div className="col-6">
+                                <strong>{t('student')}:</strong> {fifoStatus.blocking_request.student_name}
+                              </div>
+                              <div className="col-6">
+                                <strong>{t('submitted')}:</strong> {new Date(fifoStatus.blocking_request.submitted_at).toLocaleDateString()}
+                              </div>
+                            </div>
+                            <div className="mt-2">
+                              <small className="text-muted">
+                                <i className="bi bi-info-circle me-1"></i>
+                                {t('youMustAnswerFirst').replace('{id}', fifoStatus.blocking_request.request_id)}
+                              </small>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
               <div className="row">
                 {/* Left Column - Basic Info */}
                 <div className="col-lg-4">
@@ -160,7 +249,7 @@ const RequestDetailModal = ({
                         <label className="form-label fw-bold">{t('priority')}:</label>
                         <div>
                           <span className={`badge ${getPriorityBadge(request.priority)}`}>
-                            {request.priority || 'Medium'}
+                            {t(request.priority.toLowerCase())}
                           </span>
                         </div>
                       </div>
@@ -287,10 +376,12 @@ const RequestDetailModal = ({
               borderColor: isDark ? '#4a5568' : '#e2e8f0'
             }}>
               <div className="d-flex gap-2 w-100">
+              {/* 🆕 DİSABLE BUTTONS IF BLOCKED */}
                 {canCreateResponses && (
                   <button
                     className="btn btn-outline-danger"
                     onClick={() => onSendResponse(request)}
+                    disabled={isBlocked} // 🆕 DISABLED IF BLOCKED
                   >
                     <i className="fas fa-reply me-2"></i>
                     {t('sendResponse')}
@@ -301,6 +392,8 @@ const RequestDetailModal = ({
                   <button
                     className="btn btn-outline-danger"
                     onClick={() => onUpdateStatus(request.request_id, 'Completed')}
+                    disabled={isBlocked} // 🆕 DISABLED IF BLOCKED
+
                   >
                     <i className="fas fa-check me-2"></i>
                    {t('markComplete')}
@@ -311,6 +404,8 @@ const RequestDetailModal = ({
                   <button
                     className="btn btn-outline-danger"
                     onClick={() => onRejectRequest(request)}
+                   disabled={isBlocked} // 🆕 DISABLED IF BLOCKED
+
                   >
                     <i className="fas fa-times me-2"></i>
                    {t('reject')}
@@ -333,6 +428,9 @@ const RequestDetailModal = ({
 };
 
 const AdminDashboardPage = () => {
+    const { department: urlDepartment } = useParams();
+  const navigate = useNavigate(); // 🆕 YENİ SATIR
+
   const [selectedRequestForResponse, setSelectedRequestForResponse] = useState(null);
   const [showResponseModal, setShowResponseModal] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -357,6 +455,10 @@ const AdminDashboardPage = () => {
     isDepartmentAdmin,
     getAccessibleDepartments,
   } = useAdminAuth();
+
+  
+
+  
   
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [selectedRequestForReject, setSelectedRequestForReject] = useState(null);
@@ -615,7 +717,7 @@ showError(t('noRequestSelectedForRejection'));
       console.log('Reject response received:', response.data);
       
       if (response.data && response.data.success) {
-        showSuccess(`Request #${selectedRequestForReject.request_id} rejected successfully`);
+showSuccess(t('requestRejectedSuccessfully', '', { id: selectedRequestForReject.request_id }));
         setShowRejectModal(false);
         setSelectedRequestForReject(null);
         
@@ -652,29 +754,79 @@ showError(t('noRequestSelectedForRejection'));
     }
   };
 
+
+
+
 // Secretary için direkt exam-requests tab'ını aç
 useEffect(() => {
+  // ÖZEL ROLLER İÇİN TAB AYARLA VE DATA ÇEKME
+  if (admin?.role === 'dean') {
+    setActiveTab('approved-exam-requests');
+    return; // Dashboard data çekme
+  }
+
   if (admin?.role === 'secretary') {
     setActiveTab('exam-requests');
+    return; // Dashboard data çekme
   }
-}, [admin]); // admin değiştiğinde çalışsın
+
+  if (admin?.role === 'institute_admin') {
+    setActiveTab('institute-requests');
+    return; // Dashboard data çekme
+  }
+
+  // SADECE NORMAL ADMINLER İÇİN DATA ÇEK
+  if (activeTab === 'dashboard') {
+    fetchDashboardData();
+  } else if (activeTab === 'requests') {
+    fetchRequests();
+  } else if (activeTab === 'settings') {
+    fetchRequestTypes();
+  }
+}, [activeTab, admin,filters]); // Sadece activeTab ve admin
 
 
+  // 🆕 URL'den tab'ı senkronize et - ACCESS KONTROLÜNDEN ÖNCE
   useEffect(() => {
+    const path = window.location.pathname;
+    const pathParts = path.split('/');
+    const lastPart = pathParts[pathParts.length - 1];
+    
+    const validTabs = ['requests', 'settings', 'users', 'roles', 'permissions', 
+                       'courses', 'calendar', 'dept-users', 'exam-requests', 
+                       'approved-exam-requests', 'institute-requests'];
+    
+    if (lastPart === urlDepartment || lastPart === '') {
+      setActiveTab('dashboard');
+    } else if (validTabs.includes(lastPart)) {
+      setActiveTab(lastPart);
+    }
+  }, [urlDepartment]);
 
-    // 👇 Secretary için dashboard data çekme
-  if (admin?.role === 'secretary') {
-    return; // Secretary için hiçbir şey yapma
+
+  // 🆕 ACCESS KONTROLÜ - TÜM HOOK'LARDAN SONRA
+  const hasAccess = useMemo(() => {
+    if (!admin || !urlDepartment) return true;
+    
+    if (admin.is_super_admin && !admin.department) {
+      return true;
+    }
+    
+    return urlDepartment === admin.department?.toLowerCase();
+  }, [admin, urlDepartment]);
+  
+  // 🆕 Unauthorized access kontrolü
+  if (!hasAccess && admin && urlDepartment) {
+    console.warn('❌ Unauthorized department access:', {
+      adminUsername: admin.username,
+      adminDepartment: admin.department,
+      urlDepartment
+    });
+    return <Navigate to="/admin/dashboard" replace />;
   }
 
-    if (activeTab === 'dashboard') {
-      fetchDashboardData();
-    } else if (activeTab === 'requests') {
-      fetchRequests();
-    } else if (activeTab === 'settings') {
-      fetchRequestTypes();
-    }
-  }, [activeTab, fetchDashboardData, fetchRequests, fetchRequestTypes]);
+  
+
 
   const updateRequestStatus = async (requestId, newStatus) => {
     if (!canManageRequests()) {
@@ -689,11 +841,12 @@ showError(t('noPermissionManageRequests'));
       
       fetchRequests();
       
-      if (newStatus === 'Completed') {
-showSuccess(t('requestMarkedAsCompleted', { id: requestId }));
-      } else {
-showSuccess(t('requestStatusUpdated', { id: requestId, status: newStatus }));
-      }
+      
+if (newStatus === 'Completed') {
+showSuccess(t('requestMarkedAsCompleted', '', { id: requestId }));
+} else {
+showSuccess(t('requestStatusUpdated', '', { id: requestId, status: t(newStatus.toLowerCase()) }));
+}
     } catch (error) {
       console.error('Error updating request status:', error);
       if (error.response?.status === 403) {
@@ -724,13 +877,106 @@ showError(t('failedToToggleRequestType'));
   };
 
 const handleNotificationClick = (requestId, type) => {
+
+ console.log('Notification clicked, navigating to request:', requestId);
+  
+  // 👇 YENİ: Secretary için exam-requests tab'ına git
+  if (admin?.role === 'secretary') {
+    setActiveTab('exam-requests');
+    setSidebarOpen(false);
+    
+    // Exam requests sayfası kendi içinde request'i gösterecek
+    setTimeout(() => {
+      const requestElement = document.getElementById(`request-${requestId}`);
+      if (requestElement) {
+        requestElement.scrollIntoView({ 
+          behavior: 'smooth', 
+          block: 'center' 
+        });
+        
+        // Highlight the request temporarily
+        requestElement.style.backgroundColor = '#fff3cd';
+        requestElement.style.border = '2px solid #ffc107';
+        requestElement.style.borderRadius = '8px';
+        
+        setTimeout(() => {
+          requestElement.style.backgroundColor = '';
+          requestElement.style.border = '';
+          requestElement.style.borderRadius = '';
+        }, 5000);
+      }
+    }, 500);
+    
+    return;
+  }
+
+  // 👇 YENİ: Dean için approved-exam-requests tab'ına git
+  if (admin?.role === 'dean') {
+    setActiveTab('approved-exam-requests');
+    setSidebarOpen(false);
+    
+    // Approved exam requests sayfası kendi içinde request'i gösterecek
+    setTimeout(() => {
+      const requestElement = document.getElementById(`request-${requestId}`);
+      if (requestElement) {
+        requestElement.scrollIntoView({ 
+          behavior: 'smooth', 
+          block: 'center' 
+        });
+        
+        // Highlight the request temporarily
+        requestElement.style.backgroundColor = '#d4edda';
+        requestElement.style.border = '2px solid #28a745';
+        requestElement.style.borderRadius = '8px';
+        
+        setTimeout(() => {
+          requestElement.style.backgroundColor = '';
+          requestElement.style.border = '';
+          requestElement.style.borderRadius = '';
+        }, 5000);
+      }
+    }, 500);
+    
+    return;
+  }
+
+
+  // 👇 YENİ: Institute Admin için - institute-requests tab'ına yönlendir
+  if (admin?.role === 'institute_admin') {
+    console.log('🎓 Institute Admin: Redirecting to institute-requests tab');
+    setActiveTab('institute-requests');
+    setSidebarOpen(false);
+    
+    setTimeout(() => {
+      const requestElement = document.getElementById(`request-${requestId}`);
+      if (requestElement) {
+        requestElement.scrollIntoView({ 
+          behavior: 'smooth', 
+          block: 'center' 
+        });
+        
+        requestElement.style.backgroundColor = '#e7d4f7';
+        requestElement.style.border = '2px solid #6610f2';
+        requestElement.style.borderRadius = '8px';
+        
+        setTimeout(() => {
+          requestElement.style.backgroundColor = '';
+          requestElement.style.border = '';
+          requestElement.style.borderRadius = '';
+        }, 3000);
+      }
+    }, 500);
+    
+    return;
+  }
+
   if (!canViewRequests()) {
     showError(t('noPermissionViewRequests'));
     return;
   }
 
-  console.log('Notification clicked, navigating to request:', requestId);
-  
+ 
+
   // Switch to requests tab
   setActiveTab('requests');
   
@@ -765,7 +1011,7 @@ const handleNotificationClick = (requestId, type) => {
           }, 5000);
         } else {
           // If request not found, show info message
-          showInfo(t('requestNotFoundInCurrentView', 'Request not found in current view. It may be in a different status filter.'));
+          showInfo(t('requestNotFound'));
         }
       }, 500);
     });
@@ -776,7 +1022,7 @@ const handleNotificationClick = (requestId, type) => {
     e.preventDefault();
     
     if (!canManageRequestTypes()) {
-      showError('You do not have permission to add request types');
+showError(t('noPermissionAddRequestTypes'));
       return;
     }
 
@@ -835,55 +1081,88 @@ showError(t('noPermissionViewRequests'));
 
   // Tab visibility control based on permissions
  const getVisibleTabs = () => {
+
+    console.log('📋 getVisibleTabs called:', {
+    adminRole: admin?.role,
+    adminFullData: admin
+  });
+
   const tabs = [];
   
+
+
+
+
+ // 👇 YENİ: Dean için Approved Exam Requests tab'ı
+  if (admin?.role === 'dean') {
+    tabs.push({ 
+      key: 'approved-exam-requests', 
+      label: t('approvedExamRequests'),  // ✅ Çevrildi
+      icon: 'bi bi-check-circle' 
+    });
+    return tabs; // Dean sadece bu tab'ı görsün
+  }
+
+
       // 👇 YENİ: Secretary için Exam Requests tab'ı
     if (admin?.role === 'secretary') {
       tabs.push({ 
         key: 'exam-requests', 
-        label: 'Exam Requests', 
+      label: t('examRequests'),  // ✅ Çevrildi
         icon: 'bi bi-clipboard2-check' 
       });
       return tabs; // Secretary sadece exam requests görsün
     }
 
 
+     // 👇 YENİ: Institute Admin için Institute Requests tab'ı
+  if (admin?.role === 'institute_admin') {
+    tabs.push({ 
+      key: 'institute-requests', 
+      label: t('instituteRequests'),  // ✅ Çevrildi
+      icon: 'bi bi-mortarboard' 
+    });
+    return tabs; // Institute admin sadece bu tab'ı görsün
+  }
+ console.log('⚠️ No special role matched, showing normal tabs');
+
+
   if (canViewAnalytics()) {
-    tabs.push({ key: 'dashboard', label: 'Dashboard', icon: 'bi bi-graph-up' });
+    tabs.push({ key: 'dashboard', label: t('dashboard'),  icon: 'bi bi-graph-up' });
   }
   
   if (canViewRequests()) {
-    tabs.push({ key: 'requests', label: 'Manage Requests', icon: 'bi bi-inbox' });
+    tabs.push({ key: 'requests', label: t('manageRequests'), icon: 'bi bi-inbox' });
   }
 
   if (canManageSettings()) {
-    tabs.push({ key: 'settings', label: 'Settings', icon: 'bi bi-gear' });
+    tabs.push({ key: 'settings', label: t('settings'), icon: 'bi bi-gear' });
   }
 
    if (isSuperAdmin()) {
     tabs.push({ 
       key: 'courses', 
-      label: 'Courses', 
+      label: t('courses'), 
       icon: 'bi bi-book' 
     });
   }
   
   // RBAC Management Tabs (Super Admin only)
   if (isSuperAdmin()) {
-    tabs.push({ key: 'users', label: 'Users', icon: 'bi bi-people' });
-    tabs.push({ key: 'roles', label: 'Roles', icon: 'bi bi-person-badge' });
-    tabs.push({ key: 'permissions', label: 'Permissions', icon: 'bi bi-key' });
+    tabs.push({ key: 'users', label: t('users'), icon: 'bi bi-people' });
+    tabs.push({ key: 'roles', label: t('roles'), icon: 'bi bi-person-badge' });
+    tabs.push({ key: 'permissions', label: t('permissions'), icon: 'bi bi-key' });
   }
   
   // Department Admin can see user management for their department
   if (isDepartmentAdmin() && !isSuperAdmin()) {
-    tabs.push({ key: 'dept-users', label: 'Dept Users', icon: 'bi bi-people-fill' });
+    tabs.push({ key: 'dept-users', label: t('deptUsers'), icon: 'bi bi-people-fill' });
   }
 
   if (isSuperAdmin()) {
     tabs.push({ 
       key: 'calendar', 
-      label: 'Academic Calendar', 
+      label: t('academicCalendar'), 
       icon: 'bi bi-calendar-check' 
     });
   }
@@ -963,7 +1242,29 @@ showError(t('noPermissionViewRequests'));
     );
   };
 
- const renderDashboard = () => {  // 👈 PARANTEZ YERİNE SÜSLÜ PARANTEZ
+ const renderDashboard = () => {  
+
+ 
+ 
+
+  // 👇 YENİ: Dean için mesaj
+   if (admin?.role === 'dean') {
+    return (
+      <div className="container mt-4">
+        <div className="alert alert-info text-center py-5">
+          <i className="bi bi-check-circle" style={{ fontSize: '4rem', color: '#28a745' }}></i>
+          <h4 className="mt-3">Welcome {admin.full_name}!</h4>
+          <p className="text-muted mb-0">
+            As a dean, you can view all approved exam requests from all faculties.
+          </p>
+          <p className="text-muted mt-2">
+            <small>Click on "Approved Exam Requests" in the sidebar to get started.</small>
+          </p>
+        </div>
+      </div>
+    );
+  }
+
 
   if (admin?.role === 'secretary') {
     return (
@@ -973,6 +1274,23 @@ showError(t('noPermissionViewRequests'));
           <h4 className="mt-3">Welcome {admin.full_name}!</h4>
           <p className="text-muted mb-0">
             As a secretary, you can manage exam requests from the Exam Requests menu.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  if (admin?.role === 'institute_admin') {
+    return (
+      <div className="container mt-4">
+        <div className="alert alert-info text-center py-5">
+          <i className="bi bi-mortarboard" style={{ fontSize: '4rem', color: '#6610f2' }}></i>
+          <h4 className="mt-3">Welcome {admin.full_name}!</h4>
+          <p className="text-muted mb-0">
+            As an institute administrator, you can manage thesis and academic service requests.
+          </p>
+          <p className="text-muted mt-2">
+            <small>Click on "Institute Requests" in the sidebar to get started.</small>
           </p>
         </div>
       </div>
@@ -1131,7 +1449,7 @@ showError(t('noPermissionViewRequests'));
                             </td>
                             <td>
                               <span className={`badge ${getPriorityBadge(request.priority)}`}>
-                                {request.priority || 'Medium'}
+                            {t(request.priority.toLowerCase())}
                               </span>
                             </td>
                             <td>
@@ -1149,6 +1467,29 @@ showError(t('noPermissionViewRequests'));
                             <td>
                               <div className="btn-group" role="group" onClick={(e) => e.stopPropagation()}>
                                
+
+                               {/* Pending ise Onayla / Reddet butonları */}
+    {request.status === 'Pending' && canManageRequests() && (
+      <>
+        <button
+          className="btn btn-outline-success btn-sm"
+          onClick={() => updateRequestStatus(request.request_id, 'Completed')}
+        >
+          <i className="bi bi-check-lg me-1"></i>
+          {t('markComplete')}
+        </button>
+        <button
+          className="btn btn-outline-danger btn-sm"
+          onClick={() => {
+            setSelectedRequestForReject(request);
+            setShowRejectModal(true);
+          }}
+        >
+          <i className="bi bi-x-lg me-1"></i>
+          {t('reject')}
+        </button>
+      </>
+    )}
 
                                 {request.attachment_count > 0 && (
                                   <button 
@@ -1454,11 +1795,26 @@ showError(t('noPermissionViewRequests'));
   };
 
   const renderTabContent = () => {
+    if (admin?.role === 'dean' && activeTab === 'approved-exam-requests') {
+    return <DeanExamRequestsPage />;
+  }
+
+  if (admin?.role === 'secretary' && activeTab === 'exam-requests') {
+    return <SecretaryExamRequestsPage />;
+  }
+
+  if (admin?.role === 'institute_admin' && activeTab === 'institute-requests') {
+    return <InstituteRequestsPage />;
+  }
 
     switch (activeTab) {
-      case 'exam-requests': // 👈 YENİ
-        return <SecretaryExamRequestsPage />; // 👈 YENİ
-      case 'dashboard':
+      case 'approved-exam-requests': 
+      return <DeanExamRequestsPage />;
+      case 'exam-requests': 
+        return <SecretaryExamRequestsPage />; 
+      case 'institute-requests': 
+      return <InstituteRequestsPage />;
+        case 'dashboard':
         return renderDashboard();
       case 'requests':
         return renderRequests();
@@ -1491,13 +1847,39 @@ showError(t('noPermissionViewRequests'));
         minHeight: '100vh'
       }}
     >
-      {/* Sidebar */}
+
+
+
+       {/* Sidebar Overlay - TAM YENİ */}
+     {sidebarOpen && (
+        <div
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            width: '100vw',
+            height: '100vh',
+            backgroundColor: 'rgba(0, 0, 0, 0.6)',
+            zIndex: 1050, // Sidebar'dan DÜŞÜK olmalı
+            cursor: 'pointer'
+          }}
+          onClick={(e) => {
+            console.log('Overlay clicked!');
+            e.stopPropagation();
+            setSidebarOpen(false);
+          }}
+        />
+      )}
+
+          {/* Sidebar */}
       <div 
         className={`sidebar ${sidebarOpen ? 'sidebar-open' : ''}`}
         style={{
           position: 'fixed',
           top: 0,
-          left: sidebarOpen ? 0 : '-280px',
+          left: sidebarOpen ? 0 : '-100%',
           width: '280px',
           height: '100vh',
           background: isDark 
@@ -1505,7 +1887,7 @@ showError(t('noPermissionViewRequests'));
             : '#ffffff',
           borderRight: isDark ? '1px solid #4a5568' : '1px solid #e2e8f0',
           transition: 'left 0.3s ease',
-          zIndex: 1050,
+          zIndex: 1051, // Overlay'den YÜKSEK olmalı
           overflowY: 'auto',
           boxShadow: isDark 
             ? '4px 0 20px rgba(0, 0, 0, 0.3)' 
@@ -1518,29 +1900,52 @@ showError(t('noPermissionViewRequests'));
             ? 'linear-gradient(135deg, #dc2626 0%, #b91c1c 100%)' 
             : 'linear-gradient(135deg, #dc2626 0%, #b91c1c 100%)'
         }}>
-          <h5 className="mb-0 text-white">
-            {t('adminPanel')}
-          </h5>
-          <small className="text-white opacity-90">
-            {department} {t('department')}
-
-          </small>
+          <div className="d-flex justify-content-between align-items-center"> {/* 👈 YENİ - Kapatma butonu için */}
+            <div>
+              <h5 className="mb-0 text-white">
+                {t('adminPanel')}
+              </h5>
+              <small className="text-white opacity-90">
+                {department} {t('department')}
+              </small>
+            </div>
+            <button 
+              className="btn btn-sm text-white"
+              onClick={() => setSidebarOpen(false)}
+              style={{ 
+                background: 'none',
+                border: 'none',
+                fontSize: '1.5rem',
+                padding: '0',
+                lineHeight: '1'
+              }}
+            >
+              ×
+            </button>
+          </div>
         </div>
         
         <nav className="mt-3">
           {getVisibleTabs().map((tab) => (
-            <button
-              key={tab.key}
-              className={`nav-link border-0 w-100 text-start px-3 py-3 ${
-                activeTab === tab.key 
-                  ? 'bg-danger text-white' 
-                  : isDark ? 'text-light hover-bg-gray-800' : 'text-dark hover-bg-gray-50'
-              }`}
-              onClick={() => {
-                setActiveTab(tab.key);
-                setSidebarOpen(false);
-                setCurrentPage(1); // Reset pagination when changing tabs
-              }}
+           <button
+  key={tab.key}
+  className={`nav-link border-0 w-100 text-start px-3 py-3 ${
+    activeTab === tab.key 
+      ? 'bg-danger text-white' 
+      : isDark ? 'text-light hover-bg-gray-800' : 'text-dark hover-bg-gray-50'
+  }`}
+  onClick={() => {
+    setActiveTab(tab.key);
+    setSidebarOpen(false);
+    setCurrentPage(1);
+    
+    // 🆕 URL'yi güncelle
+    if (tab.key === 'dashboard') {
+      navigate(`/admin/dashboard/${urlDepartment}`);
+    } else {
+      navigate(`/admin/dashboard/${urlDepartment}/${tab.key}`);
+    }
+  }}
               style={{
                 backgroundColor: activeTab === tab.key 
                   ? '#dc2626' 
@@ -1558,22 +1963,8 @@ showError(t('noPermissionViewRequests'));
         </nav>
       </div>
 
-      {/* Sidebar Overlay */}
-      {sidebarOpen && (
-        <div
-          className="sidebar-overlay"
-          style={{
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            width: '100vw',
-            height: '100vh',
-            backgroundColor: 'rgba(0, 0, 0, 0.5)',
-            zIndex: 1040
-          }}
-          onClick={() => setSidebarOpen(false)}
-        />
-      )}
+     
+
 
       {/* Header */}
       <div 
@@ -1591,7 +1982,7 @@ showError(t('noPermissionViewRequests'));
                 <div className="d-flex align-items-center">
                   {/* Hamburger Menu */}
                   <button
-                    className="btn text-white me-3 p-2"
+                    className="btn text-white me-3 p-2 flex-shrink-0"
                     onClick={() => setSidebarOpen(!sidebarOpen)}
                     style={{
                       border: 'none',
@@ -1608,30 +1999,39 @@ showError(t('noPermissionViewRequests'));
                     ☰
                   </button>
                   
-                  <div className="me-3">
+                 <div className="me-2 me-md-3 flex-shrink-0"> 
                     <FIULogo 
                       size="md" 
                       style={{ 
-                        filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.3))'
+                        filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.3))',
+                         width: '40px',
+                         height: 'auto'
                       }} 
+                      className="d-none d-sm-block"
                     />
                   </div>
-                  <div className="text-white">
-                    <h4 className="mb-0 fw-bold">
+                  <div className="text-white min-w-0">
+                    <h4 className="mb-0 fw-bold d-none d-md-block" style={{ fontSize: 'clamp(0.9rem, 2vw, 1.25rem)' }}> {/* 👈 responsive font */}
                       {department} {t('adminPanel')}
-                     
-                    </h4>
-                    <small className="opacity-90">
+                      </h4>
+
+                         <h5 className="mb-0 fw-bold d-md-none" style={{ fontSize: 'clamp(0.85rem, 3vw, 1rem)' }}> {/* 👈 mobil için küçük başlık */}
+                      {department}
+                    </h5> 
+
+                    <small className="opacity-90 d-none d-sm-inline" style={{ fontSize: 'clamp(0.7rem, 1.5vw, 0.875rem)' }}> {/* 👈 responsive font */}
                       {isSuperAdmin() ? t('systemAdministrator') : t('manageDepartment')}
                     </small>
                   </div>
                 </div>
 
-                {/* Sağ taraf - Kullanıcı Bilgileri ve Kontroller */}
-                <div className="d-flex align-items-center gap-3">
-                  <div className="text-white d-none d-lg-block text-end">
-                    <div className="fw-semibold">{admin?.full_name || admin?.username}</div>
-                    <small className="opacity-75">
+ {/* Sağ taraf - Kullanıcı Bilgileri ve Kontroller */}
+                <div className="d-flex align-items-center gap-2 flex-shrink-0"> {/* 👈 gap-3 -> gap-2, flex-shrink-0 eklendi */}
+                  <div className="text-white d-none d-xl-block text-end"> {/* 👈 d-lg -> d-xl */}
+                    <div className="fw-semibold" style={{ fontSize: 'clamp(0.8rem, 1.5vw, 0.9rem)' }}> {/* 👈 responsive font */}
+                      {admin?.full_name || admin?.username}
+                    </div>
+                    <small className="opacity-75" style={{ fontSize: 'clamp(0.7rem, 1.2vw, 0.8rem)' }}> {/* 👈 responsive font */}
                       {isSuperAdmin() ? 'Super Admin' : `${department} Admin`}
                     </small>
                   </div>
@@ -1644,12 +2044,13 @@ showError(t('noPermissionViewRequests'));
                   
                   {/* Logout Button */}
                   <button 
-                    className="btn btn-outline-light btn-sm d-flex align-items-center gap-2" 
+                    className="btn btn-outline-light btn-sm d-flex align-items-center gap-1 gap-md-2" // 👈 gap-1 gap-md-2
                     onClick={handleLogoutClick}
                     style={{ 
                       borderRadius: '25px',
-                      padding: '8px 16px',
-                      transition: 'all 0.3s ease'
+                      padding: '6px 12px', // 👈 küçültüldü
+                      transition: 'all 0.3s ease',
+                      fontSize: 'clamp(0.75rem, 1.5vw, 0.875rem)' // 👈 responsive font
                     }}
                     onMouseEnter={(e) => {
                       e.target.style.backgroundColor = 'rgba(255,255,255,0.2)';
@@ -1660,7 +2061,8 @@ showError(t('noPermissionViewRequests'));
                       e.target.style.transform = 'translateY(0)';
                     }}
                   >
-                    <span>{t('logout')}</span>
+                    <span className="d-none d-sm-inline">{t('logout')}</span> {/* 👈 çok küçük ekranlarda text gizli */}
+                    <i className="bi bi-box-arrow-right d-sm-none"></i> {/* 👈 sadece icon */}
                   </button>
                 </div>
               </div>

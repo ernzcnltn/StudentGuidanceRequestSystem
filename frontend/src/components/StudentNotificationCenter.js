@@ -1,17 +1,106 @@
-// StudentNotificationCenter.js - Student notification system
+// StudentNotificationCenter.js - Çeviri desteği ile güncellenmiş
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useTranslation } from '../hooks/useTranslation';
+import { useTheme } from '../contexts/ThemeContext';
 import { apiService } from '../services/api';
+import { useNavigate } from 'react-router-dom';
 
 const StudentNotificationCenter = ({ onNotificationClick }) => {
   const { user } = useAuth();
-  const { t } = useTranslation();
+  const { t ,translateRequestType} = useTranslation(); // currentLanguage eklemeye gerek yok, sadece t kullanıyoruz
+  const { isDark } = useTheme();
+    const navigate = useNavigate(); // 👈 YENİ EKLEME
+
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [isOpen, setIsOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const dropdownRef = useRef(null);
+
+  // 👇 YENİ: Notification mesajlarını çeviren fonksiyon
+  const translateNotificationText = useCallback((text) => {
+    if (!text) return '';
+    
+    let translated = text;
+
+    // "Make-up Exam Request Submitted" vb.
+    const patterns = [
+      { from: 'Make-up Exam Request Submitted', to: t('Make-up Exam Request Submitted') },
+      { from: 'Make-up Exam Request Approved', to: t('Make-up Exam Request Approved') },
+      { from: 'Make-up Exam Request Rejected', to: t('Make-up Exam Request Rejected') },
+      { from: 'Resit Exam Request Submitted', to: t('Resit Exam Request Submitted') },
+      { from: 'Resit Exam Request Approved', to: t('Resit Exam Request Approved') },
+      { from: 'Resit Exam Request Rejected', to: t('Resit Exam Request Rejected') },
+    ];
+
+    patterns.forEach(({ from, to }) => {
+      translated = translated.replace(new RegExp(from, 'gi'), to);
+    });
+
+    // "Request #55 Status Update" -> "Talep #55 Durum Güncellendi"
+    translated = translated.replace(
+      /Request #(\d+) Status Update/gi,
+      (match, num) => `${t('Request')} #${num} ${t('Status Update')}`
+    );
+
+// Makeup patterns - [A-Z0-9]+ yerine [A-Z0-9\s]+ yap
+translated = translated.replace(
+  /Your makeup exam request for ([A-Z0-9\s]+\s*-\s*.+?) is awaiting review/gi,
+  (match, course) => `${course} ${t('Your makeup exam request for')} ${t('is awaiting review')}`
+);
+
+translated = translated.replace(
+  /Your makeup exam request for ([A-Z0-9\s]+\s*-\s*.+?) has been approved/gi,
+  (match, course) => `${course} ${t('Your makeup exam request for')} ${t('has been approved')}`
+);
+
+translated = translated.replace(
+  /Your makeup exam request for ([A-Z0-9\s]+\s*-\s*.+?) was not approved/gi,
+  (match, course) => `${course} ${t('Your makeup exam request for')} ${t('was not approved')}`
+);
+
+// Resit patterns - aynı şekilde
+translated = translated.replace(
+  /Your resit exam request for ([A-Z0-9\s]+\s*-\s*.+?) is awaiting review/gi,
+  (match, course) => `${course} ${t('Your resit exam request for')} ${t('is awaiting review')}`
+);
+
+translated = translated.replace(
+  /Your resit exam request for ([A-Z0-9\s]+\s*-\s*.+?) has been approved/gi,
+  (match, course) => `${course} ${t('Your resit exam request for')} ${t('has been approved')}`
+);
+
+translated = translated.replace(
+  /Your resit exam request for ([A-Z0-9\s]+\s*-\s*.+?) was not approved/gi,
+  (match, course) => `${course} ${t('Your resit exam request for')} ${t('was not approved')}`
+);
+
+    // "Your request "Thesis Submission" status changed to Rejected"
+  
+translated = translated.replace(
+  /Your request "(.+?)" status changed to (Pending|Rejected|Completed|Informed)/gi,
+  (match, requestType, status) => {
+    const translatedType = translateRequestType(requestType);
+    return `${t('Your request')} "${translatedType}" ${t('status changed to')} ${t(status.toLowerCase())}`;
+  }
+);
+
+    // "New Response for Request #55"
+    translated = translated.replace(
+      /New Response for Request #(\d+)/gi,
+      (match, num) => `${t('New Response for Request')} #${num}`
+    );
+
+    // "You received a response for your request"
+    translated = translated.replace(
+      /You received a response for your request/gi,
+      t('You received a response for your request')
+    );
+
+    return translated;
+  }, [t,translateRequestType]);
 
   // Local storage keys for student notifications
   const getDismissedKey = () => `dismissed_notifications_student_${user?.student_id}`;
@@ -110,6 +199,23 @@ const StudentNotificationCenter = ({ onNotificationClick }) => {
     return () => clearInterval(interval);
   }, [fetchNotifications]);
 
+  // Click outside to close
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setIsOpen(false);
+      }
+    };
+
+    if (isOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isOpen]);
+
   const markAsRead = useCallback((notificationId) => {
     console.log('Marking student notification as read:', notificationId);
     
@@ -137,7 +243,7 @@ const StudentNotificationCenter = ({ onNotificationClick }) => {
   }, [getReadNotifications, saveReadNotifications]);
 
   const handleNotificationClick = useCallback(async (notification) => {
-    console.log('Student notification clicked:', notification);
+    console.log('🔔 Student notification clicked:', notification);
     
     // Mark as read if not already read
     if (!notification.is_read) {
@@ -147,11 +253,43 @@ const StudentNotificationCenter = ({ onNotificationClick }) => {
     // Close dropdown
     setIsOpen(false);
 
-    // Navigate to the request if it has a related_request_id
+    // EXAM REQUEST NOTIFICATION İSE EXAM REQUESTS SAYFASINA GİT
+    if (notification.type && notification.type.startsWith('exam_request_')) {
+      const examRequestId = notification.related_request_id;
+      
+      console.log('📋 Navigating to exam requests page...', { examRequestId });
+      
+      // React Router ile yumuşak geçiş
+      navigate(`/exam-request?tab=my-requests#exam-${examRequestId}`);
+      
+      // Biraz bekle ki sayfa render olsun, sonra scroll yap
+      setTimeout(() => {
+        const element = document.getElementById(`exam-request-${examRequestId}`);
+        if (element) {
+          element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          
+          // Highlight efekti
+          element.style.backgroundColor = '#fff3cd';
+          element.style.border = '2px solid #ffc107';
+          element.style.borderRadius = '8px';
+          element.style.transition = 'all 0.3s ease';
+          
+          setTimeout(() => {
+            element.style.backgroundColor = '';
+            element.style.border = '';
+            element.style.borderRadius = '';
+          }, 3000);
+        }
+      }, 500);
+
+      return;
+    }
+
+    // NORMAL REQUEST İSE REQUESTS SAYFASINA GİT
     if (notification.related_request_id && onNotificationClick) {
       onNotificationClick(notification.related_request_id, notification.type);
     }
-  }, [markAsRead, onNotificationClick]);
+  }, [markAsRead, onNotificationClick, navigate]);
 
   const deleteNotification = useCallback((notificationId, event) => {
     event.stopPropagation();
@@ -212,6 +350,9 @@ const StudentNotificationCenter = ({ onNotificationClick }) => {
       'response_added': <i className="bi bi-chat-dots text-success"></i>,
       'request_completed': <i className="bi bi-check-circle text-success"></i>,
       'request_rejected': <i className="bi bi-x-circle text-danger"></i>,
+      'exam_request_pending': <i className="bi bi-clipboard-check text-warning"></i>,
+      'exam_request_approved': <i className="bi bi-check-circle text-success"></i>,
+      'exam_request_rejected': <i className="bi bi-x-circle text-danger"></i>,
       'system': <i className="bi bi-gear text-warning"></i>,
       'welcome': <i className="bi bi-hand-thumbs-up text-primary"></i>,
       'reminder': <i className="bi bi-alarm text-warning"></i>
@@ -221,11 +362,11 @@ const StudentNotificationCenter = ({ onNotificationClick }) => {
 
   const getNotificationColor = (type, priority) => {
     if (priority === 'Urgent') return 'text-danger';
-    if (type === 'request_completed') return 'text-success';
-    if (type === 'request_rejected') return 'text-danger';
+    if (type === 'request_completed' || type === 'exam_request_approved') return 'text-success';
+    if (type === 'request_rejected' || type === 'exam_request_rejected') return 'text-danger';
     if (type === 'response_added') return 'text-info';
-    if (type === 'status_update') return 'text-warning';
-    return 'text-dark';
+    if (type === 'status_update' || type === 'exam_request_pending') return 'text-warning';
+    return isDark ? 'text-light' : 'text-dark';
   };
 
   const formatTimeAgo = (timestamp) => {
@@ -233,21 +374,29 @@ const StudentNotificationCenter = ({ onNotificationClick }) => {
     const notificationTime = new Date(timestamp);
     const diffInSeconds = Math.floor((now - notificationTime) / 1000);
     
-    if (diffInSeconds < 60) return t('justNow', 'Just now');
-    if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)} ${t('minutesAgo', 'min ago')}`;
-    if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)} ${t('hoursAgo', 'h ago')}`;
-    return `${Math.floor(diffInSeconds / 86400)} ${t('daysAgo', 'd ago')}`;
+    if (diffInSeconds < 60) return t('justNow');
+    if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)} ${t('minutesAgo')}`;
+    if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)} ${t('hoursAgo')}`;
+    return `${Math.floor(diffInSeconds / 86400)} ${t('daysAgo')}`;
   };
 
   if (!user) return null;
 
+  const isRTL = document.documentElement.getAttribute('dir') === 'rtl';
+
   return (
-    <div className="dropdown">
+    <div ref={dropdownRef} style={{ position: 'relative' }}>
+      {/* Notification Button */}
       <button
         className="btn btn-outline-light position-relative"
-        type="button"
         onClick={() => setIsOpen(!isOpen)}
-        style={{ border: 'none' }}
+        style={{ 
+          border: 'none',
+          padding: '0.375rem 0.75rem',
+          fontSize: '1rem',
+          position: 'relative',
+          zIndex: 1040
+        }}
       >
         <i className="bi bi-bell" style={{ fontSize: '1.2rem' }}></i>
         
@@ -261,128 +410,199 @@ const StudentNotificationCenter = ({ onNotificationClick }) => {
         )}
       </button>
 
+      {/* Notification Dropdown */}
       {isOpen && (
-        <div 
-          className="dropdown-menu dropdown-menu-end show"
-          style={{ 
-            width: '380px', 
-            maxHeight: '500px',
-            overflowY: 'auto',
-            zIndex: 1050,
-            position: 'absolute',
-            right: 0,
-            top: '100%'
-          }}
-        >
-          <div className="dropdown-header d-flex justify-content-between align-items-center">
-            <h6 className="mb-0">
-              <i className="bi bi-bell me-2"></i>
-              {t('notifications', 'Notifications')}
-            </h6>
-            <div className="d-flex gap-2">
-              {notifications.length > 0 && (
+        <>
+          {/* Backdrop */}
+          <div
+            onClick={() => setIsOpen(false)}
+            style={{
+              position: 'fixed',
+              top: 0,
+              left: 0,
+              width: '100vw',
+              height: '100vh',
+              zIndex: 9998,
+              background: 'rgba(0, 0, 0, 0.2)'
+            }}
+          />
+
+          {/* Notification Panel */}
+          <div
+            style={{
+              position: 'fixed',
+              top: '60px',
+              right: isRTL ? 'auto' : '10px',
+              left: isRTL ? '10px' : 'auto',
+              backgroundColor: isDark ? '#1a202c' : 'white',
+              border: `1px solid ${isDark ? '#4a5568' : '#dee2e6'}`,
+              borderRadius: '0.375rem',
+              boxShadow: '0 0.5rem 1rem rgba(0, 0, 0, 0.15)',
+              zIndex: 9999,
+              width: '380px',
+              maxWidth: 'calc(100vw - 20px)',
+              maxHeight: '500px',
+              display: 'flex',
+              flexDirection: 'column',
+              animation: 'dropdownSlide 0.2s ease-out'
+            }}
+          >
+            {/* Header */}
+            <div 
+              className="dropdown-header d-flex justify-content-between align-items-center"
+              style={{
+                padding: '12px 16px',
+                borderBottom: `1px solid ${isDark ? '#4a5568' : '#dee2e6'}`,
+                backgroundColor: isDark ? '#2d3748' : '#f8f9fa',
+                color: isDark ? '#e2e8f0' : '#212529'
+              }}
+            >
+              <h6 className="mb-0" style={{ color: isDark ? '#e2e8f0' : '#212529' }}>
+                <i className="bi bi-bell me-2"></i>
+                {t('notifications')}
+              </h6>
+              <div className="d-flex gap-2">
+                {notifications.length > 0 && (
+                  <button 
+                    className="btn btn-sm btn-outline-danger"
+                    onClick={deleteAllNotifications}
+                    title={t('deleteAll')}
+                    style={{ fontSize: '0.85rem', padding: '4px 8px' }}
+                  >
+                    <i className="bi bi-trash"></i>
+                  </button>
+                )}
+                
                 <button 
-                  className="btn btn-sm btn-outline-danger"
-                  onClick={deleteAllNotifications}
-                  title={t('deleteAll', 'Delete All')}
+                  className={`btn btn-sm ${isDark ? 'btn-outline-light' : 'btn-outline-secondary'}`}
+                  onClick={() => setIsOpen(false)}
+                  title={t('close')}
+                  style={{ fontSize: '0.85rem', padding: '4px 8px' }}
                 >
-                  <i className="bi bi-trash"></i>
+                  <i className="bi bi-x"></i>
                 </button>
-              )}
-              
-              <button 
-                className="btn btn-sm btn-outline-secondary"
-                onClick={() => setIsOpen(false)}
-                title={t('close', 'Close')}
-              >
-                <i className="bi bi-x"></i>
-              </button>
-            </div>
-          </div>
-          
-          {loading ? (
-            <div className="text-center p-3">
-              <div className="spinner-border spinner-border-sm" role="status"></div>
-              <span className="ms-2">{t('loading', 'Loading')}...</span>
-            </div>
-          ) : notifications.length === 0 ? (
-            <div className="dropdown-item-text text-center py-4 text-muted">
-              <div style={{ fontSize: '2rem' }}>
-                <i className="bi bi-inbox"></i>
               </div>
-              <p className="mb-0">{t('noNotifications', 'No notifications')}</p>
             </div>
-          ) : (
-            <>
-              {notifications.map((notification, index) => (
-                <div
-                  key={notification.id}
-                  className={`dropdown-item ${!notification.is_read ? 'bg-light' : ''}`}
-                  style={{ 
-                    cursor: 'pointer', 
-                    borderBottom: index < notifications.length - 1 ? '1px solid #eee' : 'none',
-                    padding: '12px 16px'
-                  }}
-                  onClick={() => handleNotificationClick(notification)}
-                >
-                  <div className="d-flex align-items-start">
-                    <div className="me-2 mt-1">
-                      <span style={{ fontSize: '1.2rem' }}>
-                        {getNotificationIcon(notification.type)}
-                      </span>
-                    </div>
-                    <div className="flex-grow-1">
-                      <h6 
-                        className={`mb-1 ${getNotificationColor(notification.type, notification.priority)}`}
-                        style={{ fontSize: '0.9rem', fontWeight: '600' }}
-                      >
-                        {notification.title}
-                      </h6>
-                      <p className="mb-1 text-muted" style={{ fontSize: '0.8rem', lineHeight: '1.3' }}>
-                        {notification.message}
-                      </p>
-                      <div className="d-flex justify-content-between align-items-center">
-                        <small className="text-muted">
-                          {formatTimeAgo(notification.created_at)}
-                        </small>
-                        <div className="d-flex align-items-center gap-1">
-                          {!notification.is_read && (
-                            <span className="badge bg-primary" style={{ fontSize: '0.6rem' }}>
-                              {t('new', 'New')}
-                            </span>
-                          )}
-                          <button
-                            className="btn btn-sm btn-outline-danger"
-                            style={{ fontSize: '0.7rem', padding: '2px 6px' }}
-                            onClick={(e) => deleteNotification(notification.id, e)}
-                            title={t('delete', 'Delete')}
+            
+            {/* Notifications List */}
+            <div
+              style={{
+                flex: 1,
+                overflowY: 'auto',
+                maxHeight: '400px',
+                backgroundColor: isDark ? '#1a202c' : 'white'
+              }}
+            >
+              {loading ? (
+                <div className="text-center p-3">
+                  <div className={`spinner-border spinner-border-sm ${isDark ? 'text-light' : ''}`} role="status"></div>
+                  <span className={`ms-2 ${isDark ? 'text-light' : ''}`}>{t('loading')}...</span>
+                </div>
+              ) : notifications.length === 0 ? (
+                <div className={`dropdown-item-text text-center py-4 ${isDark ? 'text-light' : 'text-muted'}`}>
+                  <div style={{ fontSize: '2rem' }}>
+                    <i className="bi bi-inbox"></i>
+                  </div>
+                  <p className="mb-0">{t('noNotifications')}</p>
+                </div>
+              ) : (
+                <>
+                  {notifications.map((notification, index) => (
+                    <div
+                      key={notification.id}
+                      className={`dropdown-item`}
+                      style={{ 
+                        cursor: 'pointer', 
+                        borderBottom: index < notifications.length - 1 
+                          ? `1px solid ${isDark ? '#4a5568' : '#eee'}`
+                          : 'none',
+                        padding: '12px 16px',
+                        transition: 'background-color 0.2s',
+                        backgroundColor: !notification.is_read 
+                          ? (isDark ? '#2d3748' : '#f8f9fa')
+                          : (isDark ? '#1a202c' : 'white')
+                      }}
+                      onClick={() => handleNotificationClick(notification)}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.backgroundColor = isDark 
+                          ? '#4a5568'
+                          : (notification.is_read ? '#f8f9fa' : '#e9ecef');
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.backgroundColor = !notification.is_read
+                          ? (isDark ? '#2d3748' : '#f8f9fa')
+                          : (isDark ? '#1a202c' : 'white');
+                      }}
+                    >
+                      <div className="d-flex align-items-start">
+                        <div className="me-2 mt-1">
+                          <span style={{ fontSize: '1.2rem' }}>
+                            {getNotificationIcon(notification.type)}
+                          </span>
+                        </div>
+                        <div className="flex-grow-1">
+                          <h6 
+                            className={`mb-1 ${getNotificationColor(notification.type, notification.priority)}`}
+                            style={{ fontSize: '0.9rem', fontWeight: '600' }}
                           >
-                            <i className="bi bi-x"></i>
-                          </button>
+                            {translateNotificationText(notification.title)} {/* 👈 ÇEVİRİ */}
+                          </h6>
+                          <p 
+                            className={`mb-1 ${isDark ? 'text-gray-300' : 'text-muted'}`}
+                            style={{ fontSize: '0.8rem', lineHeight: '1.3' }}
+                          >
+                            {translateNotificationText(notification.message)} {/* 👈 ÇEVİRİ */}
+                          </p>
+                          <div className="d-flex justify-content-between align-items-center">
+                            <small className={isDark ? 'text-gray-400' : 'text-muted'}>
+                              {formatTimeAgo(notification.created_at)}
+                            </small>
+                            <div className="d-flex align-items-center gap-1">
+                              {!notification.is_read && (
+                                <span className="badge bg-primary" style={{ fontSize: '0.6rem' }}>
+                                  {t('new')}
+                                </span>
+                              )}
+                              <button
+                                className="btn btn-sm btn-outline-danger"
+                                style={{ fontSize: '0.7rem', padding: '2px 6px' }}
+                                onClick={(e) => deleteNotification(notification.id, e)}
+                                title={t('delete')}
+                              >
+                                <i className="bi bi-x"></i>
+                              </button>
+                            </div>
+                          </div>
                         </div>
                       </div>
                     </div>
-                  </div>
-                </div>
-              ))}
-            </>
-          )}
-          
-          <div className="dropdown-divider"></div>
-          <div className="dropdown-item-text text-center">
-            <small className="text-muted">
-              {notifications.length} {t('totalNotifications', 'total notifications')}
-            </small>
+                  ))}
+                </>
+              )}
+            </div>
+            
+            {/* Footer */}
+            <div 
+              className="dropdown-divider" 
+              style={{ 
+                margin: 0, 
+                borderTop: `1px solid ${isDark ? '#4a5568' : '#dee2e6'}`
+              }}
+            ></div>
+            <div 
+              className="dropdown-item-text text-center"
+              style={{ 
+                padding: '8px',
+                backgroundColor: isDark ? '#2d3748' : 'white',
+                color: isDark ? '#a0aec0' : '#6c757d'
+              }}
+            >
+              <small>
+                {notifications.length} {t('totalNotifications')}
+              </small>
+            </div>
           </div>
-        </div>
-      )}
-      
-      {isOpen && (
-        <div 
-          className="position-fixed top-0 start-0 w-100 h-100"
-          style={{ zIndex: 1040 }}
-          onClick={() => setIsOpen(false)}
-        />
+        </>
       )}
     </div>
   );

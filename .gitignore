@@ -1,0 +1,29 @@
+# Node / React
+node_modules/
+
+# Zip & large files
+*.zip
+
+# Env files
+.env*
+
+# Log files
+logs/
+*.log
+
+# Uploads / user files
+uploads/
+
+# Build files
+build/
+dist/
+
+# OS & editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Test & cache
+coverage/
+.cache/

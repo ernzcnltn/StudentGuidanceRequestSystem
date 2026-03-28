@@ -61,6 +61,29 @@ export const useTranslation = () => {
   return mappings?.[text] || text;
 };
 
+
+
+  // 👇 YENİ: Faculty name çevirme fonksiyonu
+  const translateFacultyName = (facultyName) => {
+    if (!facultyName) return '';
+    
+    // facultyNames çevirisini al
+    const facultyTranslations = translations[currentLanguage]?.facultyNames;
+    
+    if (facultyTranslations && facultyTranslations[facultyName]) {
+      return facultyTranslations[facultyName];
+    }
+    
+    // Fallback to English
+    const englishTranslations = translations.en?.facultyNames;
+    if (englishTranslations && englishTranslations[facultyName]) {
+      return englishTranslations[facultyName];
+    }
+    
+    // Son çare olarak orijinal adı döndür
+    return facultyName;
+  };
+
   // Talep türü çevirisi için özel fonksiyon
   const translateRequestType = (requestTypeName) => {
     if (!requestTypeName) return '';
@@ -107,6 +130,8 @@ const translateDescription = (description) => {
     translateRequestType,
     translateDescription, // YENİ FONKSIYON
      translateDbText, // YENİ FONKSIYON
+    translateFacultyName, // 👈 YENİ FONKSIYON
+
     currentLanguage
   };
 };

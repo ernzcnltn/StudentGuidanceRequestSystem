@@ -4,12 +4,18 @@ import { apiService } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
 import { useTheme } from '../contexts/ThemeContext';
+import { useTranslation } from '../hooks/useTranslation';
 
 const ExamRequestPage = () => {
   const navigate = useNavigate();
 const { user, loading: userLoading } = useAuth();
   const { showSuccess, showError, showWarning } = useToast();
   const { isDark } = useTheme();
+    const { t, translateFacultyName , currentLanguage} = useTranslation(); 
+
+
+
+
 
   const [activeTab, setActiveTab] = useState('create'); // 'create' or 'myRequests'
   const [faculties, setFaculties] = useState([]);
@@ -92,7 +98,7 @@ const { user, loading: userLoading } = useAuth();
         }
       } catch (error) {
         console.error('Error loading faculties:', error);
-        showError('Failed to load faculties');
+      showError(t('failedToLoadFaculties'));
       } finally {
         setLoading(false);
       }
@@ -100,6 +106,56 @@ const { user, loading: userLoading } = useAuth();
 
     loadFaculties();
   }, [showError]);
+
+
+
+ // 👇 YENİ: URL parametresi ve hash kontrolü
+  useEffect(() => {
+    // URL'den tab parametresini al
+    const urlParams = new URLSearchParams(window.location.search);
+    const tab = urlParams.get('tab');
+    
+    // Eğer tab=my-requests parametresi varsa
+    if (tab === 'my-requests' || tab === 'myRequests') {
+      setActiveTab('myRequests'); // My Requests sekmesini aktif et
+      
+      // Hash varsa (belirli bir request için)
+      const hash = window.location.hash;
+      if (hash.startsWith('#exam-')) {
+        const examId = hash.replace('#exam-', '');
+        
+        // Biraz bekle ki sayfa render olsun
+        setTimeout(() => {
+          const element = document.getElementById(`exam-request-${examId}`);
+          
+          if (element) {
+            // Scroll yap
+            element.scrollIntoView({ 
+              behavior: 'smooth', 
+              block: 'center' 
+            });
+            
+            // Highlight yap
+            element.style.backgroundColor = '#fff3cd';
+            element.style.border = '2px solid #ffc107';
+            element.style.borderRadius = '8px';
+            element.style.transition = 'all 0.3s ease';
+            
+            // 3 saniye sonra normal haline döndür
+            setTimeout(() => {
+              element.style.backgroundColor = '';
+              element.style.border = '';
+              element.style.borderRadius = '';
+            }, 3000);
+          } else {
+            console.log(' Exam request element not found:', examId);
+          }
+        }, 1000); // 1 saniye bekle
+      }
+    }
+  }, []);
+
+
 
   // Load exam requests when tab changes to "My Requests"
   useEffect(() => {
@@ -117,7 +173,8 @@ const { user, loading: userLoading } = useAuth();
       }
     } catch (error) {
       console.error('Error loading exam requests:', error);
-      showError('Failed to load exam requests');
+      showError(t('failedToLoadExamRequests'));
+
     } finally {
       setLoadingRequests(false);
     }
@@ -138,7 +195,7 @@ const { user, loading: userLoading } = useAuth();
     const selectedFiles = Array.from(e.target.files);
     
     if (files.length + selectedFiles.length > 3) {
-      showError('Maximum 3 files allowed');
+      showError(t('maximumFilesAllowed', { max: 3 }));
       return;
     }
 
@@ -148,12 +205,12 @@ const { user, loading: userLoading } = useAuth();
       const maxSize = 5 * 1024 * 1024; // 5MB
 
       if (!validTypes.includes(file.type)) {
-        showError(`${file.name}: Invalid file type. Only JPG, PNG, PDF allowed.`);
+showError(t('invalidFileTypeError', { name: file.name }));
         return;
       }
 
       if (file.size > maxSize) {
-        showError(`${file.name}: File too large. Max 5MB.`);
+        showError(t('fileTooLarge', { name: file.name }));
         return;
       }
 
@@ -171,17 +228,17 @@ const { user, loading: userLoading } = useAuth();
     e.preventDefault();
 
     if (!studentFaculty) {
-      showError('Your faculty information is missing. Please contact student services.');
+      showError(t('facultyInformationMissingMessage'));
       return;
     }
 
     if (!formData.course_code.trim() || !formData.course_name.trim()) {
-      showError('Please fill in course code and course name');
+      showError(t('pleaseFillCourseCodeAndName'));
       return;
     }
 
     if (!formData.reason.trim()) {
-      showError('Please provide a reason for your exam request');
+showError(t('pleaseProvideReasonForExamRequest'));
       return;
     }
 
@@ -212,13 +269,19 @@ const { user, loading: userLoading } = useAuth();
 
           try {
             await apiService.uploadExamRequestFile(examRequestId, fileFormData);
-            showSuccess(`Exam request #${examRequestId} submitted successfully with ${files.length} file(s)!`);
+
+showSuccess(t('examRequestSubmittedSuccessWithFiles', 'Exam request #{id} submitted with {count} files!', { 
+  id: response.data.data.exam_request_id, 
+  count: files.length 
+}));
           } catch (uploadError) {
-            showWarning(`Request submitted but file upload failed. Request ID: #${examRequestId}`);
+showWarning(t('requestSubmittedButFileUploadFailed', { id: examRequestId }));
           }
         } else {
-          showSuccess(`Exam request #${examRequestId} submitted successfully!`);
-        }
+
+showSuccess(t('examRequestSubmittedSuccess', 'Exam request #{id} submitted successfully!', { 
+  id: response.data.data.exam_request_id 
+}));        }
 
         // Reset form
         setFormData({
@@ -239,7 +302,7 @@ const { user, loading: userLoading } = useAuth();
       }
     } catch (error) {
       console.error('Error submitting exam request:', error);
-      showError(error.response?.data?.error || 'Failed to submit exam request');
+showError(error.response?.data?.error || t('failedToProcessRequest'));
     } finally {
       setSubmitting(false);
     }
@@ -263,7 +326,7 @@ const { user, loading: userLoading } = useAuth();
   };
 
   const formatDate = (dateString) => {
-    if (!dateString) return 'N/A';
+    if (!dateString) return  t('notAvailable');
     const date = new Date(dateString);
     return date.toLocaleDateString('en-US', {
       year: 'numeric',
@@ -278,9 +341,9 @@ const { user, loading: userLoading } = useAuth();
       <div className="container mt-4">
         <div className="text-center py-5">
           <div className="spinner-border text-danger" role="status">
-            <span className="visually-hidden">Loading...</span>
+            <span className="visually-hidden">{t('loading')}</span>
           </div>
-          <p className="mt-3">Loading your profile...</p>
+          <p className="mt-3">{t('loadingYourProfile')}</p>
         </div>
       </div>
     );
@@ -291,8 +354,8 @@ const { user, loading: userLoading } = useAuth();
     return (
       <div className="container mt-4">
         <div className="alert alert-warning">
-          <h5><i className="bi bi-exclamation-triangle me-2"></i>Profile Not Found</h5>
-          <p>Unable to load your profile. Please try logging out and logging in again.</p>
+          <h5><i className="bi bi-exclamation-triangle me-2"></i>{t('profileNotFound')}</h5>
+          <p>{t('unableToLoadProfile')}</p>
         </div>
       </div>
     );
@@ -303,9 +366,9 @@ const { user, loading: userLoading } = useAuth();
     return (
       <div className="text-center py-5">
         <div className="spinner-border text-danger" role="status">
-          <span className="visually-hidden">Loading...</span>
+          <span className="visually-hidden">{t('loading')}</span>
         </div>
-        <p className="mt-3">Loading...</p>
+        <p className="mt-3">{t('loading')}</p>
       </div>
     );
   }
@@ -338,16 +401,15 @@ const { user, loading: userLoading } = useAuth();
     return (
       <div className="container mt-4">
         <div className="alert alert-danger">
-          <h5><i className="bi bi-exclamation-triangle me-2"></i>Faculty Information Missing</h5>
+          <h5><i className="bi bi-exclamation-triangle me-2"></i>{t('facultyInformationMissing')}</h5>
           <p className="mb-3">
-            Your student profile doesn't have faculty information. 
-            Please contact student services to update your profile.
+            {t('facultyInformationMissingMessage')}
           </p>
           <div className="small">
-            <strong>Your current data:</strong><br/>
-            Student: {user?.name}<br/>
-            Email: {user?.email}<br/>
-            Faculty: {user?.faculty || 'NOT SET'}
+            <strong>{t('yourCurrentData')}</strong><br/>
+           {t('student')} {user?.name}<br/>
+           {t('email')} {user?.email}<br/>
+           {t('faculty')} {user?.faculty ||  t('notSet')}
           </div>
         </div>
       </div>
@@ -361,9 +423,9 @@ const { user, loading: userLoading } = useAuth();
           {/* Page Header */}
           <div className="d-flex justify-content-between align-items-center mb-4">
             <div>
-              <h2><i className="bi bi-clipboard2-check me-2"></i>Exam Requests</h2>
+              <h2><i className="bi bi-clipboard2-check me-2"></i>{t('examRequests')}</h2>
               <p className={isDark ? 'text-light' : 'text-muted'}>
-                Submit and manage Make-up or Resit exam requests
+                {t('submitAndManageExamRequests')}
               </p>
             </div>
           </div>
@@ -373,14 +435,14 @@ const { user, loading: userLoading } = useAuth();
             <div className="alert alert-danger mb-4">
               <h6 className="alert-heading">
                 <i className="bi bi-building me-2"></i>
-                Your Faculty Information
+                {t('yourFacultyInformation')}
               </h6>
               <div className="row">
                 <div className="col-md-6">
-                  <strong>Faculty:</strong> {studentFaculty.faculty_name_tr || studentFaculty.faculty_name}
+        <strong>{t('faculty')}:</strong> {translateFacultyName(studentFaculty.faculty_name)}
                 </div>
                 <div className="col-md-6">
-                  <strong>Secretary:</strong> {studentFaculty.secretary_email}
+                  <strong>{t('secretary')}:</strong> {studentFaculty.secretary_email}
                 </div>
               </div>
             </div>
@@ -388,10 +450,10 @@ const { user, loading: userLoading } = useAuth();
 
           {!studentFaculty && (
             <div className="alert alert-danger mb-4">
-              <h6 className="alert-heading"><i className="bi bi-exclamation-triangle me-2"></i>Faculty Information Missing</h6>
+              <h6 className="alert-heading"><i className="bi bi-exclamation-triangle me-2"></i>{t('facultyInformationMissing')}</h6>
               <p className="mb-0">
-                Your student profile doesn't have faculty information. 
-                Please contact student services to update your profile.
+                {t('facultyInformationMissingMessage')}
+
               </p>
             </div>
           )}
@@ -412,7 +474,7 @@ const { user, loading: userLoading } = useAuth();
                 }}
               >
                 <i className="bi bi-plus-circle me-2"></i>
-                Create Request
+                {t('createRequest')}
               </button>
             </li>
             <li className="nav-item" role="presentation">
@@ -429,7 +491,7 @@ const { user, loading: userLoading } = useAuth();
                 }}
               >
                 <i className="bi bi-list-check me-2"></i>
-                My Requests
+               {t('myRequests')}
                 {myExamRequests.length > 0 && (
                   <span className="badge bg-danger ms-2">{myExamRequests.length}</span>
                 )}
@@ -471,6 +533,8 @@ const { user, loading: userLoading } = useAuth();
               itemsPerPage={itemsPerPage}
               setSelectedRequest={setSelectedRequest}
               setShowModal={setShowModal}
+                  translateFacultyName={translateFacultyName} // 👈 YENİ EKLEME
+
             />
           )}
         </div>
@@ -488,6 +552,8 @@ const { user, loading: userLoading } = useAuth();
           getExamTypeBadge={getExamTypeBadge}
           formatDate={formatDate}
           isDark={isDark}
+              translateFacultyName={translateFacultyName} // 👈 YENİ EKLEME
+
         />
       )}
     </div>
@@ -518,6 +584,7 @@ const CreateRequestTab = ({
   const [courseSearchResults, setCourseSearchResults] = useState([]);
   const [showCourseDropdown, setShowCourseDropdown] = useState(false);
   const [searchingCourses, setSearchingCourses] = useState(false);
+  const { t } = useTranslation();
 
   // Course search handler
   const handleCourseSearch = async (query) => {
@@ -573,7 +640,7 @@ const CreateRequestTab = ({
           borderColor: isDark ? '#718096' : '#e2e8f0'
         }}
       >
-        <h5 className="mb-0">Exam Request Details</h5>
+        <h5 className="mb-0">{t('examRequestDetails')}</h5>
       </div>
 
       <div className="card-body">
@@ -582,7 +649,7 @@ const CreateRequestTab = ({
 <div className="mb-4">
   <label className="form-label fw-bold">
     <i className="bi bi-clipboard-check me-2"></i>
-    Exam Type *
+    {t('examType')} *
   </label>
   <div className="row">
     <div className="col-md-6 mb-2">
@@ -604,9 +671,9 @@ const CreateRequestTab = ({
             style={{ cursor: 'pointer', marginTop: '2px' }}
           />
           <label className="w-100" htmlFor="makeup" style={{ cursor: 'pointer' }}>
-            <strong>Make-up Exam</strong>
+            <strong>{t('makeUpExam')}</strong>
             <p className="mb-0 small text-muted">
-              For students who missed the regular exam due to valid reasons
+              {t('makeUpExamDescription')}
             </p>
           </label>
         </div>
@@ -631,9 +698,9 @@ const CreateRequestTab = ({
             style={{ cursor: 'pointer', marginTop: '2px' }}
           />
           <label className="w-100" htmlFor="resit" style={{ cursor: 'pointer' }}>
-            <strong>Resit Exam</strong>
+            <strong>{t('resitExam')}</strong>
             <p className="mb-0 small text-muted">
-              For students who failed the course and need to retake the exam
+              {t('resitExamDescription')}
             </p>
           </label>
         </div>
@@ -646,7 +713,7 @@ const CreateRequestTab = ({
   <div className="col-md-6 mb-3">
     <label htmlFor="course_code" className="form-label fw-bold">
       <i className="bi bi-search me-2"></i>
-      Search Course Code *
+      {t('searchCourseCode')} *
     </label>
     <div className="position-relative">
       <input
@@ -660,7 +727,7 @@ const CreateRequestTab = ({
             setShowCourseDropdown(true);
           }
         }}
-        placeholder="Type to search... (e.g., SOFT)"
+        placeholder={t('typeToSearch')}
         disabled={!studentFaculty || submitting}
         autoComplete="off"
       />
@@ -670,7 +737,7 @@ const CreateRequestTab = ({
           style={{ right: '10px', top: '50%', transform: 'translateY(-50%)' }}
         >
           <div className="spinner-border spinner-border-sm text-primary" role="status">
-            <span className="visually-hidden">Searching...</span>
+            <span className="visually-hidden">{t('searching')}</span>
           </div>
         </div>
       )}
@@ -711,12 +778,12 @@ const CreateRequestTab = ({
                   <div className="small">{course.course_name}</div>
                   <div className="small text-muted">
                     <i className="bi bi-person me-1"></i>
-                    {course.instructor_name || 'No instructor'}
+                    {course.instructor_name || t('noInstructor')}
                   </div>
                 </div>
                 {course.credits && (
                   <span className="badge bg-secondary">
-                    {course.credits} credits
+                    {course.credits} {t('credits')}
                   </span>
                 )}
               </div>
@@ -726,14 +793,14 @@ const CreateRequestTab = ({
       )}
     </div>
     <small className="text-muted">
-      Start typing to search from course database
+     {t('startTypingToSearchCourses')}
     </small>
   </div>
 
  {/* 👇 YENİ: Course Name Input */}
   <div className="col-md-6 mb-3">
     <label htmlFor="course_name" className="form-label fw-bold">
-      Course Name *
+      {t('courseName')} *
     </label>
     <input
       type="text"
@@ -742,7 +809,7 @@ const CreateRequestTab = ({
       name="course_name"
       value={formData.course_name}
       onChange={handleInputChange}
-      placeholder="Auto-filled from search or enter manually"
+      placeholder={t('autoFilledFromSearch')}
       required
       disabled={!studentFaculty || submitting}
       style={{
@@ -755,7 +822,7 @@ const CreateRequestTab = ({
      <div className="row">
   <div className="col-md-6 mb-3">
     <label htmlFor="instructor_name" className="form-label fw-bold">
-      Instructor Name
+      {t('instructorName')}
     </label>
     <input
       type="text"
@@ -764,7 +831,7 @@ const CreateRequestTab = ({
       name="instructor_name"
       value={formData.instructor_name}
       onChange={handleInputChange}
-      placeholder="Auto-filled from search or enter manually"
+      placeholder={t('autoFilledFromSearch')}
       disabled={!studentFaculty || submitting}
       style={{
         backgroundColor: formData.instructor_name && !courseSearchQuery ? '#f8f9fa' : undefined
@@ -773,7 +840,7 @@ const CreateRequestTab = ({
   </div>
             <div className="col-md-6 mb-3">
               <label htmlFor="exam_date" className="form-label fw-bold">
-                Original Exam Date (Optional)
+                {t('originalExamDate')} 
               </label>
               <input
                 type="date"
@@ -790,9 +857,9 @@ const CreateRequestTab = ({
           {/* Reason */}
           <div className="mb-4">
             <label htmlFor="reason" className="form-label fw-bold">
-              Reason for Request *
+              {t('reasonForRequest')} *
               <span className={`ms-2 ${remainingChars < 50 ? 'text-warning' : 'text-muted'}`}>
-                ({remainingChars} characters remaining)
+               ({remainingChars} {t('charactersRemaining')})
               </span>
             </label>
             <textarea
@@ -802,13 +869,13 @@ const CreateRequestTab = ({
               rows="5"
               value={formData.reason}
               onChange={handleInputChange}
-              placeholder="Please explain why you need this exam request (e.g., medical reasons, family emergency, etc.)"
+              placeholder={t('pleaseExplainReason')}
               required
               disabled={!studentFaculty || submitting}
               maxLength={500}
             />
             <div className="form-text">
-              Provide a detailed explanation. This helps the secretary process your request.
+              {t('provideDetailedExplanation')}
             </div>
           </div>
 
@@ -816,7 +883,8 @@ const CreateRequestTab = ({
           <div className="mb-4">
             <label className="form-label fw-bold">
               <i className="bi bi-paperclip me-2"></i>
-              Supporting Documents (Optional)
+             {t('supportingDocuments')}
+
             </label>
             
             <div 
@@ -850,11 +918,12 @@ const CreateRequestTab = ({
                 </div>
                 
                 <h5 className={isDark ? 'text-light' : 'text-dark'}>
-                  Drag & Drop files here
+                 {t('dragDropFilesHere')}
                 </h5>
                 
                 <p className={isDark ? 'text-gray-400' : 'text-muted'} style={{ marginBottom: '1rem' }}>
-                  or
+                  {t('or')}
+
                 </p>
                 
                 <label 
@@ -866,13 +935,14 @@ const CreateRequestTab = ({
                   }}
                 >
                   <i className="bi bi-folder2-open me-2"></i>
-                  Browse Files
+                  {t('browseFiles')}
+
                 </label>
                 
                 <div className="mt-3">
                   <small className={isDark ? 'text-gray-400' : 'text-muted'}>
                     <i className="bi bi-info-circle me-1"></i>
-                    Max 3 files, 5MB each. Allowed: JPG, PNG, PDF
+                   {t('maxFilesInfo')}
                   </small>
                 </div>
                 
@@ -880,7 +950,7 @@ const CreateRequestTab = ({
                   <div className="alert alert-warning mt-3 py-2 mb-0">
                     <small>
                       <i className="bi bi-exclamation-triangle me-1"></i>
-                      Maximum file limit reached (3/3)
+                     {t('maximumFileLimitReached')}
                     </small>
                   </div>
                 )}
@@ -892,7 +962,7 @@ const CreateRequestTab = ({
                   <div className="d-flex justify-content-between align-items-center mb-3">
                     <strong className={isDark ? 'text-light' : 'text-dark'}>
                       <i className="bi bi-files me-2"></i>
-                      Selected Files ({files.length}/3)
+                      {t('selectedFiles')} ({files.length}/3)
                     </strong>
                     <button
                       type="button"
@@ -901,7 +971,7 @@ const CreateRequestTab = ({
                       disabled={submitting}
                     >
                       <i className="bi bi-trash me-1"></i>
-                      Clear All
+                      {t('clearAll')}
                     </button>
                   </div>
                   
@@ -965,7 +1035,8 @@ const CreateRequestTab = ({
                               </div>
                               <small className="text-success">
                                 <i className="bi bi-check-circle me-1"></i>
-                                Ready to upload
+                                {t('readyToUpload')}
+
                               </small>
                             </div>
                           </div>
@@ -982,13 +1053,13 @@ const CreateRequestTab = ({
           <div className="alert alert-danger mb-4">
             <h6 className="alert-heading">
               <i className="bi bi-exclamation-triangle me-2"></i>
-              Important Notice
+              {t('importantNotice')}
             </h6>
             <ul className="mb-0">
-              <li>Your request will be reviewed by your faculty secretary</li>
-              <li>You will be notified via email about the decision</li>
-              <li>Processing time may take 3-5 business days</li>
-              <li>Make sure all information is accurate before submitting</li>
+            <li>{t('requestReviewedBySecretary')}</li>
+            <li>{t('notifiedViaEmail')}</li>
+            <li>{t('processingTime35Days')}</li>
+            <li>{t('ensureAccurateInformation')}</li>
             </ul>
           </div>
 
@@ -1002,13 +1073,14 @@ const CreateRequestTab = ({
               {submitting ? (
                 <>
                   <span className="spinner-border spinner-border-sm me-2" role="status"></span>
-                  Submitting...
+                  {t('submitting')}
+
                 </>
               ) : (
                 <>
                   <i className="bi bi-send me-2"></i>
-                  Submit Exam Request
-                  {files.length > 0 && ` (${files.length} ${files.length > 1 ? 'files' : 'file'})`}
+                  {t('submitExamRequest')}
+                  {files.length > 0 && ` (${files.length} ${files.length > 1 ? t('files') : t('file')})`}
                 </>
               )}
             </button>
@@ -1032,13 +1104,16 @@ const MyRequestsTab = ({
   setCurrentPage,
   itemsPerPage,
   setSelectedRequest,
-  setShowModal
+  setShowModal,
+   
+
 }) => {
   // Pagination calculations
   const indexOfLastItem = currentPage * itemsPerPage;
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
   const currentRequests = myExamRequests.slice(indexOfFirstItem, indexOfLastItem);
   const totalPages = Math.ceil(myExamRequests.length / itemsPerPage);
+   const { t ,translateFacultyName} = useTranslation();
 const [viewMode, setViewMode] = useState('card'); 
 
   const handlePageChange = (pageNumber) => {
@@ -1054,9 +1129,9 @@ const [viewMode, setViewMode] = useState('card');
     return (
       <div className="text-center py-5">
         <div className="spinner-border text-danger" role="status">
-          <span className="visually-hidden">Loading...</span>
+          <span className="visually-hidden">{t('loading')}</span>
         </div>
-        <p className="mt-3">Loading your exam requests...</p>
+        <p className="mt-3">{t('loadingExamRequests')}</p>
       </div>
     );
   }
@@ -1074,9 +1149,9 @@ const [viewMode, setViewMode] = useState('card');
           <div className="mb-4">
             <i className="bi bi-inbox" style={{ fontSize: '4rem', color: '#6c757d' }}></i>
           </div>
-          <h4 className={isDark ? 'text-light' : 'text-muted'}>No Exam Requests Yet</h4>
+          <h4 className={isDark ? 'text-light' : 'text-muted'}>{t('noExamRequestsYet')}</h4>
           <p className={isDark ? 'text-gray-400' : 'text-muted'}>
-            You haven't submitted any exam requests. Click "Create Request" tab to submit one.
+            {t('noExamRequestsMessage')}
           </p>
         </div>
       </div>
@@ -1088,7 +1163,7 @@ const [viewMode, setViewMode] = useState('card');
      <div className="d-flex justify-content-between align-items-center mb-3">
   <h5 className={isDark ? 'text-light' : 'text-dark'}>
     <i className="bi bi-list-ul me-2"></i>
-    Your Exam Requests ({myExamRequests.length})
+    {t('yourExamRequests')} ({myExamRequests.length})
   </h5>
   
   <div className="d-flex gap-2">
@@ -1098,7 +1173,7 @@ const [viewMode, setViewMode] = useState('card');
         type="button"
         className={`btn btn-sm ${viewMode === 'card' ? 'btn-danger' : 'btn-outline-danger'}`}
         onClick={() => setViewMode('card')}
-        title="Card View"
+        title={t('cardView')}
       >
         <i className="bi bi-grid-3x2"></i>
       </button>
@@ -1106,7 +1181,7 @@ const [viewMode, setViewMode] = useState('card');
         type="button"
         className={`btn btn-sm ${viewMode === 'table' ? 'btn-danger' : 'btn-outline-danger'}`}
         onClick={() => setViewMode('table')}
-        title="Table View"
+        title={t('tableView')}
       >
         <i className="bi bi-table"></i>
       </button>
@@ -1117,7 +1192,7 @@ const [viewMode, setViewMode] = useState('card');
       onClick={loadExamRequests}
     >
       <i className="bi bi-arrow-clockwise me-1"></i>
-      Refresh
+      {t('refresh')}
     </button>
   </div>
 </div>
@@ -1128,6 +1203,7 @@ const [viewMode, setViewMode] = useState('card');
         {currentRequests.map((request) => (
           <div key={request.exam_request_id} className="col-md-12 mb-3">
             <div 
+             id={`exam-request-${request.exam_request_id}`}
               className="card shadow-sm"
               style={{
                 backgroundColor: isDark ? '#2d3748' : '#ffffff',
@@ -1155,37 +1231,37 @@ const [viewMode, setViewMode] = useState('card');
                   <div>
                     <h5 className="card-title mb-2">
                       <span className={`badge ${getExamTypeBadge(request.exam_type)} me-2`}>
-                        {request.exam_type === 'makeup' ? 'Make-up' : 'Resit'}
+                        {request.exam_type === 'makeup' ? t('makeUpExam') : t('resitExam')}
                       </span>
                       {request.course_code} - {request.course_name}
                     </h5>
                     <p className="card-text text-muted mb-1">
                       <i className="bi bi-person me-1"></i>
-                      {request.instructor_name || 'Instructor not specified'}
+                      {request.instructor_name || t('instructorNotSpecified')}
                     </p>
                   </div>
-                  <span className={`badge ${getStatusBadge(request.status)}`}>
-                    {request.status}
+                   <span className={`badge ${getStatusBadge(request.status)}`}>
+                      {t(request.status.toLowerCase())}
                   </span>
                 </div>
 
                 <div className="row text-sm">
                   <div className="col-md-4 mb-2">
-                    <strong><i className="bi bi-calendar-event me-1"></i>Submitted:</strong>
+                    <strong><i className="bi bi-calendar-event me-1"></i>{t('submitted')}:</strong>
                     <br />
                     <span className={isDark ? 'text-light' : 'text-dark'}>
                       {formatDate(request.submitted_at)}
                     </span>
                   </div>
                   <div className="col-md-4 mb-2">
-                    <strong><i className="bi bi-building me-1"></i>Faculty:</strong>
+                    <strong><i className="bi bi-building me-1"></i>{t('faculty')}</strong>
                     <br />
                     <span className={isDark ? 'text-light' : 'text-dark'}>
-                      {request.faculty_name_tr || request.faculty_name}
+    {translateFacultyName(request.faculty_name)}
                     </span>
                   </div>
                   <div className="col-md-4 mb-2">
-                    <strong><i className="bi bi-hash me-1"></i>Request ID:</strong>
+                    <strong><i className=""></i>{t('requestId')}:</strong>
                     <br />
                     <span className={isDark ? 'text-light' : 'text-dark'}>
                       #{request.exam_request_id}
@@ -1197,7 +1273,7 @@ const [viewMode, setViewMode] = useState('card');
                   <div className="mt-2">
                     <span className=" secondary">
                       <i className="bi bi-paperclip me-1"></i>
-                      {request.attachment_count} attachment{request.attachment_count > 1 ? 's' : ''}
+                      {request.attachment_count} {t('attachments')}{request.attachment_count > 1 ? 's' : ''}
                     </span>
                   </div>
                 )}
@@ -1205,7 +1281,8 @@ const [viewMode, setViewMode] = useState('card');
                 <div className="mt-3 text-end">
                   <small className="text-muted">
                     <i className="bi bi-cursor-fill me-1"></i>
-                    Click to view details
+                   {t('clickToViewDetails')}
+
                   </small>
                 </div>
               </div>
@@ -1224,20 +1301,22 @@ const [viewMode, setViewMode] = useState('card');
       <table className="table table-hover mb-0">
         <thead style={{ backgroundColor: isDark ? '#4a5568' : '#f8f9fa' }}>
           <tr>
-            <th>ID</th>
-            <th>Type</th>
-            <th>Course</th>
-            <th>Instructor</th>
-            <th>Submitted</th>
-            <th>Status</th>
-            <th>Attachments</th>
-            <th>Actions</th>
+           <th>{t('requestId')}</th>
+          <th>{t('type')}</th>
+          <th>{t('course')}</th>
+          <th>{t('instructor')}</th>
+          <th>{t('submitted')}</th>
+          <th>{t('status')}</th>
+          <th>{t('attachments')}</th>
+          <th>{t('actions')}</th>
           </tr>
         </thead>
         <tbody>
           {currentRequests.map((request) => (
             <tr 
               key={request.exam_request_id}
+                  id={`exam-request-${request.exam_request_id}`} 
+
               style={{ cursor: 'pointer' }}
               onClick={() => handleRequestClick(request)}
               className={isDark ? 'text-light' : ''}
@@ -1245,7 +1324,7 @@ const [viewMode, setViewMode] = useState('card');
               <td>#{request.exam_request_id}</td>
               <td>
                 <span className={`badge ${getExamTypeBadge(request.exam_type)}`}>
-                  {request.exam_type === 'makeup' ? 'Make-up' : 'Resit'}
+                  {request.exam_type === 'makeup' ? t('makeUpExam') : t('resitExam')}
                 </span>
               </td>
               <td>
@@ -1260,8 +1339,8 @@ const [viewMode, setViewMode] = useState('card');
                 <small>{formatDate(request.submitted_at)}</small>
               </td>
               <td>
-                <span className={`badge ${getStatusBadge(request.status)}`}>
-                  {request.status}
+                 <span className={`badge ${getStatusBadge(request.status)}`}>
+                      {t(request.status.toLowerCase())}
                 </span>
               </td>
               <td className="text-center">
@@ -1306,7 +1385,8 @@ const [viewMode, setViewMode] = useState('card');
                   color: isDark ? '#ffffff' : '#000000'
                 }}
               >
-                Previous
+                {t('previous')}
+
               </button>
             </li>
             
@@ -1343,21 +1423,20 @@ const [viewMode, setViewMode] = useState('card');
                   color: isDark ? '#ffffff' : '#000000'
                 }}
               >
-                Next
+                {t('next')}
+
               </button>
             </li>
           </ul>
           
-          <div className="text-center mt-2">
-            <small className={isDark ? 'text-gray-400' : 'text-muted'}>
-              Showing {indexOfFirstItem + 1} to {Math.min(indexOfLastItem, myExamRequests.length)} of {myExamRequests.length} requests
-            </small>
-          </div>
+          
         </nav>
       )}
     </div>
   );
 };
+
+
 
 // Request Detail Modal Component
 const RequestDetailModal = ({
@@ -1366,11 +1445,13 @@ const RequestDetailModal = ({
   getStatusBadge,
   getExamTypeBadge,
   formatDate,
-  isDark
+  isDark,
+  
 }) => {
   const [attachments, setAttachments] = useState([]);
   const [loadingAttachments, setLoadingAttachments] = useState(false);
   const [previewFile, setPreviewFile] = useState(null);
+  const { t, translateFacultyName } = useTranslation(); 
 
   // Load attachments when modal opens
   useEffect(() => {
@@ -1483,8 +1564,8 @@ const previewFileHandler = async (attachment) => {
             >
               <h5 className="modal-title">
                 <i className="bi bi-file-earmark-text me-2"></i>
-                Exam Request Details
-              </h5>
+              {t('examRequestDetails')}
+                </h5>
               <button 
                 type="button" 
                 className="btn-close" 
@@ -1500,12 +1581,12 @@ const previewFileHandler = async (attachment) => {
               {/* Status & ID */}
               <div className="d-flex justify-content-between align-items-center mb-4">
                 <div>
-                  <h6 className="mb-1">Request ID: #{request.exam_request_id}</h6>
+                  <h6 className="mb-1">{t('requestId')}: #{request.exam_request_id}</h6>
                   <span className={`badge ${getExamTypeBadge(request.exam_type)} me-2`}>
-                    {request.exam_type === 'makeup' ? 'Make-up Exam' : 'Resit Exam'}
+                    {request.exam_type === 'makeup' ? t('makeUpExam') : t('resitExam')}
                   </span>
                   <span className={`badge ${getStatusBadge(request.status)}`}>
-                    {request.status}
+                      {t(request.status.toLowerCase())}
                   </span>
                 </div>
               </div>
@@ -1515,35 +1596,36 @@ const previewFileHandler = async (attachment) => {
                 <div className="card-body">
                   <h6 className="card-title mb-3">
                     <i className="bi bi-book me-2"></i>
-                    Course Information
+                   {t('courseInformation')}
+
                   </h6>
                   <div className="row">
                     <div className="col-md-6 mb-2">
-                      <strong>Course Code:</strong>
+                      <strong>{t('courseCode')}:</strong>
                       <br />
                       <span className={isDark ? 'text-light' : 'text-dark'}>
                         {request.course_code}
                       </span>
                     </div>
                     <div className="col-md-6 mb-2">
-                      <strong>Course Name:</strong>
+                      <strong>{t('courseName')}:</strong>
                       <br />
                       <span className={isDark ? 'text-light' : 'text-dark'}>
                         {request.course_name}
                       </span>
                     </div>
                     <div className="col-md-6 mb-2">
-                      <strong>Instructor:</strong>
+                      <strong>{t('instructor')}:</strong>
                       <br />
                       <span className={isDark ? 'text-light' : 'text-dark'}>
-                        {request.instructor_name || 'Not specified'}
+                        {request.instructor_name ||  t('notSpecified')}
                       </span>
                     </div>
                     <div className="col-md-6 mb-2">
-                      <strong>Original Exam Date:</strong>
+                      <strong>{t('originalExamDateShort')}:</strong>
                       <br />
                       <span className={isDark ? 'text-light' : 'text-dark'}>
-                        {request.exam_date ? formatDate(request.exam_date) : 'Not specified'}
+                        {request.exam_date ? formatDate(request.exam_date) : t('notSpecified')}
                       </span>
                     </div>
                   </div>
@@ -1554,7 +1636,7 @@ const previewFileHandler = async (attachment) => {
               <div className="mb-3">
                 <h6>
                   <i className="bi bi-chat-left-text me-2"></i>
-                  Reason for Request
+                  {t('reasonForRequest')}
                 </h6>
                 <div 
                   className="p-3 rounded border"
@@ -1573,7 +1655,7 @@ const previewFileHandler = async (attachment) => {
               <div className="mb-3">
                 <h6>
                   <i className="bi bi-building me-2"></i>
-                  Faculty Information
+                  {t('facultyInformation')}
                 </h6>
                 <div 
                   className="p-3 rounded border"
@@ -1584,10 +1666,10 @@ const previewFileHandler = async (attachment) => {
                 >
                   <div className="row">
                     <div className="col-md-6">
-                      <strong>Faculty:</strong> {request.faculty_name_tr || request.faculty_name}
+        <strong>{t('faculty')}:</strong> {translateFacultyName(request.faculty_name)}
                     </div>
                     <div className="col-md-6">
-                      <strong>Secretary:</strong> {request.secretary_email}
+                      <strong>{t('secretary')}:</strong> {request.secretary_email}
                     </div>
                   </div>
                 </div>
@@ -1597,7 +1679,7 @@ const previewFileHandler = async (attachment) => {
               <div className="mb-3">
                 <h6>
                   <i className="bi bi-calendar-event me-2"></i>
-                  Timeline
+                  {t('timeline')}
                 </h6>
                 <div 
                   className="p-3 rounded border"
@@ -1608,13 +1690,13 @@ const previewFileHandler = async (attachment) => {
                 >
                   <div className="row">
                     <div className="col-md-6 mb-2">
-                      <strong>Submitted:</strong>
+                      <strong>{t('submitted')}:</strong>
                       <br />
                       {formatDate(request.submitted_at)}
                     </div>
                     {request.processed_at && (
                       <div className="col-md-6 mb-2">
-                        <strong>Processed:</strong>
+                        <strong>{t('processed')}:</strong>
                         <br />
                         {formatDate(request.processed_at)}
                       </div>
@@ -1628,15 +1710,15 @@ const previewFileHandler = async (attachment) => {
                 <div className="mb-3">
                   <h6>
                     <i className="bi bi-paperclip me-2"></i>
-                    Attachments ({request.attachment_count})
+                    {t('attachments')} ({request.attachment_count})
                   </h6>
                   
                   {loadingAttachments ? (
                     <div className="text-center py-3">
                       <div className="spinner-border spinner-border-sm text-primary" role="status">
-                        <span className="visually-hidden">Loading...</span>
+                        <span className="visually-hidden">{t('loading')}</span>
                       </div>
-                      <p className="mt-2 small text-muted">Loading attachments...</p>
+                      <p className="mt-2 small text-muted">{t('loadingAttachments')}</p>
                     </div>
                   ) : attachments.length > 0 ? (
                     <div className="row">
@@ -1671,11 +1753,11 @@ const previewFileHandler = async (attachment) => {
                                   <div className="small text-muted mb-3">
                                     <div>
                                       <i className="bi bi-hdd me-1"></i>
-                                      <strong>Size:</strong> {formatFileSize(attachment.file_size)}
+                                      <strong>{t('size')}:</strong> {formatFileSize(attachment.file_size)}
                                     </div>
                                     <div>
                                       <i className="bi bi-calendar me-1"></i>
-                                      <strong>Uploaded:</strong> {new Date(attachment.uploaded_at).toLocaleDateString()}
+                                      <strong>{t('uploaded')}:</strong> {new Date(attachment.uploaded_at).toLocaleDateString()}
                                     </div>
                                   </div>
                                   
@@ -1690,7 +1772,7 @@ const previewFileHandler = async (attachment) => {
                                         }}
                                       >
                                         <i className="bi bi-eye me-1"></i>
-                                        Preview
+                                        {t('preview')}
                                       </button>
                                     )}
 
@@ -1699,7 +1781,7 @@ const previewFileHandler = async (attachment) => {
                                       onClick={() => handleDownload(attachment)}
                                     >
                                       <i className="bi bi-download me-1"></i>
-                                      Download
+                                      {t('download')}
                                     </button>
                                   </div>
                                 </div>
@@ -1712,7 +1794,7 @@ const previewFileHandler = async (attachment) => {
                   ) : (
                     <div className="alert alert-info py-2 mb-0">
                       <i className="bi bi-info-circle me-2"></i>
-                      No attachments available
+                      {t('noAttachmentsAvailable')}
                     </div>
                   )}
                 </div>
@@ -1723,7 +1805,7 @@ const previewFileHandler = async (attachment) => {
                 <div className="mb-3">
                   <h6>
                     <i className="bi bi-chat-right-text me-2"></i>
-                    Secretary Notes
+                    {t('secretaryNotes')}
                   </h6>
                   <div 
                     className="p-3 rounded border"
@@ -1743,7 +1825,7 @@ const previewFileHandler = async (attachment) => {
                 <div className="mb-3">
                   <h6 className="text-danger">
                     <i className="bi bi-x-circle me-2"></i>
-                    Rejection Reason
+                    {t('rejectionReason')}
                   </h6>
                   <div 
                     className="alert alert-danger"
@@ -1766,7 +1848,7 @@ const previewFileHandler = async (attachment) => {
               }}
             >
               <button type="button" className="btn btn-secondary" onClick={onClose}>
-                Close
+                {t('close')}
               </button>
             </div>
           </div>
@@ -1816,7 +1898,7 @@ const previewFileHandler = async (attachment) => {
                     onClick={() => handleDownload(previewFile.attachment)}
                   >
                     <i className="bi bi-download me-1"></i>
-                    Download
+                    {t('download')}
                   </button>
                   <button 
                     className="btn btn-sm btn-outline-secondary" 

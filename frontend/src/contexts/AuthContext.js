@@ -15,52 +15,114 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
+  // ✅ localStorage'a student data kaydet
+  const saveUserToStorage = useCallback((userData) => {
+    try {
+sessionStorage.setItem('student_data', JSON.stringify(userData));
+      console.log('✅ Student data saved to localStorage');
+    } catch (error) {
+      console.error('❌ Failed to save student data:', error);
+    }
+  }, []);
+
+  // ✅ localStorage'dan student data yükle
+  const loadUserFromStorage = useCallback(() => {
+    try {
+const savedUser = sessionStorage.getItem('student_data');
+      if (savedUser) {
+        const userData = JSON.parse(savedUser);
+        console.log('✅ Loading student data from localStorage');
+        setUser(userData);
+        return true;
+      }
+      return false;
+    } catch (error) {
+      console.error('❌ Failed to load student data:', error);
+      sessionStorage.removeItem('student_data');
+      return false;
+    }
+  }, []);
+
+  // ✅ sessionStorage'ı temizle
+  const clearUserStorage = useCallback(() => {
+    sessionStorage.removeItem('student_data');
+    console.log('🧹 Student data cleared from sessionStorage');
+  }, []);
+
   const logout = useCallback(() => {
     setUser(null);
-    localStorage.removeItem('token');
+sessionStorage.removeItem('token');
+    sessionStorage.removeItem('student_token'); // ✅ EKLE
+    clearUserStorage(); // ✅ EKLE
     apiService.removeAuthToken();
     
     // Student logout sonrası login sayfasına yönlendir
     window.location.href = '/login';
-  }, []);
+  }, [clearUserStorage]);
 
- const checkAuthStatus = useCallback(async () => {
-  try {
-    const response = await apiService.getProfile();
-    if (response.data.success) {
-      console.log('Profile data from API:', response.data.data); // Debug için
-      setUser(response.data.data);
-    } else {
+  const checkAuthStatus = useCallback(async () => {
+    try {
+      const response = await apiService.getProfile();
+      if (response.data.success) {
+        console.log('Profile data from API:', response.data.data);
+        const userData = response.data.data;
+        setUser(userData);
+        saveUserToStorage(userData); // ✅ EKLE
+      } else {
+        logout();
+      }
+    } catch (error) {
+      console.error('Student auth check failed:', error);
       logout();
-    }
-  } catch (error) {
-    console.error('Student auth check failed:', error);
-    logout();
-  } finally {
-    setLoading(false);
-  }
-}, [logout]);
-
-  useEffect(() => {
-    const savedToken = localStorage.getItem('token');
-    if (savedToken) {
-      apiService.setAuthToken(savedToken);
-      checkAuthStatus();
-    } else {
+    } finally {
       setLoading(false);
     }
-  }, [checkAuthStatus]);
+  }, [logout, saveUserToStorage]);
+
+  // ✅ useEffect'i güncelle
+  useEffect(() => {
+    const initializeAuth = async () => {
+      // Hem 'token' hem 'student_token' kontrol et (Magic Link için)
+const savedToken = sessionStorage.getItem('student_token') || sessionStorage.getItem('token');
+      
+      console.log('🔍 AuthContext: Checking token...', !!savedToken);
+      
+      if (savedToken) {
+        console.log('✅ AuthContext: Token found, setting up...');
+        apiService.setAuthToken(savedToken);
+        
+        // Önce localStorage'dan yükle
+        const loadedFromStorage = loadUserFromStorage();
+        
+        if (loadedFromStorage) {
+          console.log('✅ AuthContext: Using cached student data');
+          setLoading(false);
+        } else {
+          // Cache yoksa API'den fetch et
+          console.log('🔄 AuthContext: Fetching student from API...');
+          await checkAuthStatus();
+        }
+      } else {
+        console.log('❌ AuthContext: No token found');
+        setLoading(false);
+      }
+    };
+
+    initializeAuth();
+  }, []); // ✅ Dependency array boş
 
   // Email ile giriş - güncellenmiş fonksiyon
-  const login = async (email, password) => {
-    try {
-      const response = await apiService.loginWithEmail(email, password);
+ const login = async (email, password, captchaToken = null) => {
+  try {
+    const response = await apiService.loginWithEmail(email, password, captchaToken);
       
       if (response.data.success) {
         const { token, user: userData } = response.data.data;
         
         setUser(userData);
-        localStorage.setItem('token', token);
+sessionStorage.setItem('token', token);
+        sessionStorage.setItem('student_token', token); // ✅ EKLE (Magic Link uyumluluğu için)
+        saveUserToStorage(userData); // ✅ EKLE
         apiService.setAuthToken(token);
         
         return { success: true };

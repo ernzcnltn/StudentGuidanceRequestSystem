@@ -8,10 +8,13 @@ const authRoutes = require('./routes/auth');
 const examRequestsRoutes = require('./routes/examRequests'); // 👈 YENİ EKLEME
 const secretaryExamRequestsRoutes = require('./routes/SecretaryExamRequests'); // 👈 YENİ EKLE
 const coursesRoutes = require('./routes/courses');
+const deanRoutes = require('./routes/dean');
+const instituteRoutes = require('./routes/institute');
+const magicLinkRoutes = require('./routes/magicLink');
 
-
-require('dotenv').config();
-
+require('dotenv').config({ 
+  path: process.env.NODE_ENV === 'production' ? '.env.production' : '.env' 
+});
 // Import services
 const { testConnection } = require('./config/database');
 
@@ -35,15 +38,17 @@ if (process.env.NODE_ENV === 'production') {
   app.set('trust proxy', 1);
 }
 
+
+
 // Security middleware (apply early)
-app.use(securityHeaders);
+//app.use(securityHeaders); development
 app.use(sessionSecurity);
 app.use(securityLogger);
 app.use(requestSizeLimit);
 
 // CORS configuration
 app.use(cors({
-  origin: process.env.CORS_ORIGIN || 'http://localhost:3000',
+  origin: ['http://localhost:3000', 'http://localhost:5000', 'https://srs.fnlsrv.website', 'http://srs.fnlsrv.website'],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
@@ -83,6 +88,10 @@ app.use('/api/docs', require('./routes/docs'));
 app.use('/api', examRequestsRoutes);
 app.use('/api/secretary', secretaryExamRequestsRoutes);
 
+
+app.use('/api/magic-link', magicLinkRoutes);
+
+
 // ✅ EXISTING ROUTES
 app.use('/api/notifications', require('./routes/notifications'));
 app.use('/api/analytics', require('./routes/analytics'));
@@ -91,6 +100,9 @@ app.use('/api/search', require('./routes/search'));
 // ⭐ NEW ROUTE - Academic Calendar Management
 app.use('/api/academic-calendar', require('./routes/academicCalendar'));
 
+app.use('/api/institute', instituteRoutes); 
+
+app.use('/api/dean', deanRoutes);
 
 app.use('/api/courses', coursesRoutes);
 

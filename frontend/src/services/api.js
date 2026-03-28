@@ -1,8 +1,7 @@
 import axios from 'axios';
 
 // Base API URL
-const BASE_URL = 'http://localhost:5000/api';
-
+const BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
 
 
 
@@ -30,43 +29,41 @@ const adminApi = axios.create({
 const setAuthToken = (token) => {
   if (token) {
     studentApi.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-    localStorage.setItem('student_token', token);
+    sessionStorage.setItem('student_token', token); // localStorage → sessionStorage
   } else {
     delete studentApi.defaults.headers.common['Authorization'];
-    localStorage.removeItem('student_token');
+    sessionStorage.removeItem('student_token');
   }
 };
 
 const removeAuthToken = () => {
   delete studentApi.defaults.headers.common['Authorization'];
-  localStorage.removeItem('student_token');
+  sessionStorage.removeItem('student_token');
 };
 
-// Admin auth token yönetimi
 const setAdminAuthToken = (token) => {
   if (token) {
     adminApi.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-    localStorage.setItem('admin_token', token);
+    sessionStorage.setItem('admin_token', token); // localStorage → sessionStorage
   } else {
     delete adminApi.defaults.headers.common['Authorization'];
-    localStorage.removeItem('admin_token');
+    sessionStorage.removeItem('admin_token');
   }
 };
 
 const removeAdminAuthToken = () => {
   delete adminApi.defaults.headers.common['Authorization'];
-  localStorage.removeItem('admin_token');
+  sessionStorage.removeItem('admin_token');
 };
 
 // Token'ları sayfa yüklendiğinde geri yükle
 const initializeTokens = () => {
-  const studentToken = localStorage.getItem('student_token');
-  const adminToken = localStorage.getItem('admin_token');
+  const studentToken = sessionStorage.getItem('student_token'); // localStorage → sessionStorage
+  const adminToken = sessionStorage.getItem('admin_token');
   
   if (studentToken) {
     studentApi.defaults.headers.common['Authorization'] = `Bearer ${studentToken}`;
   }
-  
   if (adminToken) {
     adminApi.defaults.headers.common['Authorization'] = `Bearer ${adminToken}`;
   }
@@ -93,8 +90,8 @@ const unifiedAuthMethods = {
 
   // VERIFY TOKEN - Works for both user types
   verifyToken: () => {
-    const studentToken = localStorage.getItem('student_token');
-    const adminToken = localStorage.getItem('admin_token');
+    const studentToken = sessionStorage.getItem('student_token');
+    const adminToken = sessionStorage.getItem('admin_token');
     
     if (adminToken) {
       return adminApi.post('/auth/verify-token');
@@ -105,15 +102,35 @@ const unifiedAuthMethods = {
     }
   },
 
+
+  // Email type check
+  checkEmailType: (email) => {
+    console.log('🔍 Checking email type:', email);
+    return axios.post(`${BASE_URL}/auth/check-email-type`, { email });
+  },
+
   // CHECK EMAIL AVAILABILITY
   checkEmailAvailability: (email) => {
     console.log('📧 Checking email availability:', email);
     return axios.post(`${BASE_URL}/auth/check-email`, { email });
   },
 
+  // Magic Link - Email ile şifresiz giriş
+  requestMagicLink: (email) => {
+    console.log('📧 Requesting magic link for:', email);
+    return axios.post(`${BASE_URL}/magic-link/request`, { email });
+  },
+
+  verifyMagicLink: (token) => {
+    console.log('🔐 Verifying magic link token');
+    return axios.get(`${BASE_URL}/magic-link/verify/${token}`);
+  },
+
+ 
+
   // CHANGE PASSWORD - Works for current user
   changePassword: (currentPassword, newPassword) => {
-    const isAdmin = !!localStorage.getItem('admin_token');
+    const isAdmin = !!sessionStorage.getItem('admin_token');
     const api = isAdmin ? adminApi : studentApi;
     
     console.log('🔐 Changing password for:', isAdmin ? 'admin' : 'student');
@@ -1059,36 +1076,37 @@ const rbacHelpers = {
 
 // ===== ADMIN STATISTICS METHODS =====
 const adminStatisticsMethods = {
-   // Get admin performance statistics (Assignment-based)
+
+  // Get admin performance statistics (COMBINED: Admins + Secretaries)
   getAdminStatistics: async (params = {}) => {
     try {
-      console.log('📊 Fetching assignment-based admin statistics with params:', params);
+      console.log('📊 Fetching combined admin+secretary statistics with params:', params);
       
       // Validate parameters
       const validatedParams = {
         period: params.period && !isNaN(params.period) ? String(params.period) : '30',
-        department: params.department || '',
+        department: params.department || 'all',
         ...params
       };
 
-      const response = await adminApi.get('/admin-auth/statistics/admins', { 
-        params: validatedParams,
+const response = await adminApi.get('/admin-auth/statistics/admins', {
+          params: validatedParams,
         timeout: 30000 // 30 second timeout for large datasets
       });
 
       if (response.data.success) {
-        console.log('✅ Assignment-based statistics loaded successfully:', {
-          adminCount: response.data.data.detailed_admins?.length || 0,
+        console.log('✅ Combined statistics loaded successfully:', {
+          totalUsers: response.data.data.detailed_admins?.length || 0,
+          admins: response.data.data.detailed_admins?.filter(u => u.user_type === 'admin').length || 0,
+          secretaries: response.data.data.detailed_admins?.filter(u => u.user_type === 'secretary').length || 0,
           period: validatedParams.period,
-          department: validatedParams.department || 'ALL',
-          dataSource: response.data.data.meta?.data_source,
-          version: response.data.version
+          department: validatedParams.department || 'ALL'
         });
       }
 
       return response;
     } catch (error) {
-      console.error('❌ Failed to fetch assignment-based admin statistics:', error);
+      console.error('❌ Failed to fetch combined statistics:', error);
       
       // Enhanced error handling
       if (error.code === 'ECONNABORTED') {
@@ -1749,15 +1767,21 @@ const adminStatisticsMethods = {
 
 
  // YENİ email metodları - EKLEYİN
-  loginWithEmail: (email, password) => {
-    console.log('🎓 Student email login:', { email: email?.substring(0, 10) + '...' });
-    return studentApi.post('/auth/login-email', { email, password });
-  },
-  
-  adminLoginWithEmail: (email, password) => {
-    console.log('👨‍💼 Admin email login:', { email: email?.substring(0, 10) + '...' });
-    return adminApi.post('/admin-auth/login-email', { email, password });
-  },
+ loginWithEmail: (email, password, captchaToken = null) => {
+  return axios.post(`${BASE_URL}/auth/login-email`, { 
+    email, 
+    password,
+    ...(captchaToken && { captchaToken })
+  });
+},
+
+adminLoginWithEmail: (email, password, captchaToken = null) => {
+  return axios.post(`${BASE_URL}/admin-auth/login-email`, { 
+    email, 
+    password,
+    ...(captchaToken && { captchaToken })
+  });
+},
 
   // Email ile birleşik giriş
   attemptEmailLogin: async (email, password) => {
@@ -1793,8 +1817,8 @@ const adminStatisticsMethods = {
 
   // Get current user type helper
   getCurrentUserType: () => {
-    const adminToken = localStorage.getItem('admin_token');
-    const studentToken = localStorage.getItem('student_token');
+    const adminToken = sessionStorage.getItem('admin_token');
+    const studentToken = sessionStorage.getItem('student_token');
     
     if (adminToken) return 'admin';
     if (studentToken) return 'student';
@@ -2236,8 +2260,8 @@ getRejectionDetails: (requestId) => {
   console.log(' Getting rejection details for request:', requestId);
   
   // Admin token varsa admin API kullan, yoksa student API kullan
-  const adminToken = localStorage.getItem('admin_token');
-  const studentToken = localStorage.getItem('student_token');
+  const adminToken = sessionStorage.getItem('admin_token');
+  const studentToken = sessionStorage.getItem('student_token');
   
   if (adminToken) {
     console.log(' Using admin API for rejection details');
@@ -2296,7 +2320,7 @@ getAdminNotifications: () => {
 
 markNotificationAsRead: (id) => {
   // Dynamic routing: admin token varsa admin API, yoksa student API
-  const isAdmin = !!localStorage.getItem('admin_token');
+  const isAdmin = !!sessionStorage.getItem('admin_token');
   const api = isAdmin ? adminApi : studentApi;
   
   console.log('✅ Marking notification as read:', { id, isAdmin });
@@ -2304,7 +2328,7 @@ markNotificationAsRead: (id) => {
 },
 
 markAllNotificationsAsRead: () => {
-  const isAdmin = !!localStorage.getItem('admin_token');
+  const isAdmin = !!sessionStorage.getItem('admin_token');
   const api = isAdmin ? adminApi : studentApi;
   
   console.log('📖 Marking all notifications as read:', { isAdmin });
@@ -2328,8 +2352,8 @@ getStudentRequestsByCategory: (studentId, category) => {
 // Updated notification delete methods
 deleteNotification: (notificationId) => {
   // Admin notification ise admin API kullan, student ise student API kullan
-  const adminToken = localStorage.getItem('admin_token');
-  const studentToken = localStorage.getItem('student_token');
+  const adminToken = sessionStorage.getItem('admin_token');
+  const studentToken = sessionStorage.getItem('student_token');
   
   console.log('🗑️ Deleting notification:', { notificationId, hasAdminToken: !!adminToken });
   
@@ -2344,7 +2368,7 @@ deleteNotification: (notificationId) => {
 
 // New method: Delete all notifications
 deleteAllNotifications: () => {
-  const isAdmin = !!localStorage.getItem('admin_token');
+  const isAdmin = !!sessionStorage.getItem('admin_token');
   const api = isAdmin ? adminApi : studentApi;
   
   console.log('🗑️ Deleting all notifications:', { isAdmin });
@@ -2352,7 +2376,7 @@ deleteAllNotifications: () => {
 },
 
 deleteMultipleNotifications: (notificationIds) => {
-  const isAdmin = !!localStorage.getItem('admin_token');
+  const isAdmin = !!sessionStorage.getItem('admin_token');
   const api = isAdmin ? adminApi : studentApi;
   
   console.log('🗑️ Bulk deleting notifications:', { ids: notificationIds, isAdmin });
@@ -2398,7 +2422,7 @@ startNotificationPolling: (callback, interval = 30000) => {
       isPolling = true;
       pollCount++;
       
-      const isAdmin = !!localStorage.getItem('admin_token');
+      const isAdmin = !!sessionStorage.getItem('admin_token');
       console.log(`📡 Polling notifications #${pollCount} (${isAdmin ? 'Admin' : 'Student'})...`);
       
       const response = isAdmin 
@@ -2414,7 +2438,7 @@ startNotificationPolling: (callback, interval = 30000) => {
       
       // Admin logout durumunu kontrol et
       if (error.response?.status === 401) {
-        const isAdmin = !!localStorage.getItem('admin_token');
+        const isAdmin = !!sessionStorage.getItem('admin_token');
         console.log('🚪 Authentication error during polling, stopping...');
         return () => {}; // Stop polling
       }
@@ -2439,8 +2463,8 @@ startNotificationPolling: (callback, interval = 30000) => {
 
 // Debug function to check current user context
 debugNotificationContext: () => {
-  const studentToken = localStorage.getItem('student_token');
-  const adminToken = localStorage.getItem('admin_token');
+  const studentToken = sessionStorage.getItem('student_token');
+  const adminToken = sessionStorage.getItem('admin_token');
   
   const context = {
     hasStudentToken: !!studentToken,
@@ -2484,7 +2508,7 @@ debugNotificationContext: () => {
   // Manual notification testing
   createTestNotification: async () => {
     try {
-      const isAdmin = !!localStorage.getItem('admin_token');
+      const isAdmin = !!sessionStorage.getItem('admin_token');
       if (!isAdmin) {
         console.log('⚠️ Test notification creation only available for admins');
         return { success: false, message: 'Admin access required' };
@@ -2512,8 +2536,8 @@ debugNotificationContext: () => {
 
   // Debug function to check current user context
   debugNotificationContext: () => {
-    const studentToken = localStorage.getItem('student_token');
-    const adminToken = localStorage.getItem('admin_token');
+    const studentToken = sessionStorage.getItem('student_token');
+    const adminToken = sessionStorage.getItem('admin_token');
     
     const context = {
       hasStudentToken: !!studentToken,
@@ -2541,7 +2565,7 @@ debugNotificationContext: () => {
         isPolling = true;
         pollCount++;
         
-        const isAdmin = !!localStorage.getItem('admin_token');
+        const isAdmin = !!sessionStorage.getItem('admin_token');
         console.log(`📡 Polling notifications #${pollCount} (${isAdmin ? 'Admin' : 'Student'})...`);
         
         const response = isAdmin 
@@ -2676,19 +2700,19 @@ getProfilePhotoUrl: (profilePhotoPath) => {
 
   // ===== NOTIFICATION PREFERENCES =====
   subscribeToNotificationType: (type) => {
-    const api = localStorage.getItem('admin_token') ? adminApi : studentApi;
+    const api = sessionStorage.getItem('admin_token') ? adminApi : studentApi;
     return api.post(`/notifications/subscribe/${type}`);
   },
   unsubscribeFromNotificationType: (type) => {
-    const api = localStorage.getItem('admin_token') ? adminApi : studentApi;
+    const api = sessionStorage.getItem('admin_token') ? adminApi : studentApi;
     return api.post(`/notifications/unsubscribe/${type}`);
   },
   getNotificationPreferences: () => {
-    const api = localStorage.getItem('admin_token') ? adminApi : studentApi;
+    const api = sessionStorage.getItem('admin_token') ? adminApi : studentApi;
     return api.get('/notifications/preferences');
   },
   updateNotificationPreferences: (preferences) => {
-    const api = localStorage.getItem('admin_token') ? adminApi : studentApi;
+    const api = sessionStorage.getItem('admin_token') ? adminApi : studentApi;
     return api.put('/notifications/preferences', preferences);
   },
 
@@ -2816,11 +2840,25 @@ getProfilePhotoUrl: (profilePhotoPath) => {
   getSecretaryStatistics: () => adminApi.get('/secretary/statistics'),
 getSecretaryExamRequestAttachments: (requestId) => adminApi.get(`/secretary/exam-requests/${requestId}/attachments`),
 
+
+// ===== DEAN EXAM REQUESTS ===== 
+getDeanExamRequests: () => adminApi.get('/dean/exam-requests'),
+getDeanExamRequestDetail: (requestId) => adminApi.get(`/dean/exam-requests/${requestId}`),
+getDeanExamRequestAttachments: (requestId) => adminApi.get(`/dean/exam-requests/${requestId}/attachments`),
+
+// ===== INSTITUTE REQUESTS ===== 
+getInstituteRequests: () => adminApi.get('/institute/requests'),
+getInstituteRequestDetail: (requestId) => adminApi.get(`/institute/requests/${requestId}`),
+approveInstituteRequest: (requestId, data) => adminApi.put(`/institute/requests/${requestId}/approve`, data),
+rejectInstituteRequest: (requestId, data) => adminApi.put(`/institute/requests/${requestId}/reject`, data),
+getInstituteRequestAttachments: (requestId) => adminApi.get(`/institute/requests/${requestId}/attachments`),
+getInstituteRequestResponses: (requestId) => adminApi.get(`/institute/requests/${requestId}/responses`),
+
   // ===== COURSES MANAGEMENT (ADMIN) =====
   uploadCourses: (formData) => {
     return axios.post(`${BASE_URL}/courses/upload`, formData, {
       headers: {
-        'Authorization': `Bearer ${localStorage.getItem('admin_token')}`,
+        'Authorization': `Bearer ${sessionStorage.getItem('admin_token')}`,
         'Content-Type': 'multipart/form-data'
       }
     });
@@ -2829,7 +2867,7 @@ getSecretaryExamRequestAttachments: (requestId) => adminApi.get(`/secretary/exam
   exportCourses: () => {
     return axios.get(`${BASE_URL}/courses/export`, {
       headers: {
-        'Authorization': `Bearer ${localStorage.getItem('admin_token')}`
+        'Authorization': `Bearer ${sessionStorage.getItem('admin_token')}`
       },
       responseType: 'blob'
     });
@@ -2839,7 +2877,7 @@ getSecretaryExamRequestAttachments: (requestId) => adminApi.get(`/secretary/exam
     return axios.get(`${BASE_URL}/courses`, {
       params: filters,
       headers: {
-        'Authorization': `Bearer ${localStorage.getItem('admin_token')}`
+        'Authorization': `Bearer ${sessionStorage.getItem('admin_token')}`
       }
     });
   },
@@ -2847,7 +2885,7 @@ getSecretaryExamRequestAttachments: (requestId) => adminApi.get(`/secretary/exam
   downloadCoursesTemplate: () => {
     return axios.get(`${BASE_URL}/courses/template`, {
       headers: {
-        'Authorization': `Bearer ${localStorage.getItem('admin_token')}`
+        'Authorization': `Bearer ${sessionStorage.getItem('admin_token')}`
       },
       responseType: 'blob'
     });
@@ -2858,10 +2896,22 @@ searchCourses: (query) => {
   return axios.get(`${BASE_URL}/students/courses/search`, {
     params: { q: query },
     headers: {
-      'Authorization': `Bearer ${localStorage.getItem('student_token')}`  // ✅ 'student_token' olmalı!
+      'Authorization': `Bearer ${sessionStorage.getItem('student_token')}`  // ✅ 'student_token' olmalı!
     }
   });
-}
+},
+
+// Institute FIFO check endpoint
+getInstituteFifoStatus: (requestId) => {
+  console.log('🔍 Checking FIFO status for institute request:', requestId);
+  return adminApi.get(`/institute/requests/${requestId}/-status`);
+},
+
+// =====  CONTROL =====
+checkFifoStatus: (requestId) => {
+  console.log('🔍 Checking FIFO status for request:', requestId);
+  return adminApi.get(`/admin-auth/requests/${requestId}/fifo-status`);
+},
 
 };
 
@@ -2930,8 +2980,9 @@ adminApi.interceptors.request.use(
 
 // Token geçerliliğini kontrol et
 export const checkTokenValidity = (isAdmin = false) => {
-  const token = isAdmin ? localStorage.getItem('admin_token') : localStorage.getItem('student_token');
-  
+const token = isAdmin 
+    ? sessionStorage.getItem('admin_token') 
+    : sessionStorage.getItem('student_token');  
   if (!token) return false;
   
   try {

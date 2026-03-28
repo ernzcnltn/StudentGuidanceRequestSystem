@@ -3,11 +3,13 @@ import { apiService } from '../services/api';
 import { useToast } from '../contexts/ToastContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAdminAuth } from '../contexts/AdminAuthContext';
+import { useTranslation } from '../hooks/useTranslation';
 
 const SecretaryExamRequestsPage = () => {
   const { admin } = useAdminAuth();
   const { showSuccess, showError } = useToast();
   const { isDark } = useTheme();
+  const { t , translateFacultyName} = useTranslation();
 
   const [examRequests, setExamRequests] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -23,7 +25,7 @@ const SecretaryExamRequestsPage = () => {
   const [activeTab, setActiveTab] = useState('all');
   const [attachments, setAttachments] = useState([]);
   const [loadingAttachments, setLoadingAttachments] = useState(false);
-  const [previewFile, setPreviewFile] = useState(null); // 👈 YENİ
+  const [previewFile, setPreviewFile] = useState(null);
 
   useEffect(() => {
     loadExamRequests();
@@ -38,7 +40,7 @@ const SecretaryExamRequestsPage = () => {
       }
     } catch (error) {
       console.error('Error loading exam requests:', error);
-      showError('Failed to load exam requests');
+      showError(t('failedToLoadExamRequests'));
     } finally {
       setLoading(false);
     }
@@ -85,7 +87,7 @@ const SecretaryExamRequestsPage = () => {
     if (!selectedRequest) return;
 
     if (actionType === 'reject' && !actionData.rejection_reason.trim()) {
-      showError('Please provide a rejection reason');
+      showError(t('pleaseProvideRejectionReason'));
       return;
     }
 
@@ -96,13 +98,13 @@ const SecretaryExamRequestsPage = () => {
         await apiService.approveExamRequest(selectedRequest.exam_request_id, {
           secretary_notes: actionData.secretary_notes || null
         });
-        showSuccess('Exam request approved successfully!');
+        showSuccess(t('examRequestApprovedSuccess'));
       } else {
         await apiService.rejectExamRequest(selectedRequest.exam_request_id, {
           rejection_reason: actionData.rejection_reason,
           secretary_notes: actionData.secretary_notes || null
         });
-        showSuccess('Exam request rejected successfully!');
+        showSuccess(t('examRequestRejectedSuccess'));
       }
 
       setShowActionModal(false);
@@ -110,7 +112,7 @@ const SecretaryExamRequestsPage = () => {
       await loadExamRequests();
     } catch (error) {
       console.error('Error processing request:', error);
-      showError(error.response?.data?.error || 'Failed to process request');
+      showError(error.response?.data?.error || t('failedToProcessRequest'));
     } finally {
       setProcessing(false);
     }
@@ -166,32 +168,30 @@ const SecretaryExamRequestsPage = () => {
     document.body.removeChild(link);
   };
 
-  // 👇 YENİ PREVIEW FONKSİYONLARI
- const handlePreviewAttachment = async (attachment) => {
-  try {
-    console.log('Starting preview for:', attachment.file_name);
-    
-    // file_path kontrolü
-    if (!attachment.file_path) {
-      showError('File path not found');
-      return;
+  const handlePreviewAttachment = async (attachment) => {
+    try {
+      console.log('Starting preview for:', attachment.file_name);
+      
+      if (!attachment.file_path) {
+        showError(t('filePathNotFound'));
+        return;
+      }
+      
+      const response = await fetch(`http://localhost:5000/uploads/${attachment.file_path}`);
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      
+      setPreviewFile({
+        url,
+        type: blob.type || attachment.file_type || 'application/octet-stream',
+        name: attachment.file_name || t('unknownFile'),
+        attachment
+      });
+    } catch (error) {
+      console.error('Error previewing file:', error);
+      showError(t('failedToPreviewFile'));
     }
-    
-    const response = await fetch(`http://localhost:5000/uploads/${attachment.file_path}`);
-    const blob = await response.blob();
-    const url = window.URL.createObjectURL(blob);
-    
-    setPreviewFile({
-      url,
-    type: blob.type || attachment.file_type || 'application/octet-stream',
-      name: attachment.file_name || 'Unknown file',
-      attachment
-    });
-  } catch (error) {
-    console.error('Error previewing file:', error);
-    showError('Failed to preview file');
-  }
-};
+  };
 
   const closePreview = () => {
     if (previewFile) {
@@ -200,22 +200,20 @@ const SecretaryExamRequestsPage = () => {
     }
   };
 
- const canPreview = (fileType, fileName) => {
-  // Önce file type'a bak
-  if (fileType && typeof fileType === 'string') {
-    if (fileType.includes('image') || fileType.includes('pdf')) {
-      return true;
+  const canPreview = (fileType, fileName) => {
+    if (fileType && typeof fileType === 'string') {
+      if (fileType.includes('image') || fileType.includes('pdf')) {
+        return true;
+      }
     }
-  }
-  
-  // File type yoksa, dosya adından kontrol et
-  if (fileName && typeof fileName === 'string') {
-    const ext = fileName.split('.').pop().toLowerCase();
-    return ['jpg', 'jpeg', 'png', 'gif', 'webp', 'pdf'].includes(ext);
-  }
-  
-  return false;
-};
+    
+    if (fileName && typeof fileName === 'string') {
+      const ext = fileName.split('.').pop().toLowerCase();
+      return ['jpg', 'jpeg', 'png', 'gif', 'webp', 'pdf'].includes(ext);
+    }
+    
+    return false;
+  };
 
   const filteredRequests = examRequests.filter(request => {
     if (activeTab === 'all') return true;
@@ -229,9 +227,9 @@ const SecretaryExamRequestsPage = () => {
     return (
       <div className="text-center py-5">
         <div className="spinner-border text-danger" role="status">
-          <span className="visually-hidden">Loading...</span>
+          <span className="visually-hidden">{t('loading')}</span>
         </div>
-        <p className="mt-3">Loading exam requests...</p>
+        <p className="mt-3">{t('loadingExamRequests')}</p>
       </div>
     );
   }
@@ -244,10 +242,10 @@ const SecretaryExamRequestsPage = () => {
             <div>
               <h2>
                 <i className="bi bi-clipboard2-check me-2"></i>
-                Exam Requests Management
+                {t('secretaryExamRequestsManagement')}
               </h2>
               <p className={isDark ? 'text-light' : 'text-muted'}>
-                {admin?.department} Faculty - {admin?.full_name}
+  {translateFacultyName(`Faculty of ${admin?.department}`)} 
               </p>
             </div>
             <button 
@@ -255,7 +253,7 @@ const SecretaryExamRequestsPage = () => {
               onClick={() => loadExamRequests()}
             >
               <i className="bi bi-arrow-clockwise me-2"></i>
-              Refresh
+              {t('refresh')}
             </button>
           </div>
         </div>
@@ -272,7 +270,7 @@ const SecretaryExamRequestsPage = () => {
               borderColor: activeTab === 'all' ? '#dc2626 #dc2626 transparent' : 'transparent'
             }}
           >
-            All ({examRequests.length})
+            {t('allRequests')} ({examRequests.length})
           </button>
         </li>
         <li className="nav-item">
@@ -285,7 +283,7 @@ const SecretaryExamRequestsPage = () => {
               borderColor: activeTab === 'pending' ? '#dc2626 #dc2626 transparent' : 'transparent'
             }}
           >
-            Pending ({examRequests.filter(r => r.status === 'Pending').length})
+            {t('pending')} ({examRequests.filter(r => r.status === 'Pending').length})
           </button>
         </li>
         <li className="nav-item">
@@ -298,7 +296,7 @@ const SecretaryExamRequestsPage = () => {
               borderColor: activeTab === 'approved' ? '#dc2626 #dc2626 transparent' : 'transparent'
             }}
           >
-            Approved ({examRequests.filter(r => r.status === 'Approved').length})
+            {t('approved')} ({examRequests.filter(r => r.status === 'Approved').length})
           </button>
         </li>
         <li className="nav-item">
@@ -311,19 +309,20 @@ const SecretaryExamRequestsPage = () => {
               borderColor: activeTab === 'rejected' ? '#dc2626 #dc2626 transparent' : 'transparent'
             }}
           >
-            Rejected ({examRequests.filter(r => r.status === 'Rejected').length})
+            {t('rejected')} ({examRequests.filter(r => r.status === 'Rejected').length})
           </button>
         </li>
       </ul>
+
       {filteredRequests.length === 0 ? (
         <div className="card" style={{ backgroundColor: isDark ? '#2d3748' : '#ffffff' }}>
           <div className="card-body text-center py-5">
             <i className="bi bi-inbox" style={{ fontSize: '4rem', color: '#6c757d' }}></i>
-            <h4 className="mt-3">No Exam Requests</h4>
+            <h4 className="mt-3">{t('noExamRequests')}</h4>
             <p className="text-muted">
               {activeTab === 'all' 
-                ? 'No exam requests found for your faculty.' 
-                : `No ${activeTab} requests found.`}
+  ? t('noExamRequestsForFaculty')
+  : t('noStatusRequests').replace('{status}', activeTab)}
             </p>
           </div>
         </div>
@@ -334,20 +333,21 @@ const SecretaryExamRequestsPage = () => {
               <table className="table table-hover mb-0">
                 <thead style={{ backgroundColor: isDark ? '#4a5568' : '#f8f9fa' }}>
                   <tr>
-                    <th>ID</th>
-                    <th>Student</th>
-                    <th>Type</th>
-                    <th>Course</th>
-                    <th>Instructor</th>
-                    <th>Submitted</th>
-                    <th>Status</th>
-                    <th>Attachments</th>
-                    <th>Actions</th>
+                    <th>{t('requestId')}</th>
+                    <th>{t('student')}</th>
+                    <th>{t('type')}</th>
+                    <th>{t('course')}</th>
+                    <th>{t('instructor')}</th>
+                    <th>{t('submitted')}</th>
+                    <th>{t('status')}</th>
+                    <th>{t('attachments')}</th>
+                    <th>{t('actions')}</th>
                   </tr>
                 </thead>
                 <tbody>
                   {filteredRequests.map((request) => (
-                    <tr key={request.exam_request_id}>
+                    <tr key={request.exam_request_id}
+                    id={`request-${request.exam_request_id}`}>
                       <td>#{request.exam_request_id}</td>
                       <td>
                         <div>
@@ -358,7 +358,7 @@ const SecretaryExamRequestsPage = () => {
                       </td>
                       <td>
                         <span className={`${getExamTypeBadge(request.exam_type)}`}>
-                          {request.exam_type === 'makeup' ? 'Make-up' : 'Resit'}
+                          {request.exam_type === 'makeup' ? t('makeUpExam') : t('resitExam')}
                         </span>
                       </td>
                       <td>
@@ -368,16 +368,16 @@ const SecretaryExamRequestsPage = () => {
                           <small>{request.course_name}</small>
                         </div>
                       </td>
-                      <td>{request.instructor_name || 'N/A'}</td>
+                      <td>{request.instructor_name || t('notAvailable')}</td>
                       <td>{formatDate(request.submitted_at)}</td>
                       <td>
                         <span className={`badge ${getStatusBadge(request.status)}`}>
-                          {request.status}
+                      {t(request.status.toLowerCase())}
                         </span>
                       </td>
                       <td className="text-center">
                         {request.attachment_count > 0 && (
-                          <span className=" info">
+                          <span className="info">
                             <i className="bi bi-paperclip me-1"></i>
                             {request.attachment_count}
                           </span>
@@ -388,7 +388,7 @@ const SecretaryExamRequestsPage = () => {
                           <button
                             className="btn btn-sm btn-outline-primary"
                             onClick={() => handleViewDetails(request)}
-                            title="View Details"
+                            title={t('viewDetails')}
                           >
                             <i className="bi bi-eye"></i>
                           </button>
@@ -397,14 +397,14 @@ const SecretaryExamRequestsPage = () => {
                               <button
                                 className="btn btn-sm btn-outline-success"
                                 onClick={() => handleApproveClick(request)}
-                                title="Approve"
+                                title={t('approve')}
                               >
                                 <i className="bi bi-check-lg"></i>
                               </button>
                               <button
                                 className="btn btn-sm btn-outline-danger"
                                 onClick={() => handleRejectClick(request)}
-                                title="Reject"
+                                title={t('reject')}
                               >
                                 <i className="bi bi-x-lg"></i>
                               </button>
@@ -442,7 +442,7 @@ const SecretaryExamRequestsPage = () => {
                 >
                   <h5 className="modal-title">
                     <i className="bi bi-file-earmark-text me-2"></i>
-                    Exam Request Details - #{selectedRequest.exam_request_id}
+                    {t('examRequestDetails')} - #{selectedRequest.exam_request_id}
                   </h5>
                   <button 
                     type="button" 
@@ -455,10 +455,10 @@ const SecretaryExamRequestsPage = () => {
                 <div className="modal-body">
                   <div className="mb-4">
                     <span className={`${getExamTypeBadge(selectedRequest.exam_type)} me-2`}>
-                      {selectedRequest.exam_type === 'makeup' ? 'Make-up Exam' : 'Resit Exam'}
+                      {selectedRequest.exam_type === 'makeup' ? t('makeUpExam') : t('resitExam')}
                     </span>
                     <span className={`badge ${getStatusBadge(selectedRequest.status)}`}>
-                      {selectedRequest.status}
+                      {t(selectedRequest.status.toLowerCase())}
                     </span>
                   </div>
 
@@ -466,24 +466,24 @@ const SecretaryExamRequestsPage = () => {
                     <div className="card-body">
                       <h6 className="card-title">
                         <i className="bi bi-person me-2"></i>
-                        Student Information
+                        {t('studentInformation')}
                       </h6>
                       <div className="row">
                         <div className="col-md-6">
-                          <strong>Name:</strong> {selectedRequest.student_name}
+                          <strong>{t('name')}:</strong> {selectedRequest.student_name}
                         </div>
                         <div className="col-md-6">
-                          <strong>Student Number:</strong> {selectedRequest.student_number}
+                          <strong>{t('studentNumber')}:</strong> {selectedRequest.student_number}
                         </div>
                         <div className="col-md-6 mt-2">
-                          <strong>Email:</strong> {selectedRequest.student_email}
+                          <strong>{t('email')}:</strong> {selectedRequest.student_email}
                         </div>
                         <div className="col-md-6 mt-2">
-                          <strong>Program:</strong> {selectedRequest.program}
+                          <strong>{t('program')}:</strong> {selectedRequest.program}
                         </div>
                         {selectedRequest.student_phone && (
                           <div className="col-md-6 mt-2">
-                            <strong>Phone:</strong> {selectedRequest.student_phone}
+                            <strong>{t('phone')}:</strong> {selectedRequest.student_phone}
                           </div>
                         )}
                       </div>
@@ -494,21 +494,21 @@ const SecretaryExamRequestsPage = () => {
                     <div className="card-body">
                       <h6 className="card-title">
                         <i className="bi bi-book me-2"></i>
-                        Course Information
+                        {t('courseInformation')}
                       </h6>
                       <div className="row">
                         <div className="col-md-6">
-                          <strong>Course Code:</strong> {selectedRequest.course_code}
+                          <strong>{t('courseCode')}:</strong> {selectedRequest.course_code}
                         </div>
                         <div className="col-md-6">
-                          <strong>Course Name:</strong> {selectedRequest.course_name}
+                          <strong>{t('courseName')}:</strong> {selectedRequest.course_name}
                         </div>
                         <div className="col-md-6 mt-2">
-                          <strong>Instructor:</strong> {selectedRequest.instructor_name || 'Not specified'}
+                          <strong>{t('instructor')}:</strong> {selectedRequest.instructor_name || t('notSpecified')}
                         </div>
                         {selectedRequest.exam_date && (
                           <div className="col-md-6 mt-2">
-                            <strong>Exam Date:</strong> {formatDate(selectedRequest.exam_date)}
+                            <strong>{t('examDate')}:</strong> {formatDate(selectedRequest.exam_date)}
                           </div>
                         )}
                       </div>
@@ -518,7 +518,7 @@ const SecretaryExamRequestsPage = () => {
                   <div className="mb-3">
                     <h6>
                       <i className="bi bi-chat-left-text me-2"></i>
-                      Reason for Request
+                      {t('reasonForRequest')}
                     </h6>
                     <div 
                       className="p-3 rounded border"
@@ -536,12 +536,12 @@ const SecretaryExamRequestsPage = () => {
                     <div className="mb-3">
                       <h6>
                         <i className="bi bi-paperclip me-2"></i>
-                        Attachments ({selectedRequest.attachment_count})
+                        {t('attachments')} ({selectedRequest.attachment_count})
                       </h6>
                       {loadingAttachments ? (
                         <div className="text-center py-3">
                           <div className="spinner-border spinner-border-sm" role="status"></div>
-                          <p className="mt-2 small">Loading attachments...</p>
+                          <p className="mt-2 small">{t('loadingAttachments')}</p>
                         </div>
                       ) : attachments.length > 0 ? (
                         <div className="list-group">
@@ -554,7 +554,7 @@ const SecretaryExamRequestsPage = () => {
                                 borderColor: isDark ? '#718096' : '#e2e8f0'
                               }}
                             >
-                                <div className="d-flex align-items-center">
+                              <div className="d-flex align-items-center">
                                 <i className={`${getFileIcon(attachment.file_name)} me-3`} style={{ fontSize: '1.5rem' }}></i>
                                 <div>
                                   <div className="fw-bold">{attachment.file_name}</div>
@@ -564,11 +564,11 @@ const SecretaryExamRequestsPage = () => {
                                 </div>
                               </div>
                               <div className="btn-group">
-{canPreview(attachment.file_type, attachment.file_name) && (
+                                {canPreview(attachment.file_type, attachment.file_name) && (
                                   <button
                                     className="btn btn-sm btn-outline-primary"
                                     onClick={() => handlePreviewAttachment(attachment)}
-                                    title="Preview"
+                                    title={t('preview')}
                                   >
                                     <i className="bi bi-eye"></i>
                                   </button>
@@ -576,7 +576,7 @@ const SecretaryExamRequestsPage = () => {
                                 <button
                                   className="btn btn-sm btn-outline-primary"
                                   onClick={() => handleDownloadAttachment(attachment)}
-                                  title="Download"
+                                  title={t('download')}
                                 >
                                   <i className="bi bi-download"></i>
                                 </button>
@@ -585,21 +585,21 @@ const SecretaryExamRequestsPage = () => {
                           ))}
                         </div>
                       ) : (
-                        <p className="text-muted">No attachments found</p>
+                        <p className="text-muted">{t('noAttachmentsFound')}</p>
                       )}
                     </div>
                   )}
 
                   {selectedRequest.secretary_notes && (
                     <div className="alert alert-info">
-                      <h6><i className="bi bi-chat-right-text me-2"></i>Secretary Notes</h6>
+                      <h6><i className="bi bi-chat-right-text me-2"></i>{t('secretaryNotes')}</h6>
                       <p className="mb-0">{selectedRequest.secretary_notes}</p>
                     </div>
                   )}
 
                   {selectedRequest.rejection_reason && (
                     <div className="alert alert-danger">
-                      <h6><i className="bi bi-x-circle me-2"></i>Rejection Reason</h6>
+                      <h6><i className="bi bi-x-circle me-2"></i>{t('rejectionReason')}</h6>
                       <p className="mb-0">{selectedRequest.rejection_reason}</p>
                     </div>
                   )}
@@ -607,7 +607,9 @@ const SecretaryExamRequestsPage = () => {
                   {selectedRequest.processed_by && (
                     <div className="text-muted small">
                       <i className="bi bi-info-circle me-1"></i>
-                      Processed by {selectedRequest.processed_by_name} on {formatDate(selectedRequest.processed_at)}
+                     {t('processedByOn')
+  .replace('{name}', selectedRequest.processed_by_name)
+  .replace('{date}', formatDate(selectedRequest.processed_at))}
                     </div>
                   )}
                 </div>
@@ -630,7 +632,7 @@ const SecretaryExamRequestsPage = () => {
                         }}
                       >
                         <i className="bi bi-check-lg me-2"></i>
-                        Approve
+                        {t('approve')}
                       </button>
                       <button
                         type="button"
@@ -641,12 +643,12 @@ const SecretaryExamRequestsPage = () => {
                         }}
                       >
                         <i className="bi bi-x-lg me-2"></i>
-                        Reject
+                        {t('reject')}
                       </button>
                     </>
                   )}
                   <button type="button" className="btn btn-secondary" onClick={() => setShowDetailModal(false)}>
-                    Close
+                    {t('close')}
                   </button>
                 </div>
               </div>
@@ -654,6 +656,7 @@ const SecretaryExamRequestsPage = () => {
           </div>
         </>
       )}
+
       {showActionModal && selectedRequest && (
         <>
           <div className="modal-backdrop fade show" onClick={() => setShowActionModal(false)}></div>
@@ -677,12 +680,12 @@ const SecretaryExamRequestsPage = () => {
                     {actionType === 'approve' ? (
                       <>
                         <i className="bi bi-check-circle text-success me-2"></i>
-                        Approve Exam Request
+                        {t('approveExamRequest')}
                       </>
                     ) : (
                       <>
                         <i className="bi bi-x-circle text-danger me-2"></i>
-                        Reject Exam Request
+                        {t('rejectExamRequest')}
                       </>
                     )}
                   </h5>
@@ -696,7 +699,7 @@ const SecretaryExamRequestsPage = () => {
 
                 <div className="modal-body">
                   <div className="alert alert-info">
-                    <strong>Request #{selectedRequest.exam_request_id}</strong>
+                    <strong>{t('request')} #{selectedRequest.exam_request_id}</strong>
                     <br />
                     {selectedRequest.student_name} - {selectedRequest.course_code}
                   </div>
@@ -704,37 +707,37 @@ const SecretaryExamRequestsPage = () => {
                   {actionType === 'reject' && (
                     <div className="mb-3">
                       <label className="form-label fw-bold">
-                        Rejection Reason *
+                        {t('rejectionReason')} *
                       </label>
                       <textarea
                         className="form-control"
                         rows="4"
                         value={actionData.rejection_reason}
                         onChange={(e) => setActionData({ ...actionData, rejection_reason: e.target.value })}
-                        placeholder="Please provide a clear reason for rejection..."
+                        placeholder={t('pleaseProvideRejectionReasonPlaceholder')}
                         required
                         maxLength={500}
                       />
                       <div className="form-text">
-                        {500 - actionData.rejection_reason.length} characters remaining
+                        {500 - actionData.rejection_reason.length} {t('charactersRemaining')}
                       </div>
                     </div>
                   )}
 
                   <div className="mb-3">
                     <label className="form-label fw-bold">
-                      Secretary Notes (Optional)
+                      {t('secretaryNotes')} ({t('optional')})
                     </label>
                     <textarea
                       className="form-control"
                       rows="3"
                       value={actionData.secretary_notes}
                       onChange={(e) => setActionData({ ...actionData, secretary_notes: e.target.value })}
-                      placeholder="Add any additional notes..."
+                      placeholder={t('addAdditionalNotesPlaceholder')}
                       maxLength={500}
                     />
                     <div className="form-text">
-                      {500 - actionData.secretary_notes.length} characters remaining
+                      {500 - actionData.secretary_notes.length} {t('charactersRemaining')}
                     </div>
                   </div>
                 </div>
@@ -752,7 +755,7 @@ const SecretaryExamRequestsPage = () => {
                     onClick={() => setShowActionModal(false)}
                     disabled={processing}
                   >
-                    Cancel
+                    {t('cancel')}
                   </button>
                   <button
                     type="button"
@@ -763,12 +766,12 @@ const SecretaryExamRequestsPage = () => {
                     {processing ? (
                       <>
                         <span className="spinner-border spinner-border-sm me-2" role="status"></span>
-                        Processing...
+                        {t('processing')}...
                       </>
                     ) : (
                       <>
                         <i className={`bi ${actionType === 'approve' ? 'bi-check-lg' : 'bi-x-lg'} me-2`}></i>
-                        {actionType === 'approve' ? 'Confirm Approval' : 'Confirm Rejection'}
+                        {actionType === 'approve' ? t('confirmApproval') : t('confirmRejection')}
                       </>
                     )}
                   </button>
@@ -779,7 +782,6 @@ const SecretaryExamRequestsPage = () => {
         </>
       )}
 
-      {/* 👇 YENİ PREVIEW MODAL */}
       {previewFile && (
         <>
           <div
@@ -821,7 +823,7 @@ const SecretaryExamRequestsPage = () => {
                     onClick={() => handleDownloadAttachment(previewFile.attachment)}
                   >
                     <i className="bi bi-download me-1"></i>
-                    Download
+                    {t('download')}
                   </button>
                   <button 
                     className="btn btn-sm btn-outline-secondary" 
@@ -832,41 +834,38 @@ const SecretaryExamRequestsPage = () => {
                 </div>
               </div>
               
-             <div className="p-3" style={{ textAlign: 'center' }}>
-  {previewFile.type.includes('image') && (
-    <img 
-      src={previewFile.url} 
-      alt={previewFile.name}
-      style={{ 
-        maxWidth: '100%',
-        maxHeight: '80vh',
-        objectFit: 'contain',
-        borderRadius: '4px'
-      }}
-      onLoad={() => console.log('✅ Image loaded successfully')}
-      onError={(e) => {
-        console.error('❌ Image failed to load:', e);
-        console.log('Image URL:', previewFile.url);
-      }}
-    />
-  )}
-  
-  {previewFile.type.includes('pdf') && (
-    <embed
-      src={previewFile.url}
-      type="application/pdf"
-      width="100%"
-      height="80vh"
-      style={{ 
-        border: 'none',
-        borderRadius: '4px',
-        minHeight: '600px'
-      }}
-    />
-  )}
-
-
-  
+              <div className="p-3" style={{ textAlign: 'center' }}>
+                {previewFile.type.includes('image') && (
+                  <img 
+                    src={previewFile.url} 
+                    alt={previewFile.name}
+                    style={{ 
+                      maxWidth: '100%',
+                      maxHeight: '80vh',
+                      objectFit: 'contain',
+                      borderRadius: '4px'
+                    }}
+                    onLoad={() => console.log('✅ Image loaded successfully')}
+                    onError={(e) => {
+                      console.error('❌ Image failed to load:', e);
+                      console.log('Image URL:', previewFile.url);
+                    }}
+                  />
+                )}
+                
+                {previewFile.type.includes('pdf') && (
+                  <embed
+                    src={previewFile.url}
+                    type="application/pdf"
+                    width="100%"
+                    height="80vh"
+                    style={{ 
+                      border: 'none',
+                      borderRadius: '4px',
+                      minHeight: '600px'
+                    }}
+                  />
+                )}
               </div>
             </div>
           </div>

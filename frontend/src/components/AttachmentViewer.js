@@ -380,8 +380,10 @@ const AttachmentViewer = ({ requestId, onClose }) => {
                               </div>
                               
                               <div className="d-flex gap-2 flex-wrap">
+
                                 {canPreview(attachment.file_type) && (
                                   <button
+                                  
                                     className="btn btn-outline-primary btn-sm"
                                     onClick={(e) => {
                                       e.preventDefault();

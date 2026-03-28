@@ -167,7 +167,19 @@ const AdminResponseModal = ({ requestId, requestTitle, onClose, onResponseAdded 
       }
     } catch (error) {
       console.error('Error adding response:', error);
-      showError('Failed to add response');
+       // 🆕 FIFO HATASI KONTROLÜ
+    if (error.response?.status === 423 && error.response?.data?.errorCode === 'FIFO_VIOLATION') {
+      const blockingReq = error.response.data.blocking_request;
+      showError(
+        `${t('fifoBlocked')}: ${t('youMustAnswerFirst').replace('{id}', blockingReq.request_id)}`,
+        {
+          duration: 6000,
+          position: 'top-center'
+        }
+      );
+    } else {
+      showError(error.response?.data?.error || t('failedToAddResponse'));
+    }
     } finally {
       setSubmitting(false);
     }

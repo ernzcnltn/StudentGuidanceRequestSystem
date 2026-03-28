@@ -1,5 +1,7 @@
 const rateLimit = require('express-rate-limit');
 const helmet = require('helmet');
+const path = require('path'); // ✅ EKLE (validateFileType için)
+const isDevelopment = process.env.NODE_ENV !== 'production';
 
 // Rate limiting for general API requests
 const generalLimiter = rateLimit({
@@ -71,20 +73,41 @@ const sanitizeInput = (req, res, next) => {
   next();
 };
 
-// Security headers middleware
+
+
 const securityHeaders = helmet({
-  contentSecurityPolicy: {
+  contentSecurityPolicy: isDevelopment ? false : { // Dev'de CSP kapalı
     directives: {
       defaultSrc: ["'self'"],
-      styleSrc: ["'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net"],
-      scriptSrc: ["'self'"],
-imgSrc: ["'self'", "data:", "https:", "http://localhost:5000"],    
-  connectSrc: ["'self'"],
-      fontSrc: ["'self'", "https://fonts.googleapis.com"],
+      scriptSrc: [
+        "'self'",
+        "'unsafe-inline'",
+        "'unsafe-eval'",
+        "https://www.google.com",
+        "https://www.gstatic.com"
+      ],
+      styleSrc: [
+        "'self'",
+        "'unsafe-inline'",
+        "https://cdn.jsdelivr.net",
+        "https://fonts.googleapis.com"
+      ],
+      imgSrc: ["'self'", "data:", "https:"],
+      connectSrc: ["'self'", "https://www.google.com", process.env.FRONTEND_URL],
+      fontSrc: ["'self'", "https://fonts.googleapis.com", "https://fonts.gstatic.com"],
+      frameSrc: ["'self'", "https://www.google.com", "https://recaptcha.google.com"],
     },
+  },
+  hsts: isDevelopment ? false : { // Dev'de HSTS kapalı
+    maxAge: 31536000,
+    includeSubDomains: true,
+    preload: true
   },
   crossOriginEmbedderPolicy: false,
 });
+
+
+
 
 // Request size limiting
 const requestSizeLimit = (req, res, next) => {

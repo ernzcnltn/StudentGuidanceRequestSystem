@@ -108,16 +108,16 @@ export const ToastProvider = ({ children }) => {
 const ToastNotification = ({ toast, onClose }) => {
   const { message, type } = toast;
 
-  const getToastClasses = () => {
-    const baseClasses = 'toast show align-items-center border-0 mb-2';
-    const typeClasses = {
-      success: 'bg-danger text-white',
-      error: 'bg-danger text-white',
-      warning: 'bg-danger text-white',
-      info: 'bg-danger text-white'
-    };
-    return `${baseClasses} ${typeClasses[type] || typeClasses.info}`;
+ const getToastClasses = () => {
+  const baseClasses = 'toast show align-items-center border-0 mb-2';
+  const typeClasses = {
+    success: 'bg-success text-white',  // 🟢 Yeşil
+    error: 'bg-danger text-white',     // 🔴 Kırmızı
+    warning: 'bg-warning text-dark',   // 🟡 Sarı (text-dark daha okunur)
+    info: 'bg-info text-white'         // 🔵 Mavi
   };
+  return `${baseClasses} ${typeClasses[type] || typeClasses.info}`;
+};
 
   const getIcon = () => {
     const icons = {

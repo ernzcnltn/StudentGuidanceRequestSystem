@@ -520,9 +520,11 @@ showError(t('failedToUpdateSuperAdminStatus'));
                 color: isDark ? '#ffffff' : '#000000'
               }}
             >
-              <option value="">{t('allDepartments')}</option>
+                <option value="">{t('allDepartments')}</option>
               {getDepartments().map(dept => (
-                <option key={dept} value={dept}>{translateDepartment(dept)}</option>
+                <option key={dept} value={dept}>
+                  {translateDbText(dept, 'departments')}
+                </option>
               ))}
             </select>
           </div>
@@ -588,7 +590,7 @@ showError(t('failedToUpdateSuperAdminStatus'));
                       <td>{user.email}</td>
                       <td>
                         <span className="text">
-                          {translateDepartment(user.department)}
+                          {translateDbText(user.department, 'departments')}
                         </span>
                       </td>
                       <td>
@@ -885,12 +887,23 @@ showError(t('failedToUpdateSuperAdminStatus'));
                           color: isDark ? '#ffffff' : '#000000'
                         }}
                       >
-                        <option value="">{t('selectDepartment')}</option>
-                        <option value="Accounting">{t('accounting')}</option>
-                        <option value="Academic">{t('academic')}</option>
-                        <option value="Student Affairs">{t('studentaffairs')}</option>
-                        <option value="Dormitory">{t('dormitory')}</option>
-                        <option value="Campus Services">{t('campusservices')}</option>
+                          <option value="">{t('selectDepartment')}</option>
+                        <option value="Accounting">{translateDbText('Accounting', 'departments')}</option>
+                        <option value="Academic">{translateDbText('Academic', 'departments')}</option>
+                        <option value="Student Affairs">{translateDbText('Student Affairs', 'departments')}</option>
+                        <option value="Dormitory">{translateDbText('Dormitory', 'departments')}</option>
+                        <option value="Campus Services">{translateDbText('Campus Services', 'departments')}</option>
+                        <option value="Engineering">{translateDbText('Engineering', 'departments')}</option>
+                        <option value="Architecture">{translateDbText('Architecture', 'departments')}</option>
+                        <option value="Arts and Sciences">{translateDbText('Arts and Sciences', 'departments')}</option>
+                        <option value="Business">{translateDbText('Business', 'departments')}</option>
+                        <option value="Law">{translateDbText('Law', 'departments')}</option>
+                        <option value="Medicine">{translateDbText('Medicine', 'departments')}</option>
+                        <option value="Education">{translateDbText('Education', 'departments')}</option>
+                        <option value="Dentistry">{translateDbText('Dentistry', 'departments')}</option>
+                        <option value="Pharmacy">{translateDbText('Pharmacy', 'departments')}</option>
+                        <option value="Dean">{translateDbText('Dean', 'departments')}</option>
+                        <option value="Institute">{translateDbText('Institute', 'departments')}</option>
                       </select>
                     </div>
                   )}

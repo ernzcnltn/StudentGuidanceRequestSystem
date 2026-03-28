@@ -1,6 +1,7 @@
 // backend/routes/requests.js - FIXED VERSION with rejection details endpoint
 const express = require('express');
 const router = express.Router();
+const emailService = require('../services/emailService');
 const { pool } = require('../config/database');
 const { 
   validateCreateRequest, 
@@ -425,6 +426,31 @@ router.post('/',
 
       console.log(`✅ Request created with ID: ${requestId}`);
 
+
+
+// ✅ FIFO: response_order'ı anında ata (submit anında, click'te değil)
+try {
+  const [maxOrder] = await pool.execute(`
+    SELECT COALESCE(MAX(gr.response_order), 0) as max_order
+    FROM guidance_requests gr
+    JOIN request_types rt ON gr.type_id = rt.type_id
+    WHERE rt.category = ? AND gr.status = 'Pending'
+  `, [category]);
+
+  const nextOrder = (maxOrder[0].max_order || 0) + 1;
+
+  await pool.execute(
+    'UPDATE guidance_requests SET response_order = ? WHERE request_id = ?',
+    [nextOrder, requestId]
+  );
+
+  console.log(`✅ FIFO: Request ${requestId} queue order ${nextOrder} in ${category} dept.`);
+} catch (orderError) {
+  console.error('⚠️ FIFO order assignment failed (non-critical):', orderError);
+  // Non-critical: talep yine de oluşturuldu
+}
+
+
       // AUTO-ASSIGNMENT LOGIC with error handling
       console.log(`🤖 Starting auto-assignment for request ${requestId} to ${category} department`);
       
@@ -452,6 +478,47 @@ router.post('/',
         assignmentInfo.assignment_error = 'Auto-assignment failed but request was created';
       }
 
+      //  EMAIL NOTIFICATION - Bu bloğu ekle (auto-assignment kodu bittikten sonra, success response'dan önce)
+try {
+  // Get student info for email
+  const [studentInfo] = await pool.execute(
+    'SELECT name, email FROM students WHERE student_id = ?',
+    [studentId]
+  );
+  
+  const studentName = studentInfo[0]?.name || 'Student';
+  
+  // Get admin emails for this department
+  const [departmentAdmins] = await pool.execute(`
+    SELECT email, full_name 
+    FROM admin_users 
+    WHERE department = ? AND is_active = TRUE
+    LIMIT 5
+  `, [category]);
+  
+  if (departmentAdmins.length > 0) {
+    // Send email to all department admins
+    for (const admin of departmentAdmins) {
+      await emailService.sendNewRequestNotification(
+        admin.email,
+        admin.full_name,
+        requestId,
+        studentName,
+        requestType[0].type_name,
+        priority,
+        category
+      );
+    }
+    console.log(` Email notifications sent to ${departmentAdmins.length} admin(s) in ${category} department`);
+  } else {
+    console.log(` No active admins found in ${category} department for email notification`);
+  }
+} catch (emailError) {
+  // Email errors should not prevent request creation
+  console.error(' Email notification failed (non-critical):', emailError.message);
+}
+
+
       // Success response with enhanced info
       res.status(201).json({
         success: true,
@@ -475,7 +542,7 @@ router.post('/',
       });
 
     } catch (error) {
-      console.error('❌ Request creation error:', error);
+      console.error(' Request creation error:', error);
       
       // Enhanced error response
       let errorMessage = 'Failed to create request';
@@ -563,7 +630,7 @@ router.get('/student/me', authenticateStudent, async (req, res) => {
         Math.round((new Date() - new Date(request.updated_at)) / (1000 * 60 * 60)) : null
     }));
 
-    console.log(`✅ Retrieved ${enhancedRequests.length} requests for student ${studentId}`);
+    console.log(` Retrieved ${enhancedRequests.length} requests for student ${studentId}`);
 
     res.json({
       success: true,
@@ -581,7 +648,7 @@ router.get('/student/me', authenticateStudent, async (req, res) => {
     });
 
   } catch (error) {
-    console.error('❌ Get student requests error:', error);
+    console.error(' Get student requests error:', error);
     res.status(500).json({
       success: false,
       error: 'Failed to fetch requests'
@@ -752,10 +819,10 @@ router.post('/requests', authenticateStudent, async (req, res) => {
 
     const requestId = result.insertId;
 
-    console.log(`✅ Request created with ID: ${requestId}`);
+    console.log(` Request created with ID: ${requestId}`);
 
     // AUTO-ASSIGNMENT LOGIC
-    console.log(`🤖 Starting auto-assignment for request ${requestId} to ${category} department`);
+    console.log(` Starting auto-assignment for request ${requestId} to ${category} department`);
     
     try {
       const assignmentResult = await handleNewRequestAssignment(requestId);
@@ -768,7 +835,7 @@ router.post('/requests', authenticateStudent, async (req, res) => {
       if (assignmentResult?.success) {
         assignmentInfo.assigned_to = assignmentResult.assignedTo.full_name;
         assignmentInfo.admin_workload = assignmentResult.workload;
-        console.log(`✅ Request ${requestId} auto-assigned to ${assignmentResult.assignedTo.full_name}`);
+        console.log(` Request ${requestId} auto-assigned to ${assignmentResult.assignedTo.full_name}`);
       } else {
         assignmentInfo.assignment_error = assignmentResult?.reason || assignmentResult?.error;
         console.log(` Auto-assignment failed for request ${requestId}: ${assignmentInfo.assignment_error}`);
@@ -790,7 +857,7 @@ router.post('/requests', authenticateStudent, async (req, res) => {
       });
 
     } catch (assignmentError) {
-      console.error('❌ Auto-assignment error (non-critical):', assignmentError);
+      console.error(' Auto-assignment error (non-critical):', assignmentError);
       
       // Request created successfully, assignment failed (non-critical)
       res.status(201).json({
@@ -813,7 +880,7 @@ router.post('/requests', authenticateStudent, async (req, res) => {
     }
 
   } catch (error) {
-    console.error('❌ Request creation error:', error);
+    console.error(' Request creation error:', error);
     res.status(500).json({
       success: false,
       error: 'Failed to create request'
@@ -885,7 +952,7 @@ router.get('/requests/student/me', authenticateStudent, async (req, res) => {
         Math.round((new Date() - new Date(request.updated_at)) / (1000 * 60 * 60)) : null
     }));
 
-    console.log(`✅ Retrieved ${enhancedRequests.length} requests for student ${studentId}`);
+    console.log(` Retrieved ${enhancedRequests.length} requests for student ${studentId}`);
 
     res.json({
       success: true,
@@ -903,7 +970,7 @@ router.get('/requests/student/me', authenticateStudent, async (req, res) => {
     });
 
   } catch (error) {
-    console.error('❌ Get student requests error:', error);
+    console.error(' Get student requests error:', error);
     res.status(500).json({
       success: false,
       error: 'Failed to fetch requests'
@@ -976,7 +1043,7 @@ router.put('/requests/:requestId/priority', authenticateStudent, async (req, res
     if (requestData.assigned_admin_id && isIncreasingPriority) {
       try {
         // Add notification logic here if needed
-        console.log(`📢 Priority increased for assigned request ${requestId} - notify admin ${requestData.assigned_admin_id}`);
+        console.log(` Priority increased for assigned request ${requestId} - notify admin ${requestData.assigned_admin_id}`);
         notificationSent = true;
       } catch (notificationError) {
         console.error('Failed to send priority notification:', notificationError);
@@ -996,7 +1063,7 @@ router.put('/requests/:requestId/priority', authenticateStudent, async (req, res
     });
 
   } catch (error) {
-    console.error('❌ Update request priority error:', error);
+    console.error(' Update request priority error:', error);
     res.status(500).json({
       success: false,
       error: 'Failed to update request priority'
@@ -1198,7 +1265,7 @@ router.get('/:id/responses', async (req, res) => {
       count: responses.length
     });
   } catch (error) {
-    console.error('❌ Get student responses error:', error);
+    console.error(' Get student responses error:', error);
     res.status(500).json({
       success: false,
       error: 'Failed to get responses'
@@ -1234,14 +1301,14 @@ router.get('/:requestId/rejection-details', authenticateStudent, async (req, res
       });
     }
     
-    console.log('✅ Found rejection details:', rejectionDetails[0]);
+    console.log(' Found rejection details:', rejectionDetails[0]);
     
     res.json({
       success: true,
       data: rejectionDetails[0]
     });
   } catch (error) {
-    console.error('❌ Get rejection details error:', error);
+    console.error(' Get rejection details error:', error);
     res.status(500).json({
       success: false,
       message: 'Failed to get rejection details',
@@ -1280,14 +1347,14 @@ router.get('/:requestId/rejection-details', authenticateStudent, async (req, res
       });
     }
     
-    console.log('✅ Found rejection details:', rejectionDetails[0]);
+    console.log(' Found rejection details:', rejectionDetails[0]);
     
     res.json({
       success: true,
       data: rejectionDetails[0]
     });
   } catch (error) {
-    console.error('❌ Get rejection details error:', error);
+    console.error(' Get rejection details error:', error);
     res.status(500).json({
       success: false,
       message: 'Failed to get rejection details',

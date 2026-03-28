@@ -4,6 +4,7 @@ const router = express.Router();
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { pool } = require('../config/database');
+const { verifyCaptchaOptional } = require('../middleware/captchaVerify');
 
 const { 
   authenticateAdmin, 
@@ -14,8 +15,10 @@ const {
 } = require('../middleware/adminAuth');
 const rbacService = require('../services/rbacService');
 
+const emailService = require('../services/emailService');
+
 // POST /api/admin-auth/login - Admin giriş (DEBUG VERSION)
-router.post('/login-email', async (req, res) => {
+router.post('/login-email', verifyCaptchaOptional, async (req, res) => {
   try {
     const { email, password } = req.body;
 
@@ -136,6 +139,116 @@ router.post('/login-email', async (req, res) => {
     res.status(500).json({
       success: false,
       error: 'Admin email login failed'
+    });
+  }
+});
+
+
+
+
+// POST /api/admin-auth/google-login - Google OAuth login
+router.post('/google-login', async (req, res) => {
+  try {
+    const { credential } = req.body;
+
+    if (!credential) {
+      return res.status(400).json({
+        success: false,
+        error: 'Google credential is required'
+      });
+    }
+
+    // Google token'ı decode et (production'da verify et!)
+    const base64Url = credential.split('.')[1];
+    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+    const jsonPayload = decodeURIComponent(atob(base64).split('').map(function(c) {
+      return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+    }).join(''));
+
+    const googleUser = JSON.parse(jsonPayload);
+    const email = googleUser.email;
+    const name = googleUser.name;
+
+    console.log('🔐 Google login attempt:', { email, name });
+
+    // Önce admin'de ara
+    const [admins] = await pool.execute(
+      'SELECT admin_id, username, full_name, email, department, role, is_super_admin FROM admin_users WHERE email = ? AND is_active = TRUE',
+      [email]
+    );
+
+    if (admins.length > 0) {
+      const admin = admins[0];
+      
+      // JWT token oluştur
+      const token = jwt.sign(
+        { 
+          admin_id: admin.admin_id,
+          username: admin.username,
+          email: admin.email,
+          department: admin.department,
+          type: 'admin'
+        },
+        process.env.JWT_SECRET || 'your-secret-key',
+        { expiresIn: '24h' }
+      );
+
+      const { password_hash: _, ...adminData } = admin;
+
+      return res.json({
+        success: true,
+        message: 'Admin Google login successful',
+        user_type: 'admin',
+        data: {
+          token,
+          admin: adminData
+        }
+      });
+    }
+
+    // Sonra student'da ara
+    const [students] = await pool.execute(
+      'SELECT student_id, student_number, name, email, program, faculty FROM students WHERE email = ?',
+      [email]
+    );
+
+    if (students.length > 0) {
+      const student = students[0];
+
+      // JWT token oluştur
+      const token = jwt.sign(
+        { 
+          student_id: student.student_id,
+          student_number: student.student_number,
+          email: student.email,
+          type: 'student'
+        },
+        process.env.JWT_SECRET || 'your-secret-key',
+        { expiresIn: '24h' }
+      );
+
+      return res.json({
+        success: true,
+        message: 'Student Google login successful',
+        user_type: 'student',
+        data: {
+          token,
+          user: student
+        }
+      });
+    }
+
+    // Email sistemde yoksa
+    return res.status(404).json({
+      success: false,
+      error: 'No account found with this Google email. Please use regular login or contact support.'
+    });
+
+  } catch (error) {
+    console.error('Google login error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Google login failed'
     });
   }
 });
@@ -1165,6 +1278,8 @@ router.get('/requests',
           gr.assignment_method,  -- ⭐ THIS IS CRITICAL
           gr.content,
           gr.status,
+              gr.response_order,  -- 🆕 BU SATIRI EKLE
+
           COALESCE(gr.priority, 'Medium') as priority,
           gr.submitted_at,
           gr.updated_at,
@@ -1371,76 +1486,175 @@ router.get('/statistics/admins',
       const isPureSuperAdmin = req.admin.is_super_admin && !req.admin.department;
       const targetDepartment = isPureSuperAdmin ? filterDepartment : req.admin.department;
       
-      console.log('📊 Assignment-based statistics request:', { 
+      console.log('📊 Combined statistics request (admins + secretaries):', { 
         period, 
         targetDepartment, 
         isPureSuperAdmin,
         adminId: req.admin.admin_id
       });
 
-      // Calculate date range
-      const endDate = new Date();
-      const startDate = new Date();
-      startDate.setDate(startDate.getDate() - parseInt(period));
+      const periodDays = parseInt(period);
 
-      // 1. Overview Statistics (Assignment-based)
-      const overview = await getAssignmentBasedOverview(targetDepartment, startDate, endDate);
+      // ===== NORMAL ADMİNLERİN PERFORMANSI (guidance_requests) =====
+      let adminQuery = `
+        SELECT 
+          au.admin_id,
+          au.username,
+          au.full_name,
+          au.department,
+          au.is_active,
+          'admin' as user_type,
+          COUNT(DISTINCT gr.request_id) as total_requests,
+          SUM(CASE WHEN gr.status = 'Completed' THEN 1 ELSE 0 END) as completed_requests,
+          SUM(CASE WHEN gr.status = 'Pending' THEN 1 ELSE 0 END) as pending_requests,
+          COALESCE(AVG(
+            CASE 
+              WHEN gr.status = 'Completed' AND gr.resolved_at IS NOT NULL
+              THEN TIMESTAMPDIFF(HOUR, gr.submitted_at, gr.resolved_at)
+            END
+          ), 0) as avg_response_time_hours,
+          CASE 
+            WHEN COUNT(DISTINCT gr.request_id) > 0 
+            THEN ROUND((SUM(CASE WHEN gr.status = 'Completed' THEN 1 ELSE 0 END) / COUNT(DISTINCT gr.request_id)) * 100, 0)
+            ELSE 0 
+          END as performance_score,
+          CASE 
+            WHEN COUNT(DISTINCT gr.request_id) > 0 THEN 1 
+            ELSE 0 
+          END as has_assignments
+        FROM admin_users au
+        LEFT JOIN guidance_requests gr ON au.admin_id = gr.assigned_admin_id 
+          AND gr.submitted_at >= DATE_SUB(CURDATE(), INTERVAL ? DAY)
+        WHERE au.role = 'admin' 
+          AND au.is_active = 1
+      `;
       
-      // 2. Detailed Admin Performance (Assignment-focused)
-      const detailedAdmins = await getAssignmentBasedAdminStats(targetDepartment, startDate, endDate);
+      let adminParams = [periodDays];
       
-      // 3. Department Breakdown (Super Admin only)
-      let departmentBreakdown = [];
-      if (isPureSuperAdmin) {
-        departmentBreakdown = await getAssignmentBasedDepartmentStats(startDate, endDate);
+      if (targetDepartment && targetDepartment !== 'all') {
+        adminQuery += ` AND au.department = ?`;
+        adminParams.push(targetDepartment);
       }
       
-      // 4. Assignment Analytics
-      const assignmentAnalytics = await getAssignmentAnalytics(targetDepartment, startDate, endDate);
+      adminQuery += `
+        GROUP BY au.admin_id, au.username, au.full_name, au.department, au.is_active
+      `;
       
-      // 5. Workload Distribution
-      const workloadDistribution = await getCurrentWorkloadDistribution(targetDepartment);
-
-      const response = {
+      // ===== SEKRETERLERİN PERFORMANSI (exam_requests) =====
+      let secretaryQuery = `
+        SELECT 
+          au.admin_id,
+          au.username,
+          au.full_name,
+          au.department,
+          au.is_active,
+          'secretary' as user_type,
+          COUNT(DISTINCT er.exam_request_id) as total_requests,
+          SUM(CASE WHEN er.status = 'Approved' THEN 1 ELSE 0 END) as completed_requests,
+SUM(CASE WHEN er.status = 'Rejected' THEN 1 ELSE 0 END) as rejected_requests,
+          SUM(CASE WHEN er.status = 'Pending' THEN 1 ELSE 0 END) as pending_requests,
+          COALESCE(AVG(
+            CASE 
+              WHEN er.status IN ('Approved', 'Rejected') AND er.processed_at IS NOT NULL
+              THEN TIMESTAMPDIFF(HOUR, er.submitted_at, er.processed_at)
+            END
+          ), 0) as avg_response_time_hours,
+         CASE 
+  WHEN COUNT(DISTINCT er.exam_request_id) > 0 
+  THEN ROUND(((SUM(CASE WHEN er.status = 'Approved' THEN 1 ELSE 0 END) + SUM(CASE WHEN er.status = 'Rejected' THEN 1 ELSE 0 END)) / COUNT(DISTINCT er.exam_request_id)) * 100, 0)
+  ELSE 0 
+END as performance_score,
+          CASE 
+            WHEN COUNT(DISTINCT er.exam_request_id) > 0 THEN 1 
+            ELSE 0 
+          END as has_assignments
+        FROM admin_users au
+        LEFT JOIN exam_requests er ON au.admin_id = er.processed_by 
+          AND er.submitted_at >= DATE_SUB(CURDATE(), INTERVAL ? DAY)
+        WHERE au.role = 'secretary' 
+          AND au.is_active = 1
+      `;
+      
+      let secretaryParams = [periodDays];
+      
+      if (targetDepartment && targetDepartment !== 'all') {
+        secretaryQuery += ` AND au.department = ?`;
+        secretaryParams.push(targetDepartment);
+      }
+      
+      secretaryQuery += `
+        GROUP BY au.admin_id, au.username, au.full_name, au.department, au.is_active
+      `;
+      
+      // Execute both queries
+      const [adminResults] = await pool.execute(adminQuery, adminParams);
+      const [secretaryResults] = await pool.execute(secretaryQuery, secretaryParams);
+      
+      console.log('📊 Query results:', {
+        admins: adminResults.length,
+        secretaries: secretaryResults.length
+      });
+      
+      // Combine results
+      const allUsers = [...adminResults, ...secretaryResults];
+      
+      // Calculate overview statistics
+      const totalUsers = allUsers.length;
+      const totalRequests = allUsers.reduce((sum, user) => sum + parseInt(user.total_requests || 0), 0);
+      const totalCompleted = allUsers.reduce((sum, user) => sum + parseInt(user.completed_requests || 0), 0);
+      const totalPending = allUsers.reduce((sum, user) => sum + parseInt(user.pending_requests || 0), 0);
+      
+      const completionRate = totalRequests > 0 
+        ? Math.round((totalCompleted / totalRequests) * 100) 
+        : 0;
+        
+      const utilizationRate = totalUsers > 0
+        ? Math.round((allUsers.filter(u => parseInt(u.has_assignments) > 0).length / totalUsers) * 100)
+        : 0;
+      
+      console.log('✅ Combined statistics calculated:', {
+        totalUsers,
+        totalRequests,
+        completionRate,
+        utilizationRate
+      });
+      
+      res.json({
         success: true,
         data: {
-          overview,
-          detailed_admins: detailedAdmins,
-          department_breakdown: departmentBreakdown,
-          assignment_analytics: assignmentAnalytics,
-          workload_distribution: workloadDistribution,
-          meta: {
-            period: parseInt(period),
-            start_date: startDate.toISOString(),
-            end_date: endDate.toISOString(),
-            department: targetDepartment || 'ALL',
-            is_super_admin: isPureSuperAdmin,
-            generated_at: new Date().toISOString(),
-            data_source: 'assignment_based_tracking',
-            version: '2.0_assignment_based',
-            total_admins: detailedAdmins.length,
-            active_admins: detailedAdmins.filter(a => a.has_assignments).length
-          }
+          overview: {
+            total_users: totalUsers,
+            total_requests: totalRequests,
+            total_completed: totalCompleted,
+            total_pending: totalPending,
+            completion_rate: completionRate,
+            utilization_rate: utilizationRate
+          },
+          detailed_admins: allUsers.map(user => ({
+            admin_id: user.admin_id,
+            username: user.username,
+            full_name: user.full_name,
+            department: user.department,
+            user_type: user.user_type, // 'admin' or 'secretary'
+            performance_score: parseInt(user.performance_score || 0),
+            total_requests: parseInt(user.total_requests || 0),
+            completed_requests: parseInt(user.completed_requests || 0),
+            pending_requests: parseInt(user.pending_requests || 0),
+            avg_response_time_hours: parseFloat(user.avg_response_time_hours || 0).toFixed(2),
+            has_assignments: parseInt(user.has_assignments) > 0,
+            is_active: user.is_active
+          }))
         },
-        message: 'Assignment-based statistics loaded successfully',
-        version: '2.0_assignment_based'
-      };
-
-      console.log('✅ Assignment-based statistics generated:', {
-        overview: response.data.overview,
-        admin_count: response.data.detailed_admins.length,
-        assignment_rate: response.data.overview.assignment_rate
+        message: 'Combined admin and secretary statistics loaded successfully',
+        version: '2.0_combined'
       });
-
-      res.json(response);
-
+      
     } catch (error) {
-      console.error('❌ Assignment-based statistics error:', error);
+      console.error('❌ Error fetching combined statistics:', error);
       res.status(500).json({
         success: false,
-        error: 'Failed to fetch assignment-based admin statistics',
-        details: process.env.NODE_ENV === 'development' ? error.message : undefined,
-        version: '2.0_assignment_based'
+        error: 'Failed to fetch admin statistics',
+        message: error.message
       });
     }
   }
@@ -4271,6 +4485,7 @@ router.put('/requests/:requestId/status',
           message: 'Invalid status'
         });
       }
+      
 
       // Departman erişim kontrolü
       if (!req.admin.is_super_admin) {
@@ -4304,6 +4519,29 @@ router.put('/requests/:requestId/status',
           resolved_at = CASE WHEN ? = 'Completed' THEN NOW() ELSE resolved_at END
         WHERE request_id = ?
       `, [status, status, requestId]);
+
+
+// 🆕 EMAIL NOTIFICATION - BU BLOĞU EKLE
+try {
+  const studentEmail = requestCheck[0].student_email;
+  const studentName = requestCheck[0].student_name;
+  const requestType = requestCheck[0].type_name;
+  
+  await emailService.sendStatusUpdateNotification(
+    studentEmail,
+    studentName,
+    requestId,
+    oldStatus,
+    status,
+    requestType
+  );
+  
+  console.log(`📧 Status update email sent to student: ${studentEmail}`);
+} catch (emailError) {
+  console.error('⚠️ Status update email failed (non-critical):', emailError.message);
+}
+// 🆕 EMAIL BLOĞU BİTTİ
+
 
       if (result.affectedRows === 0) {
         return res.status(404).json({
@@ -4570,6 +4808,7 @@ router.get('/requests/:requestId/responses',
 );
 
 // POST /api/admin-auth/requests/:requestId/responses - Response ekleme (RBAC korumalı)
+// POST /api/admin-auth/requests/:requestId/responses - Response ekleme (RBAC korumalı)
 router.post('/requests/:requestId/responses', 
   authenticateAdmin, 
   requirePermission('responses', 'create'),
@@ -4585,6 +4824,32 @@ router.post('/requests/:requestId/responses',
           message: 'Response content is required'
         });
       }
+
+      // 🆕 FIFO KONTROLÜ - BU BLOĞU EKLE
+      const fifoCheck = await canRespondToRequest(
+        requestId, 
+        req.admin.department, 
+        req.admin.is_super_admin
+      );
+      
+      if (!fifoCheck.canRespond) {
+        if (fifoCheck.reason === 'FIFO_VIOLATION') {
+          return res.status(423).json({
+            success: false,
+            error: 'Cannot respond yet: Earlier requests must be answered first',
+            errorCode: 'FIFO_VIOLATION',
+            blocking_request: fifoCheck.blocking_request,
+            current_order: fifoCheck.current_order,
+            message: t('mustAnswerEarlierRequestsFirst')
+          });
+        } else {
+          return res.status(403).json({
+            success: false,
+            error: fifoCheck.reason
+          });
+        }
+      }
+      // 🆕 FIFO KONTROLÜ BİTTİ
 
       // Departman erişim kontrolü ve request detayları
       let requestDetailsQuery = `
@@ -4624,6 +4889,23 @@ router.post('/requests/:requestId/responses',
         VALUES (?, ?, ?, NOW())
       `, [requestId, adminId, response_content.trim()]);
 
+      // EMAIL NOTIFICATION
+      try {
+        const studentEmail = request.student_email;
+        const studentName = request.student_name;
+        
+        await emailService.sendResponseNotification(
+          studentEmail,
+          studentName,
+          requestId,
+          response_content.trim()
+        );
+        
+        console.log(`📧 Response notification email sent to student: ${studentEmail}`);
+      } catch (emailError) {
+        console.error('⚠️ Email notification failed (non-critical):', emailError.message);
+      }
+
       // Status'u 'Informed' yap
       if (oldStatus === 'Pending') {
         await pool.execute(`
@@ -4633,6 +4915,9 @@ router.post('/requests/:requestId/responses',
             updated_at = NOW()
           WHERE request_id = ?
         `, [requestId]);
+        
+        // 🆕 Response_order'ı temizle (artık Pending değil)
+        await clearResponseOrder(requestId);
       }
 
       res.json({
@@ -5507,7 +5792,25 @@ router.put('/requests/:requestId/reject',
         `Request has been rejected.\n\nReason: ${rejection_reason.trim()}`
       ]);
 
-      // NO EMAIL SENDING - Removed email service call
+    // 🆕 EMAIL NOTIFICATION - BU BLOĞU EKLE
+try {
+  const studentEmail = request.student_email;
+  const studentName = request.student_name;
+  const requestType = request.type_name;
+  
+  await emailService.sendRejectionNotification(
+    studentEmail,
+    studentName,
+    requestId,
+    requestType,
+    rejection_reason.trim()
+  );
+  
+  console.log(`📧 Rejection notification email sent to student: ${studentEmail}`);
+} catch (emailError) {
+  console.error('⚠️ Rejection email failed (non-critical):', emailError.message);
+}
+// 🆕 EMAIL BLOĞU BİTTİ
 
       // Log the rejection action
       console.log(`🚫 Request #${requestId} rejected by ${req.admin.username} (${req.admin.department})`);
@@ -6904,6 +7207,196 @@ router.post('/auto-assign-by-department',
       res.status(500).json({
         success: false,
         error: 'Failed to auto-assign requests by department'
+      });
+    }
+  }
+
+
+
+  
+);
+
+
+async function assignResponseOrder(requestId, department) {
+  try {
+    console.log('🔢 Assigning response order for request:', requestId);
+    
+    // Bu request zaten bir order'a sahip mi kontrol et
+    const [existing] = await pool.execute(
+      'SELECT response_order FROM guidance_requests WHERE request_id = ?',
+      [requestId]
+    );
+    
+    if (existing[0]?.response_order) {
+      console.log('✅ Request already has response_order:', existing[0].response_order);
+      return existing[0].response_order;
+    }
+    
+    // Bu departman için en büyük order numarasını bul
+    const [maxOrder] = await pool.execute(`
+      SELECT COALESCE(MAX(gr.response_order), 0) as max_order
+      FROM guidance_requests gr
+      JOIN request_types rt ON gr.type_id = rt.type_id
+      WHERE rt.category = ? AND gr.status = 'Pending'
+    `, [department]);
+    
+    const nextOrder = (maxOrder[0].max_order || 0) + 1;
+    
+    // Order numarasını ata
+    await pool.execute(
+      'UPDATE guidance_requests SET response_order = ? WHERE request_id = ?',
+      [nextOrder, requestId]
+    );
+    
+    console.log('✅ Assigned response_order:', nextOrder);
+    return nextOrder;
+  } catch (error) {
+    console.error('❌ Error assigning response order:', error);
+    throw error;
+  }
+}
+
+/**
+ * Bir request'e cevap verilip verilemeyeceğini kontrol et (FIFO)
+ */
+async function canRespondToRequest(requestId, adminDepartment, isSuperAdmin) {
+  try {
+    console.log('🔍 Checking FIFO eligibility for request:', requestId);
+    
+    // Request bilgilerini al
+    const [request] = await pool.execute(`
+      SELECT 
+        gr.request_id,
+        gr.status,
+        gr.response_order,
+        rt.category
+      FROM guidance_requests gr
+      JOIN request_types rt ON gr.type_id = rt.type_id
+      WHERE gr.request_id = ?
+    `, [requestId]);
+    
+    if (request.length === 0) {
+      return { canRespond: false, reason: 'Request not found' };
+    }
+    
+    const req = request[0];
+    
+    // Super admin departman kontrolünden muaf
+    if (!isSuperAdmin && req.category !== adminDepartment) {
+      return { canRespond: false, reason: 'Access denied: Different department' };
+    }
+    
+    // Sadece Pending status'ta FIFO kontrolü yap
+    if (req.status !== 'Pending') {
+      return { canRespond: true, reason: 'Not in Pending status' };
+    }
+    
+    // Bu request'in response_order'ı yoksa ata
+    if (!req.response_order) {
+      req.response_order = await assignResponseOrder(requestId, req.category);
+    }
+    
+    // Daha önce gelen (daha düşük order'lı) cevaplanmamış request var mı?
+    const [earlierRequests] = await pool.execute(`
+      SELECT 
+        gr.request_id,
+        gr.response_order,
+        gr.submitted_at,
+        s.name as student_name,
+        rt.type_name
+      FROM guidance_requests gr
+      JOIN request_types rt ON gr.type_id = rt.type_id
+      JOIN students s ON gr.student_id = s.student_id
+      WHERE rt.category = ?
+        AND gr.status = 'Pending'
+        AND gr.response_order < ?
+        AND NOT EXISTS (
+          SELECT 1 FROM admin_responses ar 
+          WHERE ar.request_id = gr.request_id
+        )
+      ORDER BY gr.response_order DESC
+      LIMIT 1
+    `, [req.category, req.response_order]);
+    
+    if (earlierRequests.length > 0) {
+      const earlierReq = earlierRequests[0];
+      console.log(' FIFO VIOLATION:', {
+        current_request: requestId,
+        current_order: req.response_order,
+        blocking_request: earlierReq.request_id,
+        blocking_order: earlierReq.response_order
+      });
+      
+      return {
+        canRespond: false,
+        reason: 'FIFO_VIOLATION',
+        blocking_request: {
+          request_id: earlierReq.request_id,
+          order: earlierReq.response_order,
+          submitted_at: earlierReq.submitted_at,
+          student_name: earlierReq.student_name,
+          type_name: earlierReq.type_name
+        },
+        current_order: req.response_order
+      };
+    }
+    
+    console.log('✅ FIFO CHECK PASSED:', {
+      request_id: requestId,
+      order: req.response_order,
+      message: 'No earlier pending requests found'
+    });
+    
+    return { 
+      canRespond: true, 
+      reason: 'First in queue',
+      current_order: req.response_order
+    };
+    
+  } catch (error) {
+    console.error('❌ Error checking FIFO eligibility:', error);
+    return { canRespond: false, reason: 'Error checking eligibility' };
+  }
+}
+
+/**
+ * Request tamamlandığında veya reddedildiğinde order'ı temizle
+ */
+async function clearResponseOrder(requestId) {
+  try {
+    await pool.execute(
+      'UPDATE guidance_requests SET response_order = NULL WHERE request_id = ?',
+      [requestId]
+    );
+    console.log('🧹 Cleared response_order for request:', requestId);
+  } catch (error) {
+    console.error('❌ Error clearing response order:', error);
+  }
+};
+
+// GET /api/admin-auth/requests/:requestId/fifo-status - FIFO durumunu kontrol et
+router.get('/requests/:requestId/fifo-status',
+  authenticateAdmin,
+  commonPermissions.viewRequests(),
+  async (req, res) => {
+    try {
+      const { requestId } = req.params;
+      
+      const fifoCheck = await canRespondToRequest(
+        requestId,
+        req.admin.department,
+        req.admin.is_super_admin
+      );
+      
+      res.json({
+        success: true,
+        data: fifoCheck
+      });
+    } catch (error) {
+      console.error('FIFO status check error:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to check FIFO status'
       });
     }
   }

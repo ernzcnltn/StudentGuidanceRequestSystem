@@ -1,6 +1,6 @@
 // frontend/src/pages/RequestsPage.js - UPDATED WITH TABLE AND MODAL
 import React, { useState, useEffect, useCallback } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { apiService } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 import { useTranslation } from '../hooks/useTranslation';
@@ -11,6 +11,8 @@ const RequestsPage = () => {
   const { user } = useAuth();
   const { t, translateRequestType } = useTranslation();
   const { isDark } = useTheme();
+  const location = useLocation(); // 🆕 YENİ
+  const navigate = useNavigate(); // 🆕 YENİ
 
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -54,6 +56,50 @@ setError(t('failed_to_load_requests'));
 
     loadRequests();
   }, [studentId]);
+
+
+// 🆕 NOTIFICATION YÖNLENDIRMESI
+  useEffect(() => {
+    const hash = location.hash;
+    if (hash && hash.startsWith('#request-')) {
+      const requestIdFromHash = hash.replace('#request-', '');
+      const requestId = parseInt(requestIdFromHash);
+      
+      console.log('🔔 Notification redirect:', requestId);
+      
+      if (requests.length > 0 && requestId) {
+        const targetRequest = requests.find(r => r.request_id === requestId);
+        
+        if (targetRequest) {
+          setFilter('all'); // Tüm requestleri göster
+          
+          setTimeout(() => {
+            const requestElement = document.getElementById(`request-${requestId}`);
+            
+            if (requestElement) {
+              requestElement.scrollIntoView({ 
+                behavior: 'smooth', 
+                block: 'center' 
+              });
+              
+              // Highlight
+              requestElement.style.backgroundColor = isDark ? '#4a5568' : '#fff3cd';
+              requestElement.style.border = '2px solid #ffc107';
+              requestElement.style.borderRadius = '8px';
+              
+              setTimeout(() => {
+                requestElement.style.backgroundColor = '';
+                requestElement.style.border = '';
+              }, 3000);
+              
+              // Hash temizle
+              navigate('/requests', { replace: true });
+            }
+          }, 500);
+        }
+      }
+    }
+  }, [location.hash, requests, isDark, navigate]);
 
   const fetchRejectionDetails = async (requestId) => {
     if (rejectionDetails[requestId]) {
@@ -755,10 +801,10 @@ setError(t('failed_to_load_requests'));
                   <i className="bi bi-inbox display-1 text-muted"></i>
                 </div>
                 <h4 className={isDark ? 'text-light' : 'text-muted'}>
-                  {filter === 'all' ? 'No Requests' : `No Requests Found (${filter})`}
+                  {filter === 'all' ? t('no_requests_found_filter') : t('no_requests_found_filter', { filter })}
                 </h4>
                 <p className={`mb-4 ${isDark ? 'text-light' : 'text-muted'}`}>
-                  {filter === 'all' ? 'You haven\'t submitted any requests yet.' : `No ${filter.toLowerCase()} requests found.`}
+                  {filter === 'all' ? t('no_requests_submitted_yet') : ''}
                 </p>
                 {filter === 'all' && (
                   <Link to="/create-request" className="btn btn-danger">
@@ -772,7 +818,7 @@ setError(t('failed_to_load_requests'));
                   <table className="table table-hover">
                     <thead className={isDark ? 'table-dark' : 'table-light'}>
                       <tr>
-                        
+                        <th>#</th> {/* 🆕 YENİ */}
                         <th>{t('type')}</th>
                         <th>{t('content')}</th>
                         <th>{t('priority')}</th>
@@ -787,23 +833,31 @@ setError(t('failed_to_load_requests'));
 
                         return (
                           <tr 
-                            key={request.request_id}
-                            className={isDark ? 'text-light' : ''}
-                            style={{
-                              backgroundColor: isDark ? 'transparent' : '#ffffff',
-                              cursor: 'pointer'
-                            }}
-                            onClick={() => {
-                              setSelectedRequestDetails(request);
-                              setShowDetailsModal(true);
-                            }}
-                          >
-                           
-                            <td>
-                              <div className="fw-semibold">
-                                {translateRequestType(request.type_name)}
-                              </div>
-                            </td>
+  key={request.request_id}
+  id={`request-${request.request_id}`}
+  className={isDark ? 'text-light' : ''}
+  style={{
+    backgroundColor: isDark ? 'transparent' : '#ffffff',
+    cursor: 'pointer'
+  }}
+  onClick={() => {
+    setSelectedRequestDetails(request);
+    setShowDetailsModal(true);
+  }}
+>
+  {/* 🆕 REQUEST ID SÜTUNU */}
+  <td>
+    <div className={isDark ? 'text-light' : 'text-dark'}>
+
+      #{request.request_id}
+    </div>
+  </td>
+  
+  <td>
+    <div className="fw-semibold">
+      {translateRequestType(request.type_name)}
+    </div>
+  </td>
                             <td>
                               <div 
                                 className="text-truncate" 

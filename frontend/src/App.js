@@ -20,6 +20,8 @@ import ConfirmationModal from './components/ConfirmationModal';
 import LanguageDropdown from './components/LanguageDropdown';
 import StudentNotificationCenter from './components/StudentNotificationCenter';
 import { useConfirmation } from './hooks/useConfirmation';
+import MagicLoginPage from './pages/MagicLoginPage';
+
 // Pages
 import HomePage from './pages/HomePage';
 import RequestsPage from './pages/RequestsPage';
@@ -28,7 +30,8 @@ import RegisterPage from './pages/RegisterPage';
 import UnifiedLoginPage from './pages/UnifiedLoginPage';
 import AdminDashboardPage from './pages/AdminDashboardPage';
 import ExamRequestPage from './pages/ExamRequestPage';
-import SecretaryExamRequestsPage from './pages/SecretaryExamRequestsPage.js'; // 👈 YENİ
+import SecretaryExamRequestsPage from './pages/SecretaryExamRequestsPage.js';
+import DepartmentRedirect from './components/DepartmentRedirect'; // 🆕 YENİ SATIR
 
 function App() { 
   const [apiStatus, setApiStatus] = useState('checking');
@@ -83,7 +86,9 @@ function App() {
           <AuthProvider>
             <AdminAuthProvider>
               <Router>
-                <AppRoutes />
+                <DirectionWrapper>
+                  <AppRoutes />
+                </DirectionWrapper>
               </Router>
             </AdminAuthProvider>
           </AuthProvider>
@@ -92,6 +97,19 @@ function App() {
     </LanguageProvider>
   );
 }
+
+// RTL/LTR Direction Wrapper
+const DirectionWrapper = ({ children }) => {
+  const { currentLanguage } = useLanguage();
+  
+  useEffect(() => {
+    const direction = currentLanguage === 'ar' ? 'rtl' : 'ltr';
+    document.documentElement.setAttribute('dir', direction);
+    document.body.setAttribute('dir', direction);
+  }, [currentLanguage]);
+  
+  return <>{children}</>;
+};
 
 // Route yapısını ayrı component'e taşı
 const AppRoutes = () => {
@@ -106,6 +124,9 @@ const AppRoutes = () => {
         <Route path="/admin/login" element={<AdminLoginRoute />} />
         <Route path="/admin/*" element={<AdminRoutes />} />
         
+        <Route path="/magic-login" element={<MagicLoginPage />} />
+
+
         {/* Protected Student Routes */}
         <Route path="/*" element={<StudentRoutes />} />
       </Routes>
@@ -141,9 +162,9 @@ const AdminRoutes = () => {
   return (
     <ProtectedAdminRoute>
       <Routes>
-        <Route path="/dashboard" element={<AdminDashboardPage />} />
-                <Route path="/secretary/exam-requests" element={<SecretaryExamRequestsPage />} /> {/* 👈 YENİ */}
-
+        <Route path="/dashboard" element={<DepartmentRedirect />} />
+        <Route path="/dashboard/:department/*" element={<AdminDashboardPage />} /> {/* Yıldız eklendi */}
+        <Route path="/secretary/exam-requests" element={<SecretaryExamRequestsPage />} />
         <Route path="/" element={<Navigate to="/admin/dashboard" replace />} />
       </Routes>
     </ProtectedAdminRoute>
@@ -154,7 +175,6 @@ const AdminRoutes = () => {
 const StudentRoutes = () => {
   const { loading, isAuthenticated } = useAuth();
 
-  // Loading durumunu kontrol et
   if (loading) {
     return (
       <div style={{ 
@@ -176,7 +196,6 @@ const StudentRoutes = () => {
     );
   }
 
-  // Authentication kontrolü
   if (!isAuthenticated) {
     return <Navigate to="/login" replace />;
   }
@@ -200,78 +219,65 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
     { path: '/', label: t('home'), icon: 'bi-house-door' },
     { path: '/requests', label: t('myRequests'), icon: 'bi-file-earmark-text' },
     { path: '/create-request', label: t('createRequest'), icon: 'bi-plus-circle' },
-    { path: '/exam-request', label: 'Exam Request', icon: 'bi-calendar-check' }  // 👈 YENİ
-
+    { path: '/exam-request', label: 'Exam Request', icon: 'bi-calendar-check' }
   ];
 
- // Basitleştirilmiş ve çalışan profil avatar fonksiyonu
-const renderProfileAvatar = () => {
-  console.log('User data:', user);
-  console.log('Profile photo value:', user?.profile_photo);
-  
-  // Kullanıcı yoksa varsayılan
-  if (!user) {
+  const renderProfileAvatar = () => {
+    if (!user) {
+      return (
+        <div style={{
+          width: '45px', height: '45px', borderRadius: '50%',
+          background: '#6c757d', display: 'flex', alignItems: 'center', 
+          justifyContent: 'center', color: 'white', fontSize: '1.2rem'
+        }}>
+          ?
+        </div>
+      );
+    }
+
+    if (user.profile_photo && user.profile_photo.trim() !== '') {
+      const photoUrl = apiService.getProfilePhotoUrl(user.profile_photo);
+      
+      return (
+        <img 
+          src={photoUrl}
+          alt="Profil"
+          style={{
+            width: '45px',
+            height: '45px',
+            objectFit: 'cover',
+            borderRadius: '50%',
+            border: '2px solid #e9ecef'
+          }}
+          onError={(e) => {
+            e.target.outerHTML = `<div style="width: 45px; height: 45px; border-radius: 50%; background: linear-gradient(135deg, #dc2626, #b91c1c); display: flex; align-items: center; justify-content: center; color: white; font-size: 1.2rem; font-weight: bold; border: 2px solid #e9ecef;">${getInitials()}</div>`;
+          }}
+        />
+      );
+    }
+
     return (
       <div style={{
         width: '45px', height: '45px', borderRadius: '50%',
-        background: '#6c757d', display: 'flex', alignItems: 'center', 
-        justifyContent: 'center', color: 'white', fontSize: '1.2rem'
+        background: 'linear-gradient(135deg, #dc2626, #b91c1c)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        color: 'white', fontSize: '1.2rem', fontWeight: 'bold',
+        border: '2px solid #e9ecef'
       }}>
-        ?
+        {getInitials()}
       </div>
     );
-  }
 
-  // Profil fotoğrafı varsa göster
-  if (user.profile_photo && user.profile_photo.trim() !== '') {
-const photoUrl = apiService.getProfilePhotoUrl(user.profile_photo);
-    console.log('Photo URL:', photoUrl);
-    
-    return (
-      <img 
-        src={photoUrl}
-        alt="Profil"
-        style={{
-          width: '45px',
-          height: '45px',
-          objectFit: 'cover',
-          borderRadius: '50%',
-          border: '2px solid #e9ecef'
-        }}
-        onError={(e) => {
-          console.log('Image load failed:', photoUrl);
-          // Hata durumunda initials göster
-          e.target.outerHTML = `<div style="width: 45px; height: 45px; border-radius: 50%; background: linear-gradient(135deg, #dc2626, #b91c1c); display: flex; align-items: center; justify-content: center; color: white; font-size: 1.2rem; font-weight: bold; border: 2px solid #e9ecef;">${getInitials()}</div>`;
-        }}
-        onLoad={() => {
-          console.log('Image loaded successfully:', photoUrl);
-        }}
-      />
-    );
-  }
-
-  // Profil fotoğrafı yoksa initials
-  return (
-    <div style={{
-      width: '45px', height: '45px', borderRadius: '50%',
-      background: 'linear-gradient(135deg, #dc2626, #b91c1c)',
-      display: 'flex', alignItems: 'center', justifyContent: 'center',
-      color: 'white', fontSize: '1.2rem', fontWeight: 'bold',
-      border: '2px solid #e9ecef'
-    }}>
-      {getInitials()}
-    </div>
-  );
-
-  function getInitials() {
-    if (!user?.name) return 'ST';
-    const parts = user.name.split(' ');
-    if (parts.length >= 2) {
-      return (parts[0][0] + parts[1][0]).toUpperCase();
+    function getInitials() {
+      if (!user?.name) return 'ST';
+      const parts = user.name.split(' ');
+      if (parts.length >= 2) {
+        return (parts[0][0] + parts[1][0]).toUpperCase();
+      }
+      return user.name.substring(0, 2).toUpperCase();
     }
-    return user.name.substring(0, 2).toUpperCase();
-  }
-};
+  };
+
   return (
     <>
       {/* Overlay */}
@@ -297,8 +303,9 @@ const photoUrl = apiService.getProfilePhotoUrl(user.profile_photo);
         style={{
           position: 'fixed',
           top: 0,
-          left: isOpen ? 0 : '-320px',
-          width: '320px',
+          left: isOpen ? 0 : '-100%',
+          width: '85vw',
+          maxWidth: '320px',
           height: '100vh',
           backgroundColor: isDark ? '#1a202c' : '#ffffff',
           borderRight: `1px solid ${isDark ? '#4a5568' : '#e2e8f0'}`,
@@ -306,7 +313,8 @@ const photoUrl = apiService.getProfilePhotoUrl(user.profile_photo);
           zIndex: 1050,
           boxShadow: isOpen ? '0 0 20px rgba(0,0,0,0.2)' : 'none',
           display: 'flex',
-          flexDirection: 'column'
+          flexDirection: 'column',
+          overflowY: 'auto'
         }}
       >
         {/* Sidebar Header */}
@@ -314,18 +322,27 @@ const photoUrl = apiService.getProfilePhotoUrl(user.profile_photo);
           className="sidebar-header p-3 border-bottom"
           style={{
             borderColor: isDark ? '#4a5568' : '#e2e8f0',
-            backgroundColor: isDark ? '#2d3748' : '#f8f9fa'
+            backgroundColor: isDark ? '#2d3748' : '#f8f9fa',
+            flexShrink: 0
           }}
         >
           <div className="d-flex align-items-center justify-content-between">
-            <div className="d-flex align-items-center">
-              <FIULogo size="sm" className="me-2" />
-              <span className={`fw-bold ${isDark ? 'text-white' : 'text-dark'}`}>
+            <div className="d-flex align-items-center" style={{ minWidth: 0 }}>
+              <FIULogo size="sm" className="me-2 flex-shrink-0" />
+              <span 
+                className={`fw-bold ${isDark ? 'text-white' : 'text-dark'}`}
+                style={{
+                  fontSize: 'clamp(0.875rem, 2.5vw, 1rem)',
+                  whiteSpace: 'nowrap',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis'
+                }}
+              >
                 {t('systemTitle')}
               </span>
             </div>
             <button
-              className="btn btn-sm"
+              className="btn btn-sm flex-shrink-0"
               onClick={toggleSidebar}
               style={{ border: 'none', background: 'none' }}
             >
@@ -334,50 +351,53 @@ const photoUrl = apiService.getProfilePhotoUrl(user.profile_photo);
           </div>
         </div>
 
-        {/* User Profile Section - DÜZENLENMİŞ */}
+        {/* User Profile Section */}
         <div 
-          className="user-profile-section p-4 border-bottom"
+          className="user-profile-section p-3 border-bottom"
           style={{
             borderColor: isDark ? '#4a5568' : '#e2e8f0',
-            backgroundColor: isDark ? '#2d3748' : '#ffffff'
+            backgroundColor: isDark ? '#2d3748' : '#ffffff',
+            flexShrink: 0
           }}
         >
           <div className="d-flex align-items-center">
-            {/* Profile Avatar Container */}
-            <div className="profile-avatar-container position-relative me-3">
+            <div className="profile-avatar-container position-relative me-2 flex-shrink-0">
               {renderProfileAvatar()}
-              
-              {/* Varsayılan avatar (fotoğraf yüklenemezse gösterilir) */}
-              <div 
-                className="default-fallback-avatar"
-                style={{
-                  display: 'none', // Başlangıçta gizli
-                  width: '45px',
-                  height: '45px',
-                  borderRadius: '50%',
-                  background: 'linear-gradient(135deg, #6c757d, #495057)',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  color: 'white',
-                  fontSize: '1.2rem',
-                  fontWeight: 'bold',
-                  border: '2px solid #e9ecef'
-                }}
-              >
-                <i className="bi bi-person"></i>
-              </div>
             </div>
 
-            {/* User Info */}
-            <div className="user-info flex-grow-1">
-              <h6 className={`mb-1 fw-bold ${isDark ? 'text-white' : 'text-dark'}`}>
+            <div className="user-info flex-grow-1" style={{ minWidth: 0 }}>
+              <h6 
+                className={`mb-1 fw-bold ${isDark ? 'text-white' : 'text-dark'}`}
+                style={{
+                  fontSize: 'clamp(0.875rem, 2.5vw, 1rem)',
+                  whiteSpace: 'nowrap',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis'
+                }}
+              >
                 {user?.name || 'Kullanıcı'}
               </h6>
-              <p className={`mb-1 small ${isDark ? 'text-gray-300' : 'text-muted'}`}>
+              <p 
+                className={`mb-1 small ${isDark ? 'text-gray-300' : 'text-muted'}`}
+                style={{
+                  fontSize: 'clamp(0.75rem, 2vw, 0.875rem)',
+                  whiteSpace: 'nowrap',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis'
+                }}
+              >
                 <i className="bi bi-person-badge me-1"></i>
                 {user?.student_number || 'N/A'}
               </p>
-              <p className={`mb-0 small ${isDark ? 'text-gray-400' : 'text-muted'}`}>
+              <p 
+                className={`mb-0 small ${isDark ? 'text-gray-400' : 'text-muted'}`}
+                style={{
+                  fontSize: 'clamp(0.7rem, 1.8vw, 0.8rem)',
+                  whiteSpace: 'nowrap',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis'
+                }}
+              >
                 <i className="bi bi-envelope me-1"></i>
                 {user?.email || 'E-posta yok'}
               </p>
@@ -386,14 +406,14 @@ const photoUrl = apiService.getProfilePhotoUrl(user.profile_photo);
         </div>
 
         {/* Sidebar Menu */}
-        <div className="sidebar-menu p-3 flex-grow-1">
+        <div className="sidebar-menu p-2 flex-grow-1" style={{ overflowY: 'auto' }}>
           <ul className="list-unstyled mb-0">
             {menuItems.map((item) => (
               <li key={item.path} className="mb-2">
                 <Link
                   to={item.path}
                   onClick={toggleSidebar}
-                  className={`d-flex align-items-center p-3 rounded text-decoration-none sidebar-item ${
+                  className={`d-flex align-items-center p-2 rounded text-decoration-none sidebar-item ${
                     location.pathname === item.path ? 'active' : ''
                   }`}
                   style={{
@@ -404,8 +424,21 @@ const photoUrl = apiService.getProfilePhotoUrl(user.profile_photo);
                     transition: 'all 0.2s ease-in-out'
                   }}
                 >
-                  <i className={`${item.icon} me-3`} style={{ fontSize: '1.2rem' }}></i>
-                  <span className="fw-medium">{item.label}</span>
+                  <i 
+                    className={`${item.icon} me-2 flex-shrink-0`} 
+                    style={{ fontSize: 'clamp(1rem, 3vw, 1.2rem)' }}
+                  ></i>
+                  <span 
+                    className="fw-medium"
+                    style={{
+                      fontSize: 'clamp(0.875rem, 2.5vw, 1rem)',
+                      whiteSpace: 'nowrap',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis'
+                    }}
+                  >
+                    {item.label}
+                  </span>
                 </Link>
               </li>
             ))}
@@ -434,10 +467,32 @@ const photoUrl = apiService.getProfilePhotoUrl(user.profile_photo);
           transition: transform 0.2s ease-in-out;
         }
         
-        @media (max-width: 768px) {
+        @media (max-width: 576px) {
           .sidebar {
-            width: 280px !important;
-            left: ${isOpen ? '0' : '-280px'} !important;
+            width: 90vw !important;
+            max-width: none !important;
+          }
+          
+          .sidebar-header {
+            padding: 0.75rem !important;
+          }
+          
+          .user-profile-section {
+            padding: 0.75rem !important;
+          }
+          
+          .sidebar-menu {
+            padding: 0.5rem !important;
+          }
+          
+          .sidebar-item {
+            padding: 0.5rem !important;
+          }
+        }
+        
+        @media (min-width: 577px) and (max-width: 768px) {
+          .sidebar {
+            width: 85vw !important;
           }
         }
       `}</style>
@@ -457,8 +512,6 @@ const MainApp = () => {
   };
 
   const handleLogoutClick = async () => {
-    console.log('Navbar logout button clicked!');
-    
     const confirmed = await showConfirmation({
       title: t('logoutConfirmation', 'Logout Confirmation'),
       message: t('logoutConfirmationMessage', 'Are you sure you want to logout?'),
@@ -468,122 +521,117 @@ const MainApp = () => {
     });
 
     if (confirmed) {
-      console.log('Navbar logout confirmed');
       logout();
     }
   };
 
-  // Notification click handler
   const handleNotificationClick = (requestId, type) => {
-    console.log('Student notification clicked:', { requestId, type });
-    
     if (requestId) {
-      // Navigate to requests page and highlight the specific request
       window.location.href = `/requests#request-${requestId}`;
     } else {
-      // Navigate to general requests page
       window.location.href = '/requests';
     }
   };
 
   return (
     <>
-      {/* Sidebar */}
-      <Sidebar isOpen={sidebarOpen} toggleSidebar={toggleSidebar} />
+    {/* Sidebar */}
+    <Sidebar isOpen={sidebarOpen} toggleSidebar={toggleSidebar} />
 
-      {/* Navigation with FIU Logo */}
-      <nav className="navbar navbar-dark bg-primary">
-        <div className="container">
-          <div className="d-flex align-items-center">
-            {/* Hamburger Menu Button */}
-            <button
-              className="btn me-3 hamburger-menu-btn"
-              onClick={toggleSidebar}
-              style={{ 
-                background: 'transparent',
-                border: '2px solid white',
-                color: 'white',
-                padding: '8px 12px',
-                fontSize: '1.2rem',
-                borderRadius: '6px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                width: '44px',
-                height: '44px'
-              }}
-              type="button"
-            >
-              <i className="bi bi-list" style={{ fontSize: '1.4rem' }}></i>
-            </button>
-            
-            <Link className="navbar-brand d-flex align-items-center mb-0" to="/">
-              <FIULogo size="sm" className="me-2" />
-              <span>{t('systemTitle')}</span>
-            </Link>
-          </div>
-          
-          {/* User Info, Notifications, Language Dropdown ve Logout */}
-          <div className="d-flex align-items-center gap-3">
-            <span className="text-white d-none d-md-inline">
-              {t('welcome')}, <strong>{user?.first_name || user?.name}</strong>
-            </span>
-            
-            {/* Language Dropdown */}
-            <SimpleLanguageSelector />
-            
-            {/* Student Notification Center */}
-            <StudentNotificationCenter onNotificationClick={handleNotificationClick} />
-            
-            <button 
-              className="btn btn-outline-light btn-sm" 
-              onClick={handleLogoutClick}
-              title={t('logout')}
-            >
-              <span className="d-none d-md-inline">{t('logout')}</span>
-              <i className="bi bi-box-arrow-right d-md-none"></i>
-            </button>
+    {/* Navigation with FIU Logo */}
+    <nav className="navbar navbar-dark bg-primary" style={{ position: 'relative', zIndex: 1030 }}>
+  <div className="container" style={{ maxWidth: '100%', overflow: 'visible' }}>
+    <div className="d-flex align-items-center">
+      {/* Hamburger Menu Button */}
+      <button
+        className="btn me-3 hamburger-menu-btn"
+        onClick={toggleSidebar}
+        style={{ 
+          background: 'transparent',
+          border: '2px solid white',
+          color: 'white',
+          padding: '8px 12px',
+          fontSize: '1.2rem',
+          borderRadius: '6px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          width: '44px',
+          height: '44px'
+        }}
+        type="button"
+      >
+        <i className="bi bi-list" style={{ fontSize: '1.4rem' }}></i>
+      </button>
+      
+      <Link className="navbar-brand d-flex align-items-center mb-0" to="/">
+        <FIULogo size="sm" className="me-2" />
+        <span className="d-none d-sm-inline" style={{ whiteSpace: 'nowrap' }}>{t('systemTitle')}</span>
+      </Link>
+    </div>
+    
+    {/* User Info, Notifications, Language Dropdown ve Logout */}
+    <div className="d-flex align-items-center gap-2">
+      <span className="text-white d-none d-lg-inline" style={{ whiteSpace: 'nowrap' }}>
+        {t('welcome')}, <strong>{user?.first_name || user?.name}</strong>
+      </span>
+      
+      {/* Language Dropdown - WRAPPER KALDIRILDI */}
+      <SimpleLanguageSelector />
+      
+      {/* Student Notification Center - WRAPPER KALDIRILDI */}
+      <StudentNotificationCenter onNotificationClick={handleNotificationClick} />
+      
+      <button 
+        className="btn btn-outline-light btn-sm" 
+        onClick={handleLogoutClick}
+        title={t('logout')}
+        style={{ whiteSpace: 'nowrap' }}
+      >
+        <span className="d-none d-md-inline">{t('logout')}</span>
+        <i className="bi bi-box-arrow-right d-md-none"></i>
+      </button>
+    </div>
+  </div>
+</nav>
+
+    {/* Main Content */}
+    <main className="container mt-4" style={{ maxWidth: '100%', overflowX: 'hidden' }}>
+      <Routes>
+        <Route path="/" element={<HomePage />} />
+        <Route path="/requests" element={<RequestsPage />} />
+        <Route path="/create-request" element={<CreateRequestPage />} />
+        <Route path="/exam-request" element={<ExamRequestPage />} />
+      </Routes>
+    </main>
+
+    {/* Footer - aynı kalacak */}
+    <footer className="bg-light mt-5 py-4">
+      <div className="container text-center">
+        <div className="d-flex justify-content-center align-items-center mb-3">
+          <FIULogo size="md" className="me-3" />
+          <div>
+            <p className="text-muted mb-1">
+              <strong>{t('systemSubtitle')}</strong>
+            </p>
+            <small className="text-muted">
+              {t('studentGuidanceRequestSystem')} &copy; 2025
+            </small>
           </div>
         </div>
-      </nav>
+        <small className="text-muted">
+          {t('poweredBy')} FIU {t('informationTechnologyDepartment')}
+        </small>
+      </div>
+    </footer>
 
-      {/* Main Content */}
-      <main className="container mt-4">
-        <Routes>
-          <Route path="/" element={<HomePage />} />
-          <Route path="/requests" element={<RequestsPage />} />
-          <Route path="/create-request" element={<CreateRequestPage />} />
-       <Route path="/exam-request" element={<ExamRequestPage />} />
-        </Routes>
-      </main>
+    {/* Confirmation Modal */}
+    <ConfirmationModal {...confirmationState} />
 
-      {/* Footer with FIU Logo */}
-      <footer className="bg-light mt-5 py-4">
-        <div className="container text-center">
-          <div className="d-flex justify-content-center align-items-center mb-3">
-            <FIULogo size="md" className="me-3" />
-            <div>
-              <p className="text-muted mb-1">
-                <strong>{t('systemSubtitle')}</strong>
-              </p>
-              <small className="text-muted">
-                {t('studentGuidanceRequestSystem')} &copy; 2025
-              </small>
-            </div>
-          </div>
-          <small className="text-muted">
-            {t('poweredBy')} FIU {t('informationTechnologyDepartment')}
-          </small>
-        </div>
-      </footer>
-
-      {/* Confirmation Modal - EN ÖNEMLİ KISIM! */}
-      <ConfirmationModal {...confirmationState} />
-
-      {/* Dark Mode Toggle */}
-      <DarkModeToggle />
-    </>
-  );
+    {/* Dark Mode Toggle */}
+    <DarkModeToggle />
+  </>
+);
 };
 
 export default App;

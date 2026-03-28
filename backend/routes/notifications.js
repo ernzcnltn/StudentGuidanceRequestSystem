@@ -74,8 +74,9 @@ router.get('/student', authenticateToken, async (req, res) => {
   try {
     const studentId = req.user.student_id;
     
-    // Get recent notifications for student
-    const [dynamicNotifications] = await pool.execute(`
+  // 👇 YENİ: EXAM REQUEST NOTIFICATIONS EKLE
+    const [allNotifications] = await pool.execute(`
+      -- Regular request updates
       SELECT 
         'request_update' as type,
         CONCAT('Request #', gr.request_id, ' Status Update') as title,
@@ -92,6 +93,7 @@ router.get('/student', authenticateToken, async (req, res) => {
       
       UNION ALL
       
+      -- Admin responses
       SELECT 
         'response_added' as type,
         CONCAT('New Response for Request #', ar.request_id) as title,
@@ -107,13 +109,55 @@ router.get('/student', authenticateToken, async (req, res) => {
         AND ar.created_at > DATE_SUB(NOW(), INTERVAL 30 DAY)
         AND ar.is_internal = FALSE
       
+      UNION ALL
+      
+      -- 👇 YENİ: EXAM REQUEST NOTIFICATIONS
+      SELECT 
+        CASE 
+          WHEN er.status = 'Pending' THEN 'exam_request_pending'
+          WHEN er.status = 'Approved' THEN 'exam_request_approved'
+          WHEN er.status = 'Rejected' THEN 'exam_request_rejected'
+        END as type,
+        CONCAT(
+          CASE er.exam_type 
+            WHEN 'makeup' THEN 'Make-up' 
+            WHEN 'resit' THEN 'Resit' 
+          END,
+          ' Exam Request ',
+          CASE er.status
+            WHEN 'Pending' THEN 'Submitted'
+            WHEN 'Approved' THEN 'Approved'
+            WHEN 'Rejected' THEN 'Rejected'
+          END
+        ) as title,
+        CONCAT(
+          'Your ', er.exam_type, ' exam request for ', er.course_code, ' - ', er.course_name,
+          CASE 
+            WHEN er.status = 'Pending' THEN ' is awaiting review'
+            WHEN er.status = 'Approved' THEN ' has been approved'
+            WHEN er.status = 'Rejected' THEN ' was not approved'
+          END
+        ) as message,
+        COALESCE(er.processed_at, er.submitted_at) as created_at,
+        CASE WHEN er.status = 'Pending' THEN FALSE ELSE TRUE END as is_read,
+        CASE 
+          WHEN er.status = 'Rejected' THEN 'Urgent'
+          WHEN er.status = 'Approved' THEN 'High'
+          ELSE 'Medium'
+        END as priority,
+        er.exam_request_id as related_request_id,
+        CONCAT('exam_request_', er.exam_request_id, '_', UNIX_TIMESTAMP(COALESCE(er.processed_at, er.submitted_at))) as id
+      FROM exam_requests er
+      WHERE er.student_id = ?
+        AND COALESCE(er.processed_at, er.submitted_at) > DATE_SUB(NOW(), INTERVAL 30 DAY)
+      
       ORDER BY created_at DESC
-      LIMIT 50
-    `, [studentId, studentId]);
+      LIMIT 100
+    `, [studentId, studentId, studentId]); // 👈 3 kere studentId
     
     res.json({
       success: true,
-      data: dynamicNotifications
+      data: allNotifications
     });
   } catch (error) {
     console.error('Error fetching student notifications:', error);
@@ -129,10 +173,12 @@ router.get('/admin', authenticateAdmin, async (req, res) => {
   try {
     const adminDepartment = req.admin.department;
     const adminId = req.admin.admin_id;
+    const adminRole = req.admin.role; // 👈 Role bilgisi
     
-    console.log('🔍 Admin notifications request:', {
+    console.log('🔔 Admin notifications request:', {
       admin_id: adminId,
-      department: adminDepartment
+      department: adminDepartment,
+      role: adminRole
     });
     
     // Check if super admin
@@ -171,10 +217,147 @@ router.get('/admin', authenticateAdmin, async (req, res) => {
       read_count: readIds.length
     });
     
-    // Get notifications based on admin type
     let notifications = [];
     
-    if (isSuperAdmin) {
+    // 👇 YENİ: INSTITUTE ADMIN için INSTITUTE REQUEST NOTIFICATIONS
+    if (adminRole === 'institute_admin') {
+      console.log('🎓 Fetching institute request notifications for institute admin...');
+      
+      const [instituteNotifications] = await pool.execute(`
+        SELECT 
+          CASE 
+            WHEN gr.status = 'Pending' THEN 'institute_request_new'
+            WHEN gr.status = 'Informed' THEN 'institute_request_informed'
+            WHEN gr.status = 'Completed' THEN 'institute_request_completed'
+            WHEN gr.status = 'Rejected' THEN 'institute_request_rejected'
+          END as type,
+          CONCAT(
+            CASE gr.status
+              WHEN 'Pending' THEN 'New '
+              WHEN 'Informed' THEN 'Informed '
+              WHEN 'Completed' THEN 'Completed '
+              WHEN 'Rejected' THEN 'Rejected '
+            END,
+            'Institute Request'
+          ) as title,
+          CONCAT(
+            s.name, ' - ', rt.type_name,
+            CASE 
+              WHEN gr.status = 'Pending' THEN ' (Awaiting Review)'
+              ELSE ''
+            END
+          ) as message,
+          gr.submitted_at as created_at,
+          gr.request_id as related_request_id,
+          CASE 
+            WHEN gr.status = 'Pending' THEN 'High'
+            WHEN gr.status = 'Rejected' THEN 'Medium'
+            ELSE 'Low'
+          END as priority,
+          CONCAT('institute_', gr.request_id, '_', UNIX_TIMESTAMP(gr.submitted_at)) as id,
+          FALSE as is_read
+        FROM guidance_requests gr
+        JOIN students s ON gr.student_id = s.student_id
+        JOIN request_types rt ON gr.type_id = rt.type_id
+        WHERE rt.category = 'Institute'
+          AND gr.submitted_at > DATE_SUB(NOW(), INTERVAL 30 DAY)
+        ORDER BY 
+          CASE gr.status 
+            WHEN 'Pending' THEN 1
+            WHEN 'Informed' THEN 2
+            WHEN 'Completed' THEN 3
+            WHEN 'Rejected' THEN 4
+          END,
+          gr.submitted_at DESC
+        LIMIT 50
+      `);
+      
+      notifications = instituteNotifications;
+      
+      console.log(`✅ Generated ${notifications.length} dynamic institute request notifications`);
+    }
+    // 👇 SECRETARY için EXAM REQUEST NOTIFICATIONS (Dinamik)
+    else if (adminRole === 'secretary') {
+      console.log('🎓 Fetching exam request notifications for secretary...');
+      
+      // Get faculty ID for this secretary
+      const departmentKeyword = adminDepartment.replace('Faculty of ', '').trim();
+      
+      const [secretaryFaculty] = await pool.execute(`
+        SELECT faculty_id, faculty_name, faculty_name_tr
+        FROM faculties 
+        WHERE faculty_name LIKE CONCAT('%', ?, '%')
+           OR faculty_name_tr LIKE CONCAT('%', ?, '%')
+        LIMIT 1
+      `, [departmentKeyword, departmentKeyword]);
+      
+      if (secretaryFaculty.length > 0) {
+        const facultyId = secretaryFaculty[0].faculty_id;
+        
+        console.log('📚 Secretary faculty:', { 
+          faculty_id: facultyId, 
+          department: adminDepartment 
+        });
+        
+        // 👇 DYNAMIC EXAM REQUEST NOTIFICATIONS
+        const [examNotifications] = await pool.execute(`
+          SELECT 
+            CASE 
+              WHEN er.status = 'Pending' THEN 'exam_request_new'
+              WHEN er.status = 'Approved' THEN 'exam_request_approved'
+              WHEN er.status = 'Rejected' THEN 'exam_request_rejected'
+            END as type,
+            CONCAT(
+              CASE er.status
+                WHEN 'Pending' THEN 'New '
+                WHEN 'Approved' THEN 'Approved '
+                WHEN 'Rejected' THEN 'Rejected '
+              END,
+              CASE er.exam_type 
+                WHEN 'makeup' THEN 'Make-up' 
+                WHEN 'resit' THEN 'Resit' 
+              END, 
+              ' Exam Request'
+            ) as title,
+            CONCAT(
+              s.name, ' - ', er.course_code, ' - ', er.course_name,
+              CASE 
+                WHEN er.status = 'Pending' THEN ' (Awaiting Review)'
+                ELSE ''
+              END
+            ) as message,
+            er.submitted_at as created_at,
+            er.exam_request_id as related_request_id,
+            CASE 
+              WHEN er.status = 'Pending' THEN 'High'
+              ELSE 'Medium'
+            END as priority,
+            CONCAT('exam_', er.exam_request_id, '_', UNIX_TIMESTAMP(er.submitted_at)) as id,
+            FALSE as is_read
+          FROM exam_requests er
+          JOIN students s ON er.student_id = s.student_id
+          WHERE er.faculty_id = ?
+            AND er.submitted_at > DATE_SUB(NOW(), INTERVAL 30 DAY)
+          ORDER BY 
+            CASE er.status 
+              WHEN 'Pending' THEN 1
+              WHEN 'Approved' THEN 2
+              WHEN 'Rejected' THEN 3
+            END,
+            er.submitted_at DESC
+          LIMIT 50
+        `, [facultyId]);
+        
+        notifications = examNotifications;
+        
+        console.log(`✅ Generated ${notifications.length} dynamic exam request notifications`);
+      } else {
+        console.log('⚠️ No faculty found for secretary department:', adminDepartment);
+        notifications = [];
+      }
+    }
+    // 👇 SUPER ADMIN için normal notifications
+    else if (isSuperAdmin) {
       const [results] = await pool.execute(`
         SELECT 
           'new_request' as type,
@@ -183,7 +366,8 @@ router.get('/admin', authenticateAdmin, async (req, res) => {
           gr.submitted_at as created_at,
           gr.request_id as related_request_id,
           COALESCE(gr.priority, 'Medium') as priority,
-          CONCAT('request_', gr.request_id, '_', UNIX_TIMESTAMP(gr.submitted_at)) as id
+          CONCAT('request_', gr.request_id, '_', UNIX_TIMESTAMP(gr.submitted_at)) as id,
+          FALSE as is_read
         FROM guidance_requests gr
         JOIN students s ON gr.student_id = s.student_id
         JOIN request_types rt ON gr.type_id = rt.type_id
@@ -193,7 +377,9 @@ router.get('/admin', authenticateAdmin, async (req, res) => {
         LIMIT 20
       `);
       notifications = results;
-    } else {
+    } 
+    // 👇 DEPARTMENT ADMIN için normal notifications
+    else {
       const [results] = await pool.execute(`
         SELECT 
           'new_request' as type,
@@ -202,7 +388,8 @@ router.get('/admin', authenticateAdmin, async (req, res) => {
           gr.submitted_at as created_at,
           gr.request_id as related_request_id,
           COALESCE(gr.priority, 'Medium') as priority,
-          CONCAT('request_', gr.request_id, '_', UNIX_TIMESTAMP(gr.submitted_at)) as id
+          CONCAT('request_', gr.request_id, '_', UNIX_TIMESTAMP(gr.submitted_at)) as id,
+          FALSE as is_read
         FROM guidance_requests gr
         JOIN students s ON gr.student_id = s.student_id
         JOIN request_types rt ON gr.type_id = rt.type_id
@@ -243,13 +430,12 @@ router.get('/admin', authenticateAdmin, async (req, res) => {
   }
 });
 
-
 // POST /api/notifications/mark-read/:id - Mark notification as read
 router.post('/mark-read/:id', authenticateUser, async (req, res) => {
   try {
     const notificationId = req.params.id;
     
-    console.log('📖 Notification mark-read request:', { notificationId });
+    console.log('Notification mark-read request:', { notificationId });
     
     // Frontend localStorage'da halledecek, backend sadece success döner
     res.json({
@@ -261,27 +447,6 @@ router.post('/mark-read/:id', authenticateUser, async (req, res) => {
     res.status(500).json({
       success: false,
       error: 'Failed to mark notification as read'
-    });
-  }
-});
-
-// DELETE /api/notifications/:id - Basit success response  
-router.delete('/:id', authenticateUser, async (req, res) => {
-  try {
-    const notificationId = req.params.id;
-    
-    console.log(' Notification delete request:', { notificationId });
-    
-    // Frontend localStorage'da halledecek, backend sadece success döner
-    res.json({
-      success: true,
-      message: 'Notification dismissed successfully'
-    });
-  } catch (error) {
-    console.error('Error dismissing notification:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to dismiss notification'
     });
   }
 });
@@ -323,7 +488,6 @@ router.delete('/:id', authenticateUser, async (req, res) => {
   }
 });
 
-
 // DELETE /api/notifications/all - Delete all notifications for user
 router.delete('/all', authenticateUser, async (req, res) => {
   try {
@@ -331,6 +495,7 @@ router.delete('/all', authenticateUser, async (req, res) => {
     
     if (isAdmin) {
       const adminId = req.admin.admin_id;
+      const adminRole = req.admin.role;
       
       console.log('🗑️ Dismissing all notifications for admin:', adminId);
       
@@ -352,9 +517,40 @@ router.delete('/all', authenticateUser, async (req, res) => {
         isSuperAdmin = false;
       }
       
-      // Get current notification IDs
+      // Get current notification IDs based on role
       let currentNotifications = [];
-      if (isSuperAdmin) {
+      
+      if (adminRole === 'institute_admin') {
+        // Get institute request notifications
+        const [results] = await pool.execute(`
+          SELECT CONCAT('institute_', request_id, '_', UNIX_TIMESTAMP(submitted_at)) as id
+          FROM guidance_requests gr
+          JOIN request_types rt ON gr.type_id = rt.type_id
+          WHERE rt.category = 'Institute'
+            AND gr.submitted_at > DATE_SUB(NOW(), INTERVAL 30 DAY)
+        `);
+        currentNotifications = results;
+      } else if (adminRole === 'secretary') {
+        // Get exam request notifications for secretary
+        const departmentKeyword = adminDepartment.replace('Faculty of ', '').trim();
+        
+        const [secretaryFaculty] = await pool.execute(`
+          SELECT faculty_id FROM faculties 
+          WHERE faculty_name LIKE CONCAT('%', ?, '%')
+             OR faculty_name_tr LIKE CONCAT('%', ?, '%')
+          LIMIT 1
+        `, [departmentKeyword, departmentKeyword]);
+        
+        if (secretaryFaculty.length > 0) {
+          const [results] = await pool.execute(`
+            SELECT CONCAT('exam_', exam_request_id, '_', UNIX_TIMESTAMP(submitted_at)) as id
+            FROM exam_requests
+            WHERE faculty_id = ?
+              AND submitted_at > DATE_SUB(NOW(), INTERVAL 30 DAY)
+          `, [secretaryFaculty[0].faculty_id]);
+          currentNotifications = results;
+        }
+      } else if (isSuperAdmin) {
         const [results] = await pool.execute(`
           SELECT CONCAT('request_', gr.request_id, '_', UNIX_TIMESTAMP(gr.submitted_at)) as id
           FROM guidance_requests gr
@@ -404,6 +600,7 @@ router.get('/admin/unread-count', authenticateAdmin, async (req, res) => {
   try {
     const adminDepartment = req.admin.department;
     const adminId = req.admin.admin_id;
+    const adminRole = req.admin.role;
     
     // Check if super admin
     let isSuperAdmin = false;
@@ -431,7 +628,70 @@ router.get('/admin/unread-count', authenticateAdmin, async (req, res) => {
     
     let unreadCount = 0;
     
-    if (isSuperAdmin) {
+    // Institute Admin - institute requests
+    if (adminRole === 'institute_admin') {
+      let query = `
+        SELECT COUNT(*) as count
+        FROM guidance_requests gr
+        JOIN request_types rt ON gr.type_id = rt.type_id
+        WHERE rt.category = 'Institute'
+          AND gr.submitted_at > DATE_SUB(NOW(), INTERVAL 30 DAY)
+      `;
+      
+      let queryParams = [];
+      
+      if (excludedIds.length > 0) {
+        const excludedConditions = excludedIds.map(id => {
+          return `CONCAT('institute_', gr.request_id, '_', UNIX_TIMESTAMP(gr.submitted_at)) != ?`;
+        }).join(' AND ');
+        
+        if (excludedConditions) {
+          query += ` AND ${excludedConditions}`;
+          queryParams = excludedIds;
+        }
+      }
+      
+      const [result] = await pool.execute(query, queryParams);
+      unreadCount = result[0].count;
+    }
+    // Secretary - exam requests
+    else if (adminRole === 'secretary') {
+      const departmentKeyword = adminDepartment.replace('Faculty of ', '').trim();
+      
+      const [secretaryFaculty] = await pool.execute(`
+        SELECT faculty_id FROM faculties 
+        WHERE faculty_name LIKE CONCAT('%', ?, '%')
+           OR faculty_name_tr LIKE CONCAT('%', ?, '%')
+        LIMIT 1
+      `, [departmentKeyword, departmentKeyword]);
+      
+      if (secretaryFaculty.length > 0) {
+        let query = `
+          SELECT COUNT(*) as count
+          FROM exam_requests er
+          WHERE er.faculty_id = ?
+            AND er.submitted_at > DATE_SUB(NOW(), INTERVAL 30 DAY)
+        `;
+        
+        let queryParams = [secretaryFaculty[0].faculty_id];
+        
+        if (excludedIds.length > 0) {
+          const excludedConditions = excludedIds.map(id => {
+            return `CONCAT('exam_', er.exam_request_id, '_', UNIX_TIMESTAMP(er.submitted_at)) != ?`;
+          }).join(' AND ');
+          
+          if (excludedConditions) {
+            query += ` AND ${excludedConditions}`;
+            queryParams = [secretaryFaculty[0].faculty_id, ...excludedIds];
+          }
+        }
+        
+        const [result] = await pool.execute(query, queryParams);
+        unreadCount = result[0].count;
+      }
+    }
+    // Super Admin - regular requests
+    else if (isSuperAdmin) {
       let query = `
         SELECT COUNT(*) as count
         FROM guidance_requests gr
@@ -442,7 +702,6 @@ router.get('/admin/unread-count', authenticateAdmin, async (req, res) => {
       let queryParams = [];
       
       if (excludedIds.length > 0) {
-        // Build excluded notification IDs for comparison
         const excludedConditions = excludedIds.map(id => {
           return `CONCAT('request_', gr.request_id, '_', UNIX_TIMESTAMP(gr.submitted_at)) != ?`;
         }).join(' AND ');
@@ -456,7 +715,9 @@ router.get('/admin/unread-count', authenticateAdmin, async (req, res) => {
       const [result] = await pool.execute(query, queryParams);
       unreadCount = result[0].count;
       
-    } else {
+    } 
+    // Department Admin - regular requests
+    else {
       let query = `
         SELECT COUNT(*) as count
         FROM guidance_requests gr
@@ -498,6 +759,7 @@ router.get('/admin/unread-count', authenticateAdmin, async (req, res) => {
     });
   }
 });
+
 // GET /api/notifications/unread-count - Get unread notification count
 router.get('/unread-count', authenticateToken, async (req, res) => {
   try {
@@ -506,7 +768,7 @@ router.get('/unread-count', authenticateToken, async (req, res) => {
     // Get dismissed notification IDs from query parameter (optional for future use)
     const dismissedIds = req.query.dismissed ? req.query.dismissed.split(',').filter(id => id) : [];
     
-    console.log('🔍 Student unread count request:', {
+    console.log('📊 Student unread count request:', {
       student_id: studentId,
       dismissed_count: dismissedIds.length
     });
@@ -572,7 +834,7 @@ router.get('/unread-count', authenticateToken, async (req, res) => {
     
     const unreadCount = pendingRequests[0].count + recentResponses[0].count;
     
-    console.log('📊 Student unread count calculated:', {
+    console.log('✅ Student unread count calculated:', {
       pending_requests: pendingRequests[0].count,
       recent_responses: recentResponses[0].count,
       total_unread: unreadCount,

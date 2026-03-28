@@ -87,7 +87,7 @@ const RequestRejectModal = ({ show, onHide, request, onRejectConfirm, loading })
           <div className="modal-content">
             <div className="modal-header bg-danger text-white">
               <h5 className="modal-title">
-                🚫 {t('rejectRequest', 'Reject Request')} #{request.request_id}
+                 {t('rejectRequest', 'Reject Request')} #{request.request_id}
               </h5>
               <button 
                 type="button" 

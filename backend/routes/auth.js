@@ -5,7 +5,7 @@ const jwt = require('jsonwebtoken');
 const { pool } = require('../config/database');
 const { authenticateToken } = require('../middleware/auth');
 const fs = require('fs');
-
+const { verifyCaptchaOptional } = require('../middleware/captchaVerify');
 
 const path = require('path');
 
@@ -112,7 +112,7 @@ router.post('/login', async (req, res) => {
 });
 
 // POST /api/auth/login-email - YENİ: Email ile öğrenci giriş
-router.post('/login-email', async (req, res) => {
+router.post('/login-email', verifyCaptchaOptional, async (req, res) => {
   try {
     const { email, password } = req.body;
 
@@ -283,5 +283,67 @@ router.post('/logout', (req, res) => {
     message: 'Logout successful'
   });
 });
+
+// ✅ BURAYA EKLE ↓↓↓
+
+// POST /api/auth/check-email-type - Email hangi kullanıcı tipine ait?
+router.post('/check-email-type', async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      return res.status(400).json({
+        success: false,
+        error: 'Email is required'
+      });
+    }
+
+    console.log('🔍 Checking email type for:', email);
+
+    // Önce admin'de ara
+    const [admins] = await pool.execute(
+      'SELECT admin_id FROM admin_users WHERE email = ? AND is_active = TRUE',
+      [email]
+    );
+
+    if (admins.length > 0) {
+      console.log('✅ Email found in admin_users');
+      return res.json({
+        success: true,
+        userType: 'admin'
+      });
+    }
+
+    // Sonra student'da ara
+    const [students] = await pool.execute(
+      'SELECT student_id FROM students WHERE email = ?',
+      [email]
+    );
+
+    if (students.length > 0) {
+      console.log('✅ Email found in students');
+      return res.json({
+        success: true,
+        userType: 'student'
+      });
+    }
+
+    // Email sistemde yok
+    console.log('❌ Email not found in system');
+    return res.json({
+      success: true,
+      userType: null
+    });
+
+  } catch (error) {
+    console.error('❌ Email type check error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to check email type'
+    });
+  }
+});
+
+
 
 module.exports = router;

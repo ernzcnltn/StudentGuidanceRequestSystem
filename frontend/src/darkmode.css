@@ -572,3 +572,165 @@ body,
 .dark-theme .breadcrumb-item + .breadcrumb-item::before {
   color: #a0aec0;
 }
+
+/* ============================================
+   Select Dropdown - optgroup Fix (Dark Mode)
+   ============================================ */
+
+/* Optgroup (kategori başlıkları) dark mode */
+.dark-theme select optgroup {
+  background: #4f5f7a !important;
+  color: #f7fafc !important;
+  font-weight: bold;
+}
+
+/* Option'lar (seçenekler) dark mode */
+.dark-theme select option {
+  background: #6b7795 !important;
+  color: #f7fafc !important;
+  padding: 8px !important;
+}
+
+/* Hover state */
+.dark-theme select option:hover {
+  background: #8492a6 !important;
+}
+
+/* Selected option */
+.dark-theme select option:checked {
+  background: #dc2626 !important;
+  color: #ffffff !important;
+}
+
+/* ============================================
+   File Upload Section - Dark Mode Fix
+   ============================================ */
+
+/* File upload drop zone */
+.dark-theme .border-dashed {
+  background: linear-gradient(135deg, #374151 0%, #4b5563 100%) !important;
+  border-color: #6b7280 !important;
+  color: #f7fafc !important;
+}
+
+/* File upload button area (kırmızı alan) */
+.dark-theme .btn-primary {
+  background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%) !important;
+  border-color: #dc2626 !important;
+  color: #ffffff !important;
+}
+
+/* File upload container */
+.dark-theme [style*="backgroundColor: '#f8f9fa'"] {
+  background: linear-gradient(135deg, #2d3748 0%, #4a5568 100%) !important;
+}
+
+/* File upload text colors */
+.dark-theme .text-muted {
+  color: #a0aec0 !important;
+}
+
+/* File cards */
+.dark-theme .card {
+  background: linear-gradient(135deg, #2d3748 0%, #4a5568 100%) !important;
+  border-color: #718096 !important;
+  color: #f7fafc !important;
+}
+
+/* File card borders (mavi border) */
+.dark-theme .card[style*="borderLeft"] {
+  border-left-color: #3b82f6 !important;
+}
+
+/* Badge styling */
+.dark-theme .badge.bg-light {
+  background: linear-gradient(135deg, #4a5568 0%, #718096 100%) !important;
+  color: #f7fafc !important;
+}
+
+.dark-theme .badge.bg-info {
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%) !important;
+  color: #ffffff !important;
+}
+
+.dark-theme .badge.bg-warning {
+  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%) !important;
+  color: #ffffff !important;
+}
+
+/* File icon container (mavi daire) */
+.dark-theme .bg-primary {
+  background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%) !important;
+}
+
+/* Progress bar */
+.dark-theme .progress {
+  background: linear-gradient(135deg, #374151 0%, #4b5563 100%) !important;
+}
+
+.dark-theme .progress-bar {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%) !important;
+}
+
+/* Alert boxes in file upload area */
+.dark-theme .alert-warning {
+  background: linear-gradient(135deg, #d69e2e 0%, #ed8936 100%) !important;
+  border-color: #f6ad55 !important;
+  color: #1a202c !important;
+}
+
+/* Form text below inputs */
+.dark-theme .form-text {
+  color: #a0aec0 !important;
+}
+
+/* Small text */
+.dark-theme small {
+  color: #e7e8e9 !important;
+}
+
+/* Text success (yeşil "Ready to upload") */
+.dark-theme .text-success {
+  color: #48bb78 !important;
+}
+/* ============================================
+   OUTER CARD CONTAINER - DARK MODE FIX
+   ============================================ */
+
+/* Main card wrapper (en dış beyaz kutu) */
+.dark-theme .card {
+  background: linear-gradient(135deg, #2d3748 0%, #4a5568 100%) !important;
+  border-color: #718096 !important;
+  color: #f7fafc !important;
+}
+
+.dark-theme .card-body {
+  background: linear-gradient(135deg, #2d3748 0%, #4a5568 100%) !important;
+  color: #f7fafc !important;
+}
+
+/* Override any white backgrounds in cards */
+.dark-theme .card,
+.dark-theme .card-body,
+.dark-theme .card-header,
+.dark-theme .card-footer {
+  background: linear-gradient(135deg, #2d3748 0%, #4a5568 100%) !important;
+  border-color: #718096 !important;
+  color: #f7fafc !important;
+}
+
+/* Ensure nested cards also get dark styling */
+.dark-theme .card .card {
+  background: linear-gradient(135deg, #374151 0%, #4b5563 100%) !important;
+}
+
+/* File upload specific card fix */
+.dark-theme .mb-3 .border.rounded {
+  background: linear-gradient(135deg, #2d3748 0%, #4a5568 100%) !important;
+  border-color: #718096 !important;
+}
+
+/* Override Bootstrap's default card styling completely */
+.dark-theme .card:not(.bg-primary):not(.bg-danger):not(.bg-warning):not(.bg-success):not(.bg-info) {
+  background: linear-gradient(135deg, #2d3748 0%, #4a5568 100%) !important;
+}

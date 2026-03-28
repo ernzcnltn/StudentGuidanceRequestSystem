@@ -7,9 +7,8 @@ import ConfirmationModal from '../components/ConfirmationModal';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 
-
 const HomePage = () => {
-  const { t, translateRequestType } = useTranslation();
+  const { t, translateRequestType, translateDbText } = useTranslation();
   const { isDark } = useTheme();
   const navigate = useNavigate();
   const [stats, setStats] = useState(null);
@@ -35,12 +34,10 @@ const HomePage = () => {
     }
   };
 
-  // Notification click handler - öğrenciyi ilgili talebe yönlendirir
   const handleNotificationClick = (requestId, type) => {
     console.log('Student notification clicked:', { requestId, type });
     
     if (requestId) {
-      // Öğrenciyi "My Requests" sayfasına yönlendir ve ilgili talebi vurgula
       navigate('/my-requests', { 
         state: { 
           highlightRequestId: requestId,
@@ -48,7 +45,6 @@ const HomePage = () => {
         } 
       });
     } else {
-      // Eğer requestId yoksa genel talep sayfasına yönlendir
       navigate('/my-requests');
     }
   };
@@ -63,8 +59,8 @@ const HomePage = () => {
         setRequestTypes(typesResponse.data.data);
 
         // Student statistics
-       // const statsResponse = await apiService.getMyStats();
-        //setStats(statsResponse.data.data);
+        // const statsResponse = await apiService.getMyStats();
+        // setStats(statsResponse.data.data);
 
       } catch (error) {
         console.error('Error fetching data:', error);
@@ -76,7 +72,6 @@ const HomePage = () => {
     fetchData();
   }, []);
 
-  // Category click handler
   const handleCategoryClick = (category) => {
     navigate('/create-request', { 
       state: { 
@@ -85,7 +80,6 @@ const HomePage = () => {
     });
   };
 
-  // Category icons
   const getCategoryIcon = (category) => {
     const icons = {
       'Accounting': 'bi-calculator',
@@ -94,8 +88,29 @@ const HomePage = () => {
       'Dormitory': 'bi-building',
       'Campus Services': 'bi-gear',
       'Sport Affairs': 'bi-trophy',
+      'Institute': 'bi-mortarboard', // Enstitü ikonu eklendi
     };
     return icons[category] || 'bi-folder';
+  };
+
+  // Kategori ismini çeviren fonksiyon
+  const translateCategory = (category) => {
+    // Önce spaces'i kaldır ve lowercase yap
+    const key = category.toLowerCase().replace(/\s+/g, '');
+    
+    // Özel mapping'ler
+    const categoryMapping = {
+      'accounting': 'accounting',
+      'academic': 'academic',
+      'studentaffairs': 'studentaffairs',
+      'dormitory': 'dormitory',
+      'campusservices': 'campusservices',
+      'sportaffairs': 'sportaffairs',
+      'institute': 'institute'
+    };
+
+    const mappedKey = categoryMapping[key] || key;
+    return t(mappedKey, category);
   };
 
   if (loading) {
@@ -111,8 +126,6 @@ const HomePage = () => {
 
   return (
     <div>
-
-
       {/* Hero Section */}
       <div 
         className="jumbotron p-5 rounded mb-4"
@@ -136,7 +149,9 @@ const HomePage = () => {
       <div className="row">
         <div className="col-md-8">
           <div className="d-flex justify-content-between align-items-center mb-3">
-            <h3 className={isDark ? 'text-white' : 'text-dark'}>{t('request_categories')}</h3>
+            <h3 className={isDark ? 'text-white' : 'text-dark'}>
+              {t('request_categories')}
+            </h3>
             <small className={isDark ? 'text-gray-400' : 'text-muted'}>
               {t('click_on_category_to_create')}
             </small>
@@ -179,7 +194,7 @@ const HomePage = () => {
                         style={{ fontSize: '1.5rem', color: '#dc2626' }}
                       ></i>
                       <h5 className="mb-0">
-                        {t(category.toLowerCase().replace(/\s+/g, ''))}
+                        {translateCategory(category)}
                       </h5>
                     </div>
                     <span className="badge bg-danger">
@@ -248,21 +263,29 @@ const HomePage = () => {
                 <div className="row text-center">
                   <div className="col-6">
                     <div className="h5 text-warning">{stats.pending_requests || 0}</div>
-                    <small className={isDark ? 'text-gray-400' : 'text-muted'}>{t('pending')}</small>
+                    <small className={isDark ? 'text-gray-400' : 'text-muted'}>
+                      {t('pending')}
+                    </small>
                   </div>
                   <div className="col-6">
                     <div className="h5 text-info">{stats.informed_requests || 0}</div>
-                    <small className={isDark ? 'text-gray-400' : 'text-muted'}>{t('informed')}</small>
+                    <small className={isDark ? 'text-gray-400' : 'text-muted'}>
+                      {t('informed')}
+                    </small>
                   </div>
                 </div>
                 <div className="row text-center mt-2">
                   <div className="col-6">
                     <div className="h5 text-success">{stats.completed_requests || 0}</div>
-                    <small className={isDark ? 'text-gray-400' : 'text-muted'}>{t('completed')}</small>
+                    <small className={isDark ? 'text-gray-400' : 'text-muted'}>
+                      {t('completed')}
+                    </small>
                   </div>
                   <div className="col-6">
                     <div className="h4 text-danger">{stats.total_requests || 0}</div>
-                    <small className={isDark ? 'text-gray-400' : 'text-muted'}>{t('totalRequests')}</small>
+                    <small className={isDark ? 'text-gray-400' : 'text-muted'}>
+                      {t('totalRequests')}
+                    </small>
                   </div>
                 </div>
                 
@@ -270,21 +293,21 @@ const HomePage = () => {
                 <div className="border-top mt-3 pt-3" style={{
                   borderColor: isDark ? '#4a5568' : '#e2e8f0'
                 }}>
-                  <h6 className="mb-2">{t('quick_actions', 'Quick Actions')}</h6>
+                  <h6 className="mb-2">{t('quick_actions')}</h6>
                   <div className="d-grid gap-2">
                     <Link 
                       to="/create-request" 
                       className="btn btn-outline-danger btn-sm"
                     >
                       <i className="bi bi-plus-circle me-2"></i>
-                      {t('new_request', 'New Request')}
+                      {t('new_request')}
                     </Link>
                     <Link 
                       to="/my-requests" 
                       className="btn btn-outline-primary btn-sm"
                     >
                       <i className="bi bi-list-check me-2"></i>
-                      {t('my_requests', 'My Requests')}
+                      {t('my_requests')}
                     </Link>
                   </div>
                 </div>

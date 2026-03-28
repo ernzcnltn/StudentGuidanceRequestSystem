@@ -1,7 +1,10 @@
 {
   "dependencies": {
+    "@react-oauth/google": "^0.13.4",
     "bootstrap": "^5.3.7",
     "bootstrap-icons": "^1.13.1",
-    "react-circular-progressbar": "^2.2.0"
+    "jwt-decode": "^4.0.0",
+    "react-circular-progressbar": "^2.2.0",
+    "react-google-recaptcha": "^3.1.0"
   }
 }

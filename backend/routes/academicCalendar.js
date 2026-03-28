@@ -1489,18 +1489,7 @@ router.post('/settings', authenticateAdmin, requireSuperAdmin, async (req, res) 
 
 
 
-// GET /api/academic-calendar/uploads - Get upload history
-// backend/routes/academicCalendar.js - KESIN ÇÖZÜM
 
-// ❌ ESKİ KOD (1242. satır civarında):
-/*
-const [uploads] = await pool.execute(`
-  SELECT ... FROM academic_calendar_uploads acu
-  LEFT JOIN admin_users au ON acu.uploaded_by = au.admin_id
-  ORDER BY acu.uploaded_at DESC
-  LIMIT ? OFFSET ?
-`, [limit, offset]);
-*/
 
 // ✅ YENİ KOD - TAMAMEN DEĞİŞTİRİN:
 
