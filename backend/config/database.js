@@ -6,10 +6,10 @@ const isDevelopment = process.env.NODE_ENV !== 'production';
 
 // Database connection pool - ✅ GÜNCELLE
 const pool = mysql.createPool({
-  host: process.env.DB_HOST || 'localhost',
-  user: process.env.DB_USER || 'root',
-  password: process.env.DB_PASSWORD || 'cilo1536',
-  database: process.env.DB_NAME || 'fiu_guidance_db',
+  host: process.env.DB_HOST ,
+  user: process.env.DB_USER ,
+  password: process.env.DB_PASSWORD ,
+  database: process.env.DB_NAME ,
   waitForConnections: true,
   connectionLimit: isDevelopment ? 10 : 100, // ✅ Dev: 10, Prod: 100
   queueLimit: 0,
