@@ -1,5 +1,14 @@
 // backend/server.js - UPDATED with Academic Calendar routes
 
+require('dotenv').config({ 
+  path: process.env.NODE_ENV === 'production' ? '.env.production' : '.env' 
+});
+
+console.log('EMAIL_USER:', process.env.EMAIL_USER);
+console.log('EMAIL_PASS:', process.env.EMAIL_PASS ? '***set***' : 'NOT SET');
+
+
+
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
@@ -11,10 +20,10 @@ const coursesRoutes = require('./routes/courses');
 const deanRoutes = require('./routes/dean');
 const instituteRoutes = require('./routes/institute');
 const magicLinkRoutes = require('./routes/magicLink');
+const session = require('express-session');
+const passport = require('passport');
 
-require('dotenv').config({ 
-  path: process.env.NODE_ENV === 'production' ? '.env.production' : '.env' 
-});
+
 // Import services
 const { testConnection } = require('./config/database');
 
@@ -54,6 +63,18 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
 
+app.use(session({
+  secret: process.env.SESSION_SECRET,
+  resave: false,
+  saveUninitialized: false,
+  cookie: { 
+    secure: process.env.NODE_ENV === 'production',
+    maxAge: 5 * 60 * 1000
+  }
+}));
+app.use(passport.initialize());
+app.use(passport.session());
+
 // Body parsing middleware
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
@@ -76,7 +97,7 @@ app.use('/api/admin-auth/login', authLimiter);
 app.use('/api/', generalLimiter);
 
 // Basic auth route
-app.use('/api/auth', authRoutes);
+
 
 // Routes
 app.use('/api/auth', require('./routes/auth'));
@@ -87,10 +108,10 @@ app.use('/api/students', require('./routes/students'));
 app.use('/api/docs', require('./routes/docs'));
 app.use('/api', examRequestsRoutes);
 app.use('/api/secretary', secretaryExamRequestsRoutes);
+app.use('/api/student-management', require('./routes/studentManagement'));
 
 
-app.use('/api/magic-link', magicLinkRoutes);
-
+app.use('/api/whitelist', require('./routes/whitelist'));
 
 // ✅ EXISTING ROUTES
 app.use('/api/notifications', require('./routes/notifications'));
@@ -105,6 +126,8 @@ app.use('/api/institute', instituteRoutes);
 app.use('/api/dean', deanRoutes);
 
 app.use('/api/courses', coursesRoutes);
+
+
 
 // Health check endpoint with calendar status
 app.get('/api/health', async (req, res) => {

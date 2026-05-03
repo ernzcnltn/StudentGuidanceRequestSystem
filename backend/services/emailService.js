@@ -1572,8 +1572,322 @@ Student Guidance Request System
     }
   },
 
+
+   sendWelcomeWithTempPassword: async (email, studentName, studentNumber, tempPassword) => {
+    if (!emailService.canSendEmail()) {
+      console.log('Warning: Email service not available for welcome email');
+      return { success: false, reason: 'Email service not configured' };
+    }
+ 
+    const subject = 'FIU Guidance System — Account Registration Confirmation';
+    const frontendURL = process.env.FRONTEND_URL || 'http://localhost:3000';
+ 
+    const htmlContent = `
+      <!DOCTYPE html>
+      <html lang="en">
+      <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Account Registration Confirmation</title>
+        <style>
+          * { margin: 0; padding: 0; box-sizing: border-box; }
+          body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333333;
+            background-color: #f0f0f0;
+          }
+          .wrapper {
+            max-width: 620px;
+            margin: 32px auto;
+            background-color: #ffffff;
+            border: 1px solid #dddddd;
+            border-radius: 4px;
+            overflow: hidden;
+          }
+          .header {
+            background-color: #C8102E;
+            padding: 36px 40px;
+            text-align: center;
+          }
+          .header-logo {
+            font-size: 13px;
+            color: rgba(255,255,255,0.7);
+            text-transform: uppercase;
+            letter-spacing: 0.12em;
+            margin-bottom: 6px;
+          }
+          .header h1 {
+            font-size: 22px;
+            font-weight: 600;
+            color: #ffffff;
+            letter-spacing: -0.2px;
+          }
+          .header-sub {
+            font-size: 13px;
+            color: rgba(255,255,255,0.75);
+            margin-top: 4px;
+          }
+          .content {
+            padding: 40px;
+          }
+          .greeting {
+            font-size: 16px;
+            color: #1a1a1a;
+            margin-bottom: 16px;
+          }
+          .intro {
+            font-size: 14px;
+            color: #555555;
+            margin-bottom: 28px;
+            line-height: 1.7;
+          }
+          .section-label {
+            font-size: 10px;
+            font-weight: 700;
+            color: #999999;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            margin-bottom: 12px;
+          }
+          .credentials-table {
+            width: 100%;
+            border-collapse: collapse;
+            background-color: #1a1a22;
+            border-radius: 6px;
+            overflow: hidden;
+            margin-bottom: 28px;
+          }
+          .credentials-table td {
+            padding: 14px 20px;
+            border-bottom: 1px solid rgba(255,255,255,0.06);
+          }
+          .credentials-table tr:last-child td {
+            border-bottom: none;
+          }
+          .cred-label {
+            font-size: 11px;
+            font-weight: 600;
+            color: rgba(255,255,255,0.35);
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            width: 130px;
+          }
+          .cred-value {
+            font-size: 14px;
+            color: #f2f2f7;
+            font-family: 'Courier New', Courier, monospace;
+          }
+          .cred-value.password {
+            font-size: 20px;
+            font-weight: 700;
+            color: #fbbf24;
+            letter-spacing: 3px;
+          }
+          .notice-box {
+            background-color: #fffbeb;
+            border: 1px solid #fcd34d;
+            border-left: 4px solid #f59e0b;
+            border-radius: 4px;
+            padding: 18px 20px;
+            margin-bottom: 28px;
+          }
+          .notice-box .notice-title {
+            font-size: 13px;
+            font-weight: 700;
+            color: #92400e;
+            margin-bottom: 8px;
+          }
+          .notice-box p {
+            font-size: 13px;
+            color: #78350f;
+            margin-bottom: 4px;
+            line-height: 1.6;
+          }
+          .notice-box p:last-child { margin-bottom: 0; }
+          .btn-container {
+            text-align: center;
+            margin-bottom: 32px;
+          }
+          .btn {
+            display: inline-block;
+            padding: 13px 36px;
+            background-color: #C8102E;
+            color: #ffffff !important;
+            text-decoration: none;
+            border-radius: 4px;
+            font-size: 14px;
+            font-weight: 600;
+            letter-spacing: 0.02em;
+          }
+          .steps-section {
+            border-top: 1px solid #eeeeee;
+            padding-top: 24px;
+          }
+          .steps-title {
+            font-size: 13px;
+            font-weight: 700;
+            color: #333333;
+            margin-bottom: 14px;
+          }
+          .step-row {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            margin-bottom: 10px;
+          }
+          .step-num {
+            min-width: 20px;
+            height: 20px;
+            background-color: #C8102E;
+            color: #ffffff;
+            font-size: 11px;
+            font-weight: 700;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-top: 1px;
+            flex-shrink: 0;
+          }
+          .step-text {
+            font-size: 13px;
+            color: #555555;
+            line-height: 1.6;
+          }
+          .footer {
+            background-color: #f8f8f8;
+            border-top: 1px solid #eeeeee;
+            padding: 24px 40px;
+            text-align: center;
+          }
+          .footer .uni-name {
+            font-size: 13px;
+            font-weight: 600;
+            color: #333333;
+            margin-bottom: 4px;
+          }
+          .footer .system-name {
+            font-size: 12px;
+            color: #888888;
+            margin-bottom: 10px;
+          }
+          .footer .disclaimer {
+            font-size: 11px;
+            color: #aaaaaa;
+          }
+        </style>
+      </head>
+      <body>
+        <div class="wrapper">
+ 
+          <!-- Header -->
+          <div class="header">
+            <div class="header-logo">Final International University</div>
+            <h1>FIU Guidance System</h1>
+            <div class="header-sub">Student Portal — Account Registration</div>
+          </div>
+ 
+          <!-- Content -->
+          <div class="content">
+ 
+            <p class="greeting">Dear ${studentName},</p>
+ 
+            <p class="intro">
+              Your account has been successfully created in the FIU Student Guidance Request System.
+              Please find your login credentials below. You are required to change your temporary
+              password upon first login.
+            </p>
+ 
+            <!-- Credentials -->
+            <div class="section-label">Your Login Credentials</div>
+            <table class="credentials-table">
+              <tr>
+                <td class="cred-label">Email Address</td>
+                <td class="cred-value">${email}</td>
+              </tr>
+              <tr>
+                <td class="cred-label">Student Number</td>
+                <td class="cred-value">${studentNumber}</td>
+              </tr>
+              <tr>
+                <td class="cred-label">Temp. Password</td>
+                <td class="cred-value password">${tempPassword}</td>
+              </tr>
+            </table>
+ 
+            <!-- Notice -->
+            <div class="notice-box">
+              <div class="notice-title">Important Notice</div>
+              <p>The password above is temporary and must be changed after your first login.</p>
+              <p>Please keep this email in a safe place until you have set a new password.</p>
+              <p>If you did not initiate this registration, please contact the system administrator immediately.</p>
+            </div>
+ 
+            <!-- CTA Button -->
+            <div class="btn-container">
+              <a href="${frontendURL}/login" class="btn">Access Student Portal</a>
+            </div>
+ 
+            <!-- Steps -->
+            <div class="steps-section">
+              <div class="steps-title">How to Get Started</div>
+              <div class="step-row">
+                <div class="step-num">1</div>
+                <div class="step-text">
+                  Sign in using <strong>Google Sign-In</strong> for quick and secure access — no password required.
+                </div>
+              </div>
+              <div class="step-row">
+                <div class="step-num">2</div>
+                <div class="step-text">
+                  Alternatively, log in with your <strong>email address and temporary password</strong>,
+                  then update your password via profile settings.
+                </div>
+              </div>
+              <div class="step-row">
+                <div class="step-num">3</div>
+                <div class="step-text">
+                  Submit and track your <strong>guidance requests</strong> through the student portal.
+                </div>
+              </div>
+            </div>
+ 
+          </div>
+ 
+          <!-- Footer -->
+          <div class="footer">
+            <div class="uni-name">Final International University</div>
+            <div class="system-name">Student Guidance Request System</div>
+            <div class="disclaimer">
+              This is an automated message. Please do not reply directly to this email.<br>
+              For assistance, contact your department or the student services office.
+            </div>
+          </div>
+ 
+        </div>
+      </body>
+      </html>
+    `;
+ 
+    try {
+      await emailService.transporter.sendMail({
+        from: `"FIU Student Guidance System" <${emailService.config.user}>`,
+        to: email,
+        subject,
+        html: htmlContent
+      });
+      console.log(`Welcome email sent to: ${email}`);
+      return { success: true };
+    } catch (error) {
+      console.error('Failed to send welcome email:', error);
+      return { success: false, error: error.message };
+    }
+  },
   
 };
+
+
 
 // Initialize on module load
 emailService.initialize();

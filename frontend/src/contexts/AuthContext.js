@@ -94,14 +94,15 @@ const savedToken = sessionStorage.getItem('student_token') || sessionStorage.get
         // Önce localStorage'dan yükle
         const loadedFromStorage = loadUserFromStorage();
         
-        if (loadedFromStorage) {
-          console.log('✅ AuthContext: Using cached student data');
-          setLoading(false);
-        } else {
-          // Cache yoksa API'den fetch et
-          console.log('🔄 AuthContext: Fetching student from API...');
-          await checkAuthStatus();
-        }
+      if (loadedFromStorage) {
+  console.log('✅ AuthContext: Using cached student data');
+  setLoading(false);
+  // Arka planda API'den de doğrula
+  checkAuthStatus().catch(() => {});
+} else {
+  console.log('🔄 AuthContext: Fetching student from API...');
+  await checkAuthStatus();
+}
       } else {
         console.log('❌ AuthContext: No token found');
         setLoading(false);
@@ -134,6 +135,26 @@ sessionStorage.setItem('token', token);
     }
   };
 
+  // Google OAuth callback'ten token ile giriş
+const loginWithToken = async (token) => {
+  sessionStorage.setItem('token', token);
+  sessionStorage.setItem('student_token', token);
+  apiService.setAuthToken(token);
+  try {
+    const response = await apiService.getProfile();
+    if (response.data.success) {
+      const userData = response.data.data;
+      setUser(userData);
+      saveUserToStorage(userData);
+      setLoading(false);
+      return { success: true };
+    }
+  } catch (error) {
+    console.error('loginWithToken error:', error);
+  }
+  return { success: false };
+};
+
   const register = async (userData) => {
     try {
       const response = await apiService.register(userData);
@@ -150,14 +171,29 @@ sessionStorage.setItem('token', token);
     }
   };
 
+  const updateUser = (updatedData) => {
+  setUser(prev => {
+    const newUser = { ...prev, ...updatedData };
+    saveUserToStorage(newUser);
+    return newUser;
+  });
+};
+
+
   const value = {
     user,
     loading,
     login,
+    loginWithToken,
     register,
     logout,
+    checkAuthStatus,  
+    updateUser,
     isAuthenticated: !!user
   };
+
+
+  
 
   return (
     <AuthContext.Provider value={value}>

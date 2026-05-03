@@ -4825,6 +4825,8 @@ router.post('/requests/:requestId/responses',
         });
       }
 
+
+
       // 🆕 FIFO KONTROLÜ - BU BLOĞU EKLE
       const fifoCheck = await canRespondToRequest(
         requestId, 
@@ -7280,6 +7282,11 @@ async function canRespondToRequest(requestId, adminDepartment, isSuperAdmin) {
     }
     
     const req = request[0];
+    
+    // Super admin FIFO'dan muaf
+    if (isSuperAdmin) {
+      return { canRespond: true, reason: 'Super admin bypass' };
+    }
     
     // Super admin departman kontrolünden muaf
     if (!isSuperAdmin && req.category !== adminDepartment) {

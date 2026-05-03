@@ -88,6 +88,16 @@ const unifiedAuthMethods = {
     return axios.post(`${BASE_URL}/auth/login`, { email, password });
   },
 
+  // Google OAuth ile kayıt
+registerWithGoogle: (data) => 
+  studentApi.post('/auth/register-google', data),
+
+// Google OAuth başlat (redirect)
+initiateGoogleAuth: () => {
+  const backendURL = process.env.REACT_APP_API_URL.replace('/api', '');
+  window.location.href = `${backendURL}/api/auth/google`;
+},
+
   // VERIFY TOKEN - Works for both user types
   verifyToken: () => {
     const studentToken = sessionStorage.getItem('student_token');
@@ -101,6 +111,7 @@ const unifiedAuthMethods = {
       return Promise.reject(new Error('No authentication token found'));
     }
   },
+
 
 
   // Email type check
@@ -429,6 +440,8 @@ getAcademicCalendarUploads: (params = { limit: 20, offset: 0 }) => {
       };
     }
   },
+
+  
 
   // ✅ FIXED: Enhanced request creation with calendar validation
   createRequestWithCalendarValidation: async (requestData) => {
@@ -2912,6 +2925,25 @@ checkFifoStatus: (requestId) => {
   console.log('🔍 Checking FIFO status for request:', requestId);
   return adminApi.get(`/admin-auth/requests/${requestId}/fifo-status`);
 },
+
+getStudents: (params) => adminApi.get('/student-management', { params }),
+getStudentManagementStats: () => adminApi.get('/student-management/stats'),
+toggleStudentActive: (id) => adminApi.patch(`/student-management/${id}/toggle-active`),
+deleteStudent: (id) => adminApi.delete(`/student-management/${id}`),
+
+// Whitelist
+getWhitelist: (params) => adminApi.get('/whitelist', { params }),
+getWhitelistStats: () => adminApi.get('/whitelist/stats'),
+addToWhitelist: (data) => adminApi.post('/whitelist', data),
+uploadWhitelist: (formData) => adminApi.post('/whitelist/upload', formData, {
+  headers: { 'Content-Type': 'multipart/form-data' }
+}),
+deleteWhitelistEntry: (id) => adminApi.delete(`/whitelist/${id}`),
+deleteUnusedWhitelist: () => adminApi.delete('/whitelist/bulk/unused'),
+downloadWhitelistTemplate: () => adminApi.get('/whitelist/template', { responseType: 'blob' }),
+
+
+changePassword: (data) => studentApi.post('/auth/change-password', data),
 
 };
 

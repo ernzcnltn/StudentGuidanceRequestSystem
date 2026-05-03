@@ -6,6 +6,7 @@ import { useConfirmation } from '../hooks/useConfirmation';
 import ConfirmationModal from '../components/ConfirmationModal';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
+import ChangePasswordModal from '../components/ChangePasswordModal';
 
 const HomePage = () => {
   const { t, translateRequestType, translateDbText } = useTranslation();
@@ -15,7 +16,15 @@ const HomePage = () => {
   const [requestTypes, setRequestTypes] = useState({});
   const [loading, setLoading] = useState(true);
   const { confirmationState, showConfirmation } = useConfirmation();
-  const { logout, user } = useAuth();
+  const { user, logout, updateUser } = useAuth();
+  
+  const [showChangePassword, setShowChangePassword] = useState(false);
+
+useEffect(() => {
+  if (user?.must_change_password && !showChangePassword) {
+    setShowChangePassword(true);
+  }
+}, [user?.must_change_password]);
 
   const handleLogoutClick = async () => {
     console.log('Student logout button clicked!');
@@ -147,7 +156,7 @@ const HomePage = () => {
 
       {/* Request Categories */}
       <div className="row">
-        <div className="col-md-8">
+        <div className="col-md-12">
           <div className="d-flex justify-content-between align-items-center mb-3">
             <h3 className={isDark ? 'text-white' : 'text-dark'}>
               {t('request_categories')}
@@ -159,7 +168,7 @@ const HomePage = () => {
           
           <div className="row">
             {Object.keys(requestTypes).map((category) => (
-              <div key={category} className="col-md-6 mb-3">
+              <div key={category} className="col-md-4 mb-3">
                 <div 
                   className="card h-100 category-card"
                   style={{ 
@@ -235,90 +244,33 @@ const HomePage = () => {
           </div>
         </div>
         
-        <div className="col-md-4">
-          {/* User Stats Card */}
-          {stats && (
-            <div 
-              className="card sticky-top"
-              style={{
-                backgroundColor: isDark ? '#2d3748' : '#ffffff',
-                borderColor: isDark ? '#4a5568' : '#e2e8f0',
-                color: isDark ? '#ffffff' : '#000000',
-                top: '20px'
-              }}
-            >
-              <div 
-                className="card-header"
-                style={{
-                  backgroundColor: isDark ? '#4a5568' : '#f8f9fa',
-                  borderColor: isDark ? '#718096' : '#e2e8f0'
-                }}
-              >
-                <h5 className="mb-0">
-                  <i className="bi bi-bar-chart me-2 text-danger"></i>
-                  {t('your_statistics')}
-                </h5>
-              </div>
-              <div className="card-body">
-                <div className="row text-center">
-                  <div className="col-6">
-                    <div className="h5 text-warning">{stats.pending_requests || 0}</div>
-                    <small className={isDark ? 'text-gray-400' : 'text-muted'}>
-                      {t('pending')}
-                    </small>
-                  </div>
-                  <div className="col-6">
-                    <div className="h5 text-info">{stats.informed_requests || 0}</div>
-                    <small className={isDark ? 'text-gray-400' : 'text-muted'}>
-                      {t('informed')}
-                    </small>
-                  </div>
-                </div>
-                <div className="row text-center mt-2">
-                  <div className="col-6">
-                    <div className="h5 text-success">{stats.completed_requests || 0}</div>
-                    <small className={isDark ? 'text-gray-400' : 'text-muted'}>
-                      {t('completed')}
-                    </small>
-                  </div>
-                  <div className="col-6">
-                    <div className="h4 text-danger">{stats.total_requests || 0}</div>
-                    <small className={isDark ? 'text-gray-400' : 'text-muted'}>
-                      {t('totalRequests')}
-                    </small>
-                  </div>
-                </div>
-                
-                {/* Quick Actions */}
-                <div className="border-top mt-3 pt-3" style={{
-                  borderColor: isDark ? '#4a5568' : '#e2e8f0'
-                }}>
-                  <h6 className="mb-2">{t('quick_actions')}</h6>
-                  <div className="d-grid gap-2">
-                    <Link 
-                      to="/create-request" 
-                      className="btn btn-outline-danger btn-sm"
-                    >
-                      <i className="bi bi-plus-circle me-2"></i>
-                      {t('new_request')}
-                    </Link>
-                    <Link 
-                      to="/my-requests" 
-                      className="btn btn-outline-primary btn-sm"
-                    >
-                      <i className="bi bi-list-check me-2"></i>
-                      {t('my_requests')}
-                    </Link>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
+       
       </div>
 
       {/* Confirmation Modal */}
       <ConfirmationModal {...confirmationState} />
+
+
+ {/* Change Password Modal */}
+      {showChangePassword && (
+        <ChangePasswordModal
+          required={user?.must_change_password}
+          onSuccess={() => {
+            updateUser({ must_change_password: false });
+            setShowChangePassword(false);
+            const stored = sessionStorage.getItem('student_data');
+            if (stored) {
+              try {
+                const parsed = JSON.parse(stored);
+                parsed.must_change_password = false;
+                sessionStorage.setItem('student_data', JSON.stringify(parsed));
+              } catch(e) {}
+            }
+          }}
+          onClose={() => setShowChangePassword(false)}
+        />
+      )}
+
 
       {/* Custom Styles */}
       <style jsx>{`

@@ -27,7 +27,8 @@ import SecretaryExamRequestsPage from './SecretaryExamRequestsPage';
 import CoursesManagementPage from '../components/CoursesManagementPage';
 import DeanExamRequestsPage from './DeanExamRequestsPage'; 
 import InstituteRequestsPage from './InstituteRequestsPage';
-
+import WhitelistManagementPage from '../components/WhitelistManagementPage';
+import StudentManagementPage from '../components/StudentManagementPage.js';
 // Request Detail Modal Component
 
 
@@ -1152,6 +1153,9 @@ showError(t('noPermissionViewRequests'));
     tabs.push({ key: 'users', label: t('users'), icon: 'bi bi-people' });
     tabs.push({ key: 'roles', label: t('roles'), icon: 'bi bi-person-badge' });
     tabs.push({ key: 'permissions', label: t('permissions'), icon: 'bi bi-key' });
+    tabs.push({ key: 'whitelist', label: t('whitelist'), icon: 'bi bi-list-check' }); // ← ekle
+    tabs.push({ key: 'students', label: t('student', 'Students'), icon: 'bi bi-people' });
+
   }
   
   // Department Admin can see user management for their department
@@ -1831,6 +1835,10 @@ showError(t('noPermissionViewRequests'));
       return <CoursesManagementPage />;
       case 'calendar':
         return <AcademicCalendarManager />;
+           case 'whitelist':           // 
+      return <WhitelistManagementPage />;
+      case 'students': 
+      return <StudentManagementPage />;
       default:
         return renderDashboard();
     }

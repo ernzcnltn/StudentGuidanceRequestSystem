@@ -76,7 +76,7 @@ const RegisterPage = () => {
                     margin: '-1.5rem -1.5rem 1.5rem -1.5rem'
                   }}
                 >
-                  <h2 className="fw-bold mb-1">🎓 Create Account</h2>
+                  <h2 className="fw-bold mb-1"> Create Account</h2>
                   <p className="mb-0 opacity-90">Register as a new student</p>
                 </div>
 
@@ -191,7 +191,7 @@ const RegisterPage = () => {
                           Creating Account...
                         </>
                       ) : (
-                        '🎓 Create Account'
+                        ' Create Account'
                       )}
                     </button>
                   </div>

@@ -21,7 +21,8 @@ import LanguageDropdown from './components/LanguageDropdown';
 import StudentNotificationCenter from './components/StudentNotificationCenter';
 import { useConfirmation } from './hooks/useConfirmation';
 import MagicLoginPage from './pages/MagicLoginPage';
-
+import AuthCallback from './pages/AuthCallback';
+import GoogleRegister from './pages/GoogleRegister';
 // Pages
 import HomePage from './pages/HomePage';
 import RequestsPage from './pages/RequestsPage';
@@ -34,50 +35,7 @@ import SecretaryExamRequestsPage from './pages/SecretaryExamRequestsPage.js';
 import DepartmentRedirect from './components/DepartmentRedirect'; // 🆕 YENİ SATIR
 
 function App() { 
-  const [apiStatus, setApiStatus] = useState('checking');
-
-  useEffect(() => {
-    const checkApiConnection = async () => {
-      try {
-        await apiService.testConnection();
-        setApiStatus('connected');
-      } catch (error) {
-        setApiStatus('error');
-      }
-    };
-
-    checkApiConnection();
-  }, []);
-
-  if (apiStatus === 'checking') {
-    return (
-      <div className="container mt-5">
-        <div className="text-center">
-          <FIULogo size="xl" className="mb-3" />
-          <div className="spinner-border" role="status">
-            <span className="visually-hidden">Loading...</span>
-          </div>
-          <p className="mt-2">Connecting to API...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (apiStatus === 'error') {
-    return (
-      <div className="container mt-5">
-        <div className="text-center mb-4">
-          <FIULogo size="xl" />
-        </div>
-        <div className="alert alert-danger" role="alert">
-          <h4 className="alert-heading">API Connection Error</h4>
-          <p>Cannot connect to the backend API. Please make sure the backend server is running on port 5000.</p>
-          <hr />
-          <p className="mb-0">Start the backend server with: <code>npm run dev</code></p>
-        </div>
-      </div>
-    );
-  }
+ 
 
   return (
     <LanguageProvider>
@@ -124,8 +82,9 @@ const AppRoutes = () => {
         <Route path="/admin/login" element={<AdminLoginRoute />} />
         <Route path="/admin/*" element={<AdminRoutes />} />
         
-        <Route path="/magic-login" element={<MagicLoginPage />} />
-
+        
+        <Route path="/auth/callback" element={<AuthCallback />} />
+        <Route path="/google/register" element={<GoogleRegister />} />
 
         {/* Protected Student Routes */}
         <Route path="/*" element={<StudentRoutes />} />
