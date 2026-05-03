@@ -1573,15 +1573,15 @@ Student Guidance Request System
   },
 
 
-   sendWelcomeWithTempPassword: async (email, studentName, studentNumber, tempPassword) => {
+  sendWelcomeWithTempPassword: async (email, studentName, studentNumber, tempPassword) => {
     if (!emailService.canSendEmail()) {
       console.log('Warning: Email service not available for welcome email');
       return { success: false, reason: 'Email service not configured' };
     }
- 
+
     const subject = 'FIU Guidance System — Account Registration Confirmation';
     const frontendURL = process.env.FRONTEND_URL || 'http://localhost:3000';
- 
+
     const htmlContent = `
       <!DOCTYPE html>
       <html lang="en">
@@ -1592,284 +1592,223 @@ Student Guidance Request System
         <style>
           * { margin: 0; padding: 0; box-sizing: border-box; }
           body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            font-family: 'Arial', sans-serif;
             line-height: 1.6;
-            color: #333333;
-            background-color: #f0f0f0;
+            color: #2d3436;
+            background-color: #f4f7f6;
           }
           .wrapper {
-            max-width: 620px;
-            margin: 32px auto;
+            max-width: 600px;
+            margin: 40px auto;
             background-color: #ffffff;
-            border: 1px solid #dddddd;
-            border-radius: 4px;
+            border: 1px solid #e1e1e1;
+            border-radius: 8px;
             overflow: hidden;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
           }
           .header {
             background-color: #C8102E;
-            padding: 36px 40px;
+            padding: 40px 20px;
             text-align: center;
           }
-          .header-logo {
-            font-size: 13px;
-            color: rgba(255,255,255,0.7);
-            text-transform: uppercase;
-            letter-spacing: 0.12em;
-            margin-bottom: 6px;
-          }
           .header h1 {
-            font-size: 22px;
-            font-weight: 600;
+            font-size: 24px;
+            font-weight: 700;
             color: #ffffff;
-            letter-spacing: -0.2px;
+            margin: 0;
+            letter-spacing: 0.5px;
           }
           .header-sub {
-            font-size: 13px;
-            color: rgba(255,255,255,0.75);
-            margin-top: 4px;
+            font-size: 14px;
+            color: rgba(255,255,255,0.9);
+            margin-top: 8px;
           }
           .content {
             padding: 40px;
           }
           .greeting {
             font-size: 16px;
+            font-weight: bold;
             color: #1a1a1a;
-            margin-bottom: 16px;
+            margin-bottom: 20px;
           }
           .intro {
             font-size: 14px;
-            color: #555555;
-            margin-bottom: 28px;
-            line-height: 1.7;
+            color: #4a4a4a;
+            margin-bottom: 30px;
           }
-          .section-label {
-            font-size: 10px;
-            font-weight: 700;
-            color: #999999;
-            text-transform: uppercase;
-            letter-spacing: 0.1em;
-            margin-bottom: 12px;
+          .credentials-container {
+            border: 1px solid #eeeeee;
+            border-radius: 6px;
+            margin-bottom: 30px;
+            background-color: #fafafa;
           }
           .credentials-table {
             width: 100%;
             border-collapse: collapse;
-            background-color: #1a1a22;
-            border-radius: 6px;
-            overflow: hidden;
-            margin-bottom: 28px;
           }
           .credentials-table td {
-            padding: 14px 20px;
-            border-bottom: 1px solid rgba(255,255,255,0.06);
+            padding: 15px 20px;
+            border-bottom: 1px solid #eeeeee;
+            font-size: 14px;
           }
           .credentials-table tr:last-child td {
             border-bottom: none;
           }
           .cred-label {
-            font-size: 11px;
+            color: #7f8c8d;
             font-weight: 600;
-            color: rgba(255,255,255,0.35);
-            text-transform: uppercase;
-            letter-spacing: 0.06em;
-            width: 130px;
+            width: 40%;
           }
           .cred-value {
-            font-size: 14px;
-            color: #f2f2f7;
-            font-family: 'Courier New', Courier, monospace;
+            color: #2d3436;
+            font-family: 'Courier New', monospace;
+            font-weight: bold;
           }
-          .cred-value.password {
-            font-size: 20px;
-            font-weight: 700;
-            color: #fbbf24;
-            letter-spacing: 3px;
+          .temp-password {
+            color: #C8102E; /* Önemli olduğu için kırmızı vurgulandı */
+            font-size: 16px;
+            letter-spacing: 1px;
           }
           .notice-box {
-            background-color: #fffbeb;
-            border: 1px solid #fcd34d;
-            border-left: 4px solid #f59e0b;
-            border-radius: 4px;
-            padding: 18px 20px;
-            margin-bottom: 28px;
+            border-left: 4px solid #C8102E;
+            background-color: #fdf2f2;
+            padding: 20px;
+            margin-bottom: 30px;
           }
-          .notice-box .notice-title {
-            font-size: 13px;
-            font-weight: 700;
-            color: #92400e;
-            margin-bottom: 8px;
+          .notice-title {
+            font-size: 14px;
+            font-weight: bold;
+            color: #C8102E;
+            margin-bottom: 5px;
           }
           .notice-box p {
             font-size: 13px;
-            color: #78350f;
-            margin-bottom: 4px;
-            line-height: 1.6;
+            color: #444;
           }
-          .notice-box p:last-child { margin-bottom: 0; }
           .btn-container {
             text-align: center;
-            margin-bottom: 32px;
+            margin-bottom: 40px;
           }
           .btn {
             display: inline-block;
-            padding: 13px 36px;
+            padding: 15px 40px;
             background-color: #C8102E;
             color: #ffffff !important;
             text-decoration: none;
             border-radius: 4px;
-            font-size: 14px;
-            font-weight: 600;
-            letter-spacing: 0.02em;
+            font-size: 15px;
+            font-weight: bold;
           }
           .steps-section {
             border-top: 1px solid #eeeeee;
-            padding-top: 24px;
+            padding-top: 30px;
           }
           .steps-title {
-            font-size: 13px;
-            font-weight: 700;
-            color: #333333;
-            margin-bottom: 14px;
+            font-size: 15px;
+            font-weight: bold;
+            margin-bottom: 15px;
+            color: #333;
           }
           .step-row {
-            display: flex;
-            align-items: flex-start;
-            gap: 12px;
-            margin-bottom: 10px;
+            margin-bottom: 12px;
+            font-size: 13px;
+            color: #666;
+            display: table;
           }
           .step-num {
-            min-width: 20px;
-            height: 20px;
-            background-color: #C8102E;
-            color: #ffffff;
-            font-size: 11px;
-            font-weight: 700;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin-top: 1px;
-            flex-shrink: 0;
-          }
-          .step-text {
-            font-size: 13px;
-            color: #555555;
-            line-height: 1.6;
+            display: table-cell;
+            width: 25px;
+            font-weight: bold;
+            color: #C8102E;
           }
           .footer {
-            background-color: #f8f8f8;
-            border-top: 1px solid #eeeeee;
-            padding: 24px 40px;
+            background-color: #f8f9fa;
+            padding: 30px;
             text-align: center;
+            border-top: 1px solid #eeeeee;
           }
           .footer .uni-name {
-            font-size: 13px;
-            font-weight: 600;
-            color: #333333;
-            margin-bottom: 4px;
-          }
-          .footer .system-name {
-            font-size: 12px;
-            color: #888888;
-            margin-bottom: 10px;
+            font-size: 14px;
+            font-weight: bold;
+            color: #333;
           }
           .footer .disclaimer {
             font-size: 11px;
-            color: #aaaaaa;
+            color: #999;
+            margin-top: 10px;
           }
         </style>
       </head>
       <body>
         <div class="wrapper">
- 
-          <!-- Header -->
           <div class="header">
-            <div class="header-logo">Final International University</div>
             <h1>FIU Guidance System</h1>
-            <div class="header-sub">Student Portal — Account Registration</div>
+            <div class="header-sub">Official Student Registration Notice</div>
           </div>
- 
-          <!-- Content -->
+
           <div class="content">
- 
             <p class="greeting">Dear ${studentName},</p>
- 
             <p class="intro">
-              Your account has been successfully created in the FIU Student Guidance Request System.
-              Please find your login credentials below. You are required to change your temporary
-              password upon first login.
+              Your account for the Final International University Student Guidance Request System has been officially created. 
+              Please use the credentials below to access your portal.
             </p>
- 
-            <!-- Credentials -->
-            <div class="section-label">Your Login Credentials</div>
-            <table class="credentials-table">
-              <tr>
-                <td class="cred-label">Email Address</td>
-                <td class="cred-value">${email}</td>
-              </tr>
-              <tr>
-                <td class="cred-label">Student Number</td>
-                <td class="cred-value">${studentNumber}</td>
-              </tr>
-              <tr>
-                <td class="cred-label">Temp. Password</td>
-                <td class="cred-value password">${tempPassword}</td>
-              </tr>
-            </table>
- 
-            <!-- Notice -->
-            <div class="notice-box">
-              <div class="notice-title">Important Notice</div>
-              <p>The password above is temporary and must be changed after your first login.</p>
-              <p>Please keep this email in a safe place until you have set a new password.</p>
-              <p>If you did not initiate this registration, please contact the system administrator immediately.</p>
+
+            <div class="credentials-container">
+              <table class="credentials-table">
+                <tr>
+                  <td class="cred-label">Email Address</td>
+                  <td class="cred-value">${email}</td>
+                </tr>
+                <tr>
+                  <td class="cred-label">Student Number</td>
+                  <td class="cred-value">${studentNumber}</td>
+                </tr>
+                <tr>
+                  <td class="cred-label">Temporary Password</td>
+                  <td class="cred-value temp-password">${tempPassword}</td>
+                </tr>
+              </table>
             </div>
- 
-            <!-- CTA Button -->
+
+            <div class="notice-box">
+              <div class="notice-title">Security Requirement</div>
+              <p>For security purposes, you will be prompted to change this temporary password upon your first login.</p>
+            </div>
+
             <div class="btn-container">
               <a href="${frontendURL}/login" class="btn">Access Student Portal</a>
             </div>
- 
-            <!-- Steps -->
+
             <div class="steps-section">
-              <div class="steps-title">How to Get Started</div>
+              <div class="steps-title">Getting Started</div>
               <div class="step-row">
-                <div class="step-num">1</div>
-                <div class="step-text">
-                  Sign in using <strong>Google Sign-In</strong> for quick and secure access — no password required.
-                </div>
+                <span class="step-num">1.</span>
+                <span>Use <strong>Google Sign-In</strong> with your university email for direct access.</span>
               </div>
               <div class="step-row">
-                <div class="step-num">2</div>
-                <div class="step-text">
-                  Alternatively, log in with your <strong>email address and temporary password</strong>,
-                  then update your password via profile settings.
-                </div>
+                <span class="step-num">2.</span>
+                <span>Alternatively, log in using the temporary password provided above.</span>
               </div>
               <div class="step-row">
-                <div class="step-num">3</div>
-                <div class="step-text">
-                  Submit and track your <strong>guidance requests</strong> through the student portal.
-                </div>
+                <span class="step-num">3.</span>
+                <span>Ensure your profile information is correct once logged in.</span>
               </div>
             </div>
- 
           </div>
- 
-          <!-- Footer -->
+
           <div class="footer">
             <div class="uni-name">Final International University</div>
-            <div class="system-name">Student Guidance Request System</div>
             <div class="disclaimer">
-              This is an automated message. Please do not reply directly to this email.<br>
-              For assistance, contact your department or the student services office.
+              This is a system-generated notification. Please do not reply to this email.<br>
+              Technical Support: Contact the Registrar's Office or IT Department.
             </div>
           </div>
- 
         </div>
       </body>
       </html>
     `;
- 
+
     try {
       await emailService.transporter.sendMail({
         from: `"FIU Student Guidance System" <${emailService.config.user}>`,
@@ -1883,7 +1822,7 @@ Student Guidance Request System
       console.error('Failed to send welcome email:', error);
       return { success: false, error: error.message };
     }
-  },
+},
   
 };
 

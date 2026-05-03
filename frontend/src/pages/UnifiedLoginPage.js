@@ -233,7 +233,7 @@ const UnifiedLoginPage = () => {
 
         /* ── RIGHT ── */
         .lr-right {
-          width: 460px; min-width: 460px;
+          width: 580px; min-width: 580px;
           background: var(--s0);
           border-left: 1px solid var(--b0);
           display: flex; flex-direction: column;

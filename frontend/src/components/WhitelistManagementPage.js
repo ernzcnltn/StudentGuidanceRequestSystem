@@ -2,12 +2,15 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useTheme } from '../contexts/ThemeContext';
 import { useToast } from '../contexts/ToastContext';
 import { useTranslation } from '../hooks/useTranslation';
+import { useConfirmation } from '../hooks/useConfirmation';
+import ConfirmationModal from './ConfirmationModal';
 import { apiService } from '../services/api';
 
 const WhitelistManagementPage = () => {
   const { isDark } = useTheme();
   const { showSuccess, showError } = useToast();
   const { t } = useTranslation();
+  const { confirmationState, showConfirmation } = useConfirmation();
 
   const [entries, setEntries] = useState([]);
   const [stats, setStats] = useState({ total: 0, used: 0, available: 0 });
@@ -120,7 +123,14 @@ const WhitelistManagementPage = () => {
   };
 
   const handleDelete = async (id, studentNumber) => {
-    if (!window.confirm(`${studentNumber} — ${t('deleteEntryConfirm')}`)) return;
+    const confirmed = await showConfirmation({
+      title: t('delete', 'Delete Entry'),
+      message: `${studentNumber} — ${t('deleteEntryConfirm', 'Are you sure you want to remove this entry?')}`,
+      type: 'danger',
+      confirmText: t('delete', 'Delete'),
+      cancelText: t('cancel', 'Cancel'),
+    });
+    if (!confirmed) return;
     try {
       await apiService.deleteWhitelistEntry(id);
       showSuccess(t('entryDeleted'));
@@ -132,7 +142,14 @@ const WhitelistManagementPage = () => {
   };
 
   const handleDeleteUnused = async () => {
-    if (!window.confirm(`${stats.available} ${t('clearUnusedConfirm')}`)) return;
+    const confirmed = await showConfirmation({
+      title: t('clearUnused', 'Clear Unused'),
+      message: `${stats.available} ${t('clearUnusedConfirm', 'unused entries will be permanently deleted. Continue?')}`,
+      type: 'danger',
+      confirmText: t('clearUnused', 'Clear'),
+      cancelText: t('cancel', 'Cancel'),
+    });
+    if (!confirmed) return;
     try {
       const res = await apiService.deleteUnusedWhitelist();
       showSuccess(res.data.message);
@@ -642,6 +659,9 @@ const WhitelistManagementPage = () => {
           ))}
         </div>
       </div>
+
+      {/* Confirmation Modal */}
+      <ConfirmationModal {...confirmationState} />
     </div>
   );
 };
